@@ -1,0 +1,419 @@
+мержим
+
+---
+
+# Task 5 — Version schemes + selectors (versioned mechanism)
+
+Implement **Task 5 only** from the approved implementation plan:
+
+`docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md` — Rev E, UIA-CORE-001 Rev 0.3.3.
+
+Normative source:
+
+`docs/CORE-001.md` — UIA-CORE-001 Rev 0.3.3.
+
+## 0. First: inspect the current repository state
+
+Task 4 has been merged.
+
+Before making changes:
+
+1. Inspect the current branch and working tree.
+2. Confirm Task 4 files are present:
+   - `src/core/entities.ts`
+   - `src/core/hashing.ts`
+   - corresponding exports in `src/core/index.ts`
+3. Read the complete Task 5 section in the approved plan.
+4. Read the relevant normative sections:
+   - §3.2 — version schemes;
+   - §8.2 — selector semantics.
+5. Inspect existing primitives, errors, canonicalization, ownership helpers, exports, tests, and project scripts.
+
+Do not assume that the local checkout is already synchronized with `main`. Do not overwrite unrelated changes. If the working tree contains unexpected modifications, stop and report them before proceeding.
+
+Create a task-specific branch from the current updated `main`:
+
+`feat/task-5-version-schemes-selectors`
+
+Do not modify the approved plan or normative specification.
+
+## 1. Scope
+
+Create exactly these implementation files:
+
+- `src/core/version-scheme.ts`
+- `src/core/selector.ts`
+
+Create exactly these test files:
+
+- `tests/unit/version-scheme.test.ts`
+- `tests/unit/selector.test.ts`
+
+Export the intended public API through the existing Core barrel (`src/core/index.ts`) and follow the repository's established export conventions.
+
+Task 5 produces:
+
+- `validateVersionLabel`
+- `compileSelector`
+- `selectorMatches`
+
+These APIs will be consumed by Tasks 6 and 9.
+
+Do not implement Task 6 or later tasks.
+
+## 2. Version scheme validation
+
+Implement validation for the three schemes defined by the specification:
+
+### SEMVER_2
+
+Use Semantic Versioning 2.0.0 rules.
+
+Test against official SemVer 2.0.0 valid and invalid examples, including:
+
+- valid core versions;
+- prerelease identifiers;
+- build metadata;
+- numeric identifier restrictions;
+- malformed versions;
+- leading-zero restrictions;
+- invalid characters and separators.
+
+Do not implement a permissive approximation of SemVer.
+
+The validator must distinguish valid labels from invalid labels according to the SemVer 2.0.0 grammar.
+
+### CONTENT_HASH
+
+The only currently specified validation rule is **non-empty**.
+
+Important: Ambiguity A-7 remains OPEN. The normative specification does not define the label format.
+
+Therefore:
+
+- accept any non-empty label that satisfies the applicable general input constraints;
+- reject an empty label;
+- do not assume hexadecimal encoding;
+- do not require a particular digest algorithm;
+- do not infer a hash length;
+- do not reuse the descriptor hash URN format as a CONTENT_HASH label format.
+
+Do not resolve A-7 in implementation code.
+
+### OPAQUE_TAG
+
+The only currently specified validation rule is **non-empty**.
+
+Important:
+
+- opaque tags have no ordering semantics;
+- do not parse them as SemVer;
+- do not compare them lexicographically to establish version precedence;
+- do not infer ordering from timestamps or insertion order.
+
+Exact equality is meaningful; version ordering is not.
+
+## 3. Versioned selector mechanism
+
+Implement the minimal selector mechanism identified in the approved plan.
+
+Mechanism version:
+
+`uia-ref-selector@1`
+
+This is an implementation mechanism, not normative UIA protocol semantics.
+
+The supported grammar is:
+
+- `=x` — exact match;
+- `*` — wildcard, matches all labels;
+- `>x`
+- `>=x`
+- `<x`
+- `<=x`
+- `^x`
+- `~x`
+- multiple comparators joined with `&&`.
+
+Examples of supported forms:
+
+- `=1.2.3`
+- `*`
+- `>=1.2.0&&<2.0.0`
+- `^1.2.3`
+- `~1.2.3`
+
+Read §8.2 and the plan carefully before choosing parsing and matching details.
+
+### Scheme compatibility
+
+For `SEMVER_2`:
+
+- exact selectors and wildcard are supported;
+- comparator/range selectors are supported according to the mechanism grammar;
+- comparisons must use SemVer semantics, not string ordering.
+
+For `OPAQUE_TAG` and `CONTENT_HASH`:
+
+- exact-match selectors are supported;
+- wildcard is supported;
+- range/comparator selectors are incompatible.
+
+An incompatible selector/scheme combination MUST return a `MechanismFailure` with code:
+
+`S_SELECTOR_INCOMPATIBLE_SCHEME`
+
+It MUST NOT be represented as a `SpecFailure`, `UiaErrorCode`, or normative protocol state.
+
+Do not silently reinterpret an incompatible selector as exact match or wildcard.
+
+### Parsing and matching
+
+Keep parsing separate from matching:
+
+- `compileSelector` parses and validates a selector for a given version scheme;
+- `selectorMatches` evaluates a compiled selector against a version label.
+
+Use explicit typed structures for compiled selectors. Do not expose `any` or unvalidated `unknown` in public records or semantic results.
+
+Malformed selector syntax must be rejected deterministically. Follow existing Result/Failure conventions and keep mechanism errors separate from normative errors.
+
+Do not add unsupported syntax, aliases, OR operators, escaping rules, or implicit coercions.
+
+## 4. API and implementation constraints
+
+Follow the existing project conventions:
+
+- TypeScript strict mode;
+- ESM / NodeNext;
+- Bun 1.4.x for runtime, package manager, and tests;
+- zero runtime dependencies;
+- pure TypeScript implementation;
+- no runtime-specific APIs in `src/core/`.
+
+In particular, Core MUST NOT import or use:
+
+- `node:*`;
+- `bun:*`;
+- Node or Bun globals;
+- filesystem, process, network, or environment APIs.
+
+Do not add a third-party SemVer runtime dependency. Implement the required SemVer 2.0.0 behavior directly and test it against the official examples.
+
+Use existing primitives and error/result abstractions where appropriate. Do not duplicate ownership, validation, or error infrastructure.
+
+All public APIs must be strongly typed. No exported API may use `any`.
+
+Do not introduce new normative error codes. Selector incompatibility belongs to `ImplementationErrorCode` / `MechanismFailure`.
+
+## 5. TDD workflow
+
+Follow the sequence strictly.
+
+### Step 1 — write tests first
+
+Write unit tests covering:
+
+**Version schemes**
+
+- official SemVer 2.0.0 valid examples;
+- official SemVer 2.0.0 invalid examples;
+- CONTENT_HASH non-empty acceptance;
+- CONTENT_HASH empty rejection;
+- OPAQUE_TAG non-empty acceptance;
+- OPAQUE_TAG empty rejection;
+- OPAQUE_TAG has no ordering;
+- CONTENT_HASH has no inferred format.
+
+**Selectors**
+
+- exact selector;
+- wildcard selector;
+- all supported comparators;
+- `&&` composition;
+- valid and invalid selector syntax;
+- SemVer comparison behavior;
+- prerelease behavior where applicable;
+- exact matching for OPAQUE_TAG;
+- exact matching for CONTENT_HASH;
+- wildcard for all three schemes;
+- range selectors rejected for OPAQUE_TAG;
+- range selectors rejected for CONTENT_HASH;
+- incompatibility returns `MechanismFailure` with exact code `S_SELECTOR_INCOMPATIBLE_SCHEME`;
+- incompatibility is never returned as a `SpecFailure`.
+
+Test boundaries and malformed inputs, not just happy paths.
+
+### Step 2 — run tests and confirm failure
+
+Run the focused tests before implementing the behavior.
+
+Confirm that they fail for the expected reasons. Do not skip this step or claim TDD if tests were not run before implementation.
+
+### Step 3 — implement
+
+Implement the smallest solution that satisfies the approved plan and specification.
+
+Keep the version scheme logic and selector mechanism separated into their designated modules.
+
+### Step 4 — run all validation
+
+Run:
+
+```bash
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+```
+
+Fix failures introduced by this task.
+
+Do not weaken or delete existing tests to obtain a green result.
+
+Do not claim checks passed unless you actually ran them and observed the result.
+
+## 6. Explicit non-goals
+
+Do NOT:
+
+- implement lineage validation or graph construction (Task 6/7);
+- implement credential, assessment, or traversal semantics;
+- add authority, grant, capability, or permission behavior;
+- resolve ambiguities A-1, A-2, A-7, or any other open ambiguity;
+- define a normative selector grammar;
+- add selector operators beyond the approved mechanism grammar;
+- impose a CONTENT_HASH format;
+- give OPAQUE_TAG ordering semantics;
+- add runtime dependencies;
+- modify unrelated modules or refactor existing infrastructure;
+- modify the approved plan or normative specification.
+
+The selector grammar is explicitly a versioned mechanism. Any assessment or implementation documentation that quotes this grammar must identify it as `uia-ref-selector@1`.
+
+## 7. Commit and stop
+
+When implementation and validation are complete, create exactly one task-specific commit:
+
+`feat(core): version schemes and versioned selector mechanism`
+
+Do not merge the branch.
+
+Do not start Task 6.
+
+Stop after the commit and provide a concise implementation report containing:
+
+1. branch name and commit SHA;
+2. files created/modified;
+3. public APIs and their signatures;
+4. SemVer 2.0.0 validation coverage;
+5. selector grammar and scheme compatibility behavior;
+6. exact mechanism error behavior;
+7. tests and checks actually executed, with results;
+8. any unresolved questions or deviations from the approved plan.
+
+If a requirement cannot be implemented without inventing normative semantics, stop and explain the conflict instead of silently choosing an interpretation.
+
+---
+
+# Task 5 — Implementation authorization
+
+The Task 5 design review is complete. The user approves implementation with the following decisions.
+
+## Error codes
+
+Choose option 1: add two mechanism error codes to the existing `ImplementationErrorCode` union in `src/core/errors.ts`:
+
+- `E_VERSION_LABEL_INVALID`
+- `E_SELECTOR_SYNTAX_INVALID`
+
+Keep `S_SELECTOR_INCOMPATIBLE_SCHEME` for scheme incompatibility.
+
+Do not add or modify any `UiaErrorCode` values. Keep all three errors in `MechanismFailure`, never `SpecFailure`.
+
+This is the only approved extension to an existing implementation file outside the four Task 5 files.
+
+## API shape
+
+Use the proposed API:
+
+```ts
+type VersionLabel = {
+  readonly scheme: VersionScheme;
+  readonly label: string;
+};
+
+validateVersionLabel(
+  value: unknown,
+  scheme: VersionScheme,
+): Result<VersionLabel>;
+
+const SELECTOR_MECHANISM_VERSION = 'uia-ref-selector@1';
+
+type CompiledSelector = {
+  readonly mechanism: 'uia-ref-selector@1';
+  readonly scheme: VersionScheme;
+  readonly kind: 'WILDCARD' | 'COMPARATORS';
+  readonly comparators: readonly {
+    readonly op: '=' | '>' | '>=' | '<' | '<=' | '^' | '~';
+    readonly version: SemVer;
+  }[];
+};
+
+compileSelector(
+  value: unknown,
+  scheme: VersionScheme,
+): Result<CompiledSelector>;
+
+selectorMatches(
+  selector: CompiledSelector,
+  label: VersionLabel,
+): boolean;
+```
+
+Records and nested arrays must be owned and deeply frozen. Keep `SemVer` internal or expose it only as a properly typed immutable structure if required by the public API. Do not expose mutable parser internals.
+
+`selectorMatches` returns false for scheme mismatch.
+
+## Approved mechanism decisions
+
+1. For `SEMVER_2`, `=` is full string equality, including build metadata. `=1.2.3` does not match `1.2.3+build.5`.
+2. Range comparison uses SemVer 2.0.0 precedence. Do not apply npm's prerelease gating. For example, `>=1.0.0` matches `1.1.0-alpha` because SemVer precedence places it above `1.0.0`.
+3. Comparators accept only full SemVer versions: `1.2.3`. Reject partial versions, wildcards, and `v` prefixes.
+4. Expand `^` and `~` into lower-inclusive and upper-exclusive bounds during compilation:
+   - `^1.2.3` → `>=1.2.3 && <2.0.0`
+   - `^0.2.3` → `>=0.2.3 && <0.3.0`
+   - `^0.0.3` → `>=0.0.3 && <0.0.4`
+   - `~1.2.3` → `>=1.2.3 && <1.3.0`
+5. Trim the whole selector expression and each `&&` segment. Reject empty segments and internal whitespace inside a comparator. `*` is only valid as the complete expression.
+6. CONTENT_HASH and OPAQUE_TAG accept any non-empty string, without trimming or format/length/algorithm assumptions. Reject lone surrogates. OPAQUE_TAG is never parsed or ordered as SemVer.
+7. Compare arbitrarily large SemVer numeric identifiers without converting them to imprecise JavaScript numbers. Use digit-string length followed by lexicographic comparison.
+8. Upper-bound calculation for `^` and `~` must not silently lose precision. Detect unsafe numeric increment and return a deterministic mechanism failure rather than producing a wrong bound.
+
+## Required tests
+
+Use the user's approved test plan from the preceding review message. In particular cover:
+
+- official SemVer 2.0.0 valid/invalid examples;
+- prerelease precedence and numeric-vs-alphanumeric identifiers;
+- build metadata ignored for precedence but included in exact equality;
+- caret/tilde upper-bound behavior for major 1 and zero-major cases;
+- all comparators and `&&`;
+- whitespace and malformed selector rejection;
+- OPAQUE_TAG and CONTENT_HASH exact/wildcard behavior;
+- range incompatibility as `MechanismFailure` with `S_SELECTOR_INCOMPATIBLE_SCHEME`;
+- frozen compiled selector and deterministic behavior.
+
+Run tests RED before implementation, then implement, then run the full validation suite.
+
+## Execution
+
+Exit Plan mode and proceed with implementation mode.
+
+Do not stop to ask the user to approve these already-decided choices. Do not modify the normative specification or approved plan. Do not start Task 6. Do not merge.
+
+Commit only after all checks pass:
+
+`feat(core): version schemes and versioned selector mechanism`
+
+Report the exact branch, commit SHA, files changed, API signatures, test results, and any deviations. Never claim a check passed unless it was actually executed.
