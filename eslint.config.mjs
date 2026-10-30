@@ -17,8 +17,24 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
-          patterns: ['node:*', 'node:*/*', 'bun:*', 'bun:*/*', 'bun', 'node'],
-          paths: ['crypto', 'fs', 'path', 'os', 'process', 'child_process'],
+          patterns: ['node:**', 'bun:**', 'bun', 'node'],
+          paths: [
+            'crypto',
+            'fs',
+            'path',
+            'os',
+            'process',
+            'child_process',
+            'buffer',
+            'events',
+            'stream',
+            'util',
+            'url',
+            'http',
+            'https',
+            'assert',
+            'zlib',
+          ],
         },
       ],
       'no-restricted-globals': [
@@ -35,6 +51,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['build/**', 'node_modules/**'],
+    ignores: ['build/**', 'node_modules/**', '.opencode/**', '.entire/**'],
   },
 );
