@@ -112,6 +112,15 @@ describe('descriptor validation', () => {
     expect(validateIdentityVersionDescriptor(raw).ok).toBe(false);
   });
 
+  test('rejects an optional lineage field present as undefined', () => {
+    const raw = {
+      ...descriptor(),
+      lineage: [{ ...lineageLink(), declared_rationale: undefined }],
+    };
+
+    expect(validateIdentityVersionDescriptor(raw).ok).toBe(false);
+  });
+
   test('accepts the same optional field when absent', () => {
     expect(validateIdentityVersionDescriptor(descriptor()).ok).toBe(true);
   });
@@ -168,27 +177,26 @@ describe('descriptor hash stability', () => {
     }
   });
 
-  test('is unaffected by metadata outside the §7.1 projection', () => {
-    const d = validated();
-    const before = descriptorHash(d);
+  test('rejects metadata attached to the descriptor instead of hashing a subset', () => {
+    const artifacts: Record<string, unknown> = {
+      envelope: { envelope_id: 'env-1', sender: 'domain-a' },
+      signature: { algorithm: 'ed25519', value: 'sig-bytes' },
+      delivery: { received_at: BASE_TIME + 1 },
+      ledger: { ingested_at: BASE_TIME + 2 },
+      assessment: { assessment_id: 'assessment-1', verified_claims: [] },
+      revocation: { credential_id: 'cred-1', reason: 'ROTATION' },
+      acceptance: { acceptance_id: 'acceptance-1', decision: 'ACCEPTED' },
+      lifecycle: { event_id: 'event-1', new_state: 'SUSPENDED' },
+    };
 
-    // Separate artifacts by design (§7.1): none of them is an input to the hash.
-    const envelope = { envelope_id: 'env-1', sender: 'domain-a' };
-    const signature = { algorithm: 'ed25519', value: 'sig-bytes' };
-    const delivery = { received_at: BASE_TIME + 1 };
-    const ledger = { ingested_at: BASE_TIME + 2 };
-    const assessment = { assessment_id: 'assessment-1', verified_claims: [] };
-    const revocation = { credential_id: 'cred-1', reason: 'ROTATION' };
-    const acceptance = { acceptance_id: 'acceptance-1', decision: 'ACCEPTED' };
-    const lifecycle = { event_id: 'event-1', new_state: 'SUSPENDED' };
-    const artifacts = { envelope, signature, delivery, ledger, assessment, revocation, acceptance, lifecycle };
+    for (const [field, value] of Object.entries(artifacts)) {
+      const raw = { ...descriptor(), [field]: value };
 
-    expect(Object.keys(artifacts)).toHaveLength(8);
-    expect(descriptorHash(validated())).toBe(before);
-
-    // A wrapper is not a descriptor: hashing it must fail, not silently hash a subset.
-    const wrapper = { descriptor: d, ...artifacts } as unknown as DeepReadonly<IdentityVersionDescriptor>;
-    expect(() => descriptorHash(wrapper)).toThrow(CanonicalizationError);
+      expect(validateIdentityVersionDescriptor(raw).ok).toBe(false);
+      expect(() => descriptorHash(raw as unknown as DeepReadonly<IdentityVersionDescriptor>)).toThrow(
+        CanonicalizationError,
+      );
+    }
   });
 
   test('is deterministic and does not mutate its input', () => {
@@ -259,8 +267,91 @@ describe('every §7.1 field affects the hash', () => {
   });
 });
 
+describe('optional fields are projected and hashed', () => {
+  test('credential optional fields are included in the projection', () => {
+    const d = validated({
+      public_credentials: [
+        {
+          ...credential(),
+          not_after: timestamp(BASE_TIME + 10),
+          revocation_endpoint_ref: 'https://domain-a/revoke',
+        },
+      ],
+    });
+
+    expect(asRecord(descriptorHashInput(d)).public_credentials).toEqual([
+      {
+        credential_id: 'cred-1',
+        issuer_domain: 'domain-a',
+        usage: ['SIGNING'],
+        algorithm_family: 'ed25519',
+        public_key_canonical: 'pk-1',
+        not_before: BASE_TIME,
+        not_after: BASE_TIME + 10,
+        revocation_endpoint_ref: 'https://domain-a/revoke',
+      },
+    ]);
+  });
+
+  test('lineage optional fields are included in the projection', () => {
+    const d = validated({
+      lineage: [
+        {
+          ...lineageLink(),
+          declared_rationale: 'planned rotation',
+          continuity_proof_ref: 'proof-1',
+        },
+      ],
+    });
+
+    expect(asRecord(descriptorHashInput(d)).lineage).toEqual([
+      {
+        parent_version_id: 'iv-0',
+        relation: 'CONTINUATION',
+        declared_rationale: 'planned rotation',
+        continuity_proof_ref: 'proof-1',
+      },
+    ]);
+  });
+
+  const optionalMutations: ReadonlyArray<readonly [string, IdentityVersionDescriptor]> = [
+    [
+      'credential.not_after',
+      descriptor({ public_credentials: [{ ...credential(), not_after: timestamp(BASE_TIME + 10) }] }),
+    ],
+    [
+      'credential.revocation_endpoint_ref',
+      descriptor({
+        public_credentials: [{ ...credential(), revocation_endpoint_ref: 'https://domain-a/revoke' }],
+      }),
+    ],
+    [
+      'lineage.declared_rationale',
+      descriptor({ lineage: [{ ...lineageLink(), declared_rationale: 'planned rotation' }] }),
+    ],
+    ['lineage.continuity_proof_ref', descriptor({ lineage: [{ ...lineageLink(), continuity_proof_ref: 'proof-1' }] })],
+  ];
+
+  for (const [name, mutated] of optionalMutations) {
+    test(`adding ${name} changes the hash`, () => {
+      const baseline = descriptorHash(validated());
+      const result = validateIdentityVersionDescriptor(mutated);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(descriptorHash(result.value)).not.toBe(baseline);
+    });
+  }
+});
+
 describe('hash identifier', () => {
   test('matches urn:hash:sha256:<64 lowercase hex>', () => {
     expect(descriptorHash(validated())).toMatch(/^urn:hash:sha256:[0-9a-f]{64}$/);
+  });
+
+  test('matches the pinned known answer for the fixed fixture', () => {
+    expect(descriptorHash(validated())).toBe(
+      'urn:hash:sha256:739e060c0f14607c6993b285801f74cdf5a423e5b1a2bb159d03cf576fcba7d1',
+    );
   });
 });

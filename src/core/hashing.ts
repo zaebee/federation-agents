@@ -10,13 +10,12 @@
 // silently become part of the hash. Unknown properties are rejected earlier, at
 // the descriptor validation boundary (see entities.ts).
 
-import { canonicalize } from './canonical.js';
+import { canonicalSha256 } from './canonical.js';
 import type { CredentialDescriptor, IdentityVersionDescriptor, LineageLink } from './entities.js';
 import { validateIdentityVersionDescriptor } from './entities.js';
 import { CanonicalizationError } from './errors.js';
 import type { DeepReadonly } from './ownership.js';
 import type { JsonValue } from './primitives.js';
-import { sha256Hex } from './sha256.js';
 
 type JsonObject = { [key: string]: JsonValue };
 
@@ -24,7 +23,7 @@ function projectCredential(credential: DeepReadonly<CredentialDescriptor>): Json
   const projected: JsonObject = {
     credential_id: credential.credential_id,
     issuer_domain: credential.issuer_domain,
-    usage: credential.usage.map((usage) => usage),
+    usage: credential.usage,
     algorithm_family: credential.algorithm_family,
     public_key_canonical: credential.public_key_canonical,
     not_before: credential.not_before,
@@ -74,7 +73,7 @@ export function descriptorHashInput(descriptor: DeepReadonly<IdentityVersionDesc
     participant_id: source.participant_id,
     version_label: source.version_label,
     version_scheme: source.version_scheme,
-    declared_protocols: source.declared_protocols.map((protocol) => protocol),
+    declared_protocols: source.declared_protocols,
     public_credentials: source.public_credentials.map(projectCredential),
     lineage: source.lineage.map(projectLineageLink),
     published_at: source.published_at,
@@ -88,7 +87,6 @@ export function descriptorHashInput(descriptor: DeepReadonly<IdentityVersionDesc
  * crypto APIs are involved.
  */
 export function descriptorHash(descriptor: DeepReadonly<IdentityVersionDescriptor>): `urn:hash:sha256:${string}` {
-  const canonical = canonicalize(descriptorHashInput(descriptor));
-  const digest = sha256Hex(new TextEncoder().encode(canonical));
+  const digest = canonicalSha256(descriptorHashInput(descriptor));
   return `urn:hash:sha256:${digest}`;
 }
