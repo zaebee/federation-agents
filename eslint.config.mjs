@@ -2,28 +2,30 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  js.configs.recommended,
-  ...tseslint.configs.strict,
-  {
-    files: ['**/*.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/consistent-type-imports': 'error',
+    js.configs.recommended,
+    ...tseslint.configs.strict,
+    {
+      files : [ '**/*.ts' ],
+      rules : {
+        '@typescript-eslint/no-explicit-any' : 'error',
+        '@typescript-eslint/consistent-type-imports' : 'error',
+      },
     },
-  },
-  {
-    files: ['src/core/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: ['node:*', 'node:*/*', 'bun:*', 'bun:*/*'],
-          paths: ['crypto', 'fs', 'path', 'os', 'process', 'child_process'],
-        },
-      ],
+    {
+      files : [ 'src/core/**/*.ts' ],
+      rules : {
+        'no-restricted-imports' : [
+          'error',
+          {
+            patterns :
+                [ 'node:*', 'node:*/*', 'bun:*', 'bun:*/*', 'bun', 'node' ],
+            paths :
+                [ 'crypto', 'fs', 'path', 'os', 'process', 'child_process' ],
+          },
+        ],
+      },
     },
-  },
-  {
-    ignores: ['build/**', 'node_modules/**'],
-  },
+    {
+      ignores : [ 'build/**', 'node_modules/**' ],
+    },
 );
