@@ -53,10 +53,7 @@ function copyValue(input: unknown, seen: WeakSet<object>): Result<unknown> {
   return rejectUnsupported('Unsupported object: prototype must be Object.prototype');
 }
 
-function copyArray(input: unknown[], seen: WeakSet<object>): Result<unknown> {
-  if (Object.getPrototypeOf(input) !== Array.prototype) {
-    return rejectUnsupported('Array must have Array.prototype');
-  }
+function validateArrayOwnKeys(input: unknown[]): Result<void> {
   const symbols = Object.getOwnPropertySymbols(input);
   if (symbols.length > 0) {
     return rejectUnsupported('Array must not have symbol-keyed properties');
@@ -82,6 +79,15 @@ function copyArray(input: unknown[], seen: WeakSet<object>): Result<unknown> {
       return rejectUnsupported(`Invalid property descriptor at index ${i}`);
     }
   }
+  return { ok: true, value: undefined };
+}
+
+function copyArray(input: unknown[], seen: WeakSet<object>): Result<unknown> {
+  if (Object.getPrototypeOf(input) !== Array.prototype) {
+    return rejectUnsupported('Array must have Array.prototype');
+  }
+  const keyResult = validateArrayOwnKeys(input);
+  if (!keyResult.ok) return keyResult as Result<unknown>;
   if (seen.has(input)) {
     return rejectUnsupported('Cyclic reference detected');
   }
@@ -179,122 +185,116 @@ export function validateUnknown<T>(value: unknown, guard: (v: unknown) => v is T
 // objects, sparse arrays, etc. Does not implement canonicalization (Task 3).
 export function validateJsonValue(value: unknown): Result<JsonValue> {
   const seen = new WeakSet<object>();
+  return validateJsonValueInner(value, seen);
+}
 
-  function validate(val: unknown): Result<JsonValue> {
-    if (val === null) return { ok: true, value: null };
-    const t = typeof val;
-    if (t === 'boolean') return { ok: true, value: val as boolean };
-    if (t === 'string') return { ok: true, value: val as string };
-    if (t === 'number') {
-      const n = val as number;
-      if (!Number.isFinite(n)) {
-        return {
-          ok: false,
-          error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue number must be finite'),
-        };
-      }
-      return { ok: true, value: n };
+function validateJsonPrimitive(val: unknown): Result<JsonValue> | null {
+  if (val === null) return { ok: true, value: null };
+  const t = typeof val;
+  if (t === 'boolean') return { ok: true, value: val as boolean };
+  if (t === 'string') return { ok: true, value: val as string };
+  if (t === 'number') {
+    const n = val as number;
+    if (!Number.isFinite(n)) {
+      return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue number must be finite') };
     }
-    if (Array.isArray(val)) {
-      if (Object.getPrototypeOf(val) !== Array.prototype) {
-        return {
-          ok: false,
-          error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue array must have Array.prototype'),
-        };
-      }
-      if (seen.has(val)) {
-        return {
-          ok: false,
-          error: mechanismFailure('E_JSON_VALUE_INVALID', 'Cyclic reference detected in JsonValue'),
-        };
-      }
-      seen.add(val);
-      const out: JsonValue[] = [];
-      for (let i = 0; i < val.length; i++) {
-        const desc = Object.getOwnPropertyDescriptor(val, String(i));
-        if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
-          seen.delete(val);
-          return {
-            ok: false,
-            error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue sparse/invalid array at index ${i}`),
-          };
-        }
-        const r = validate(val[i]);
-        if (!r.ok) {
-          seen.delete(val);
-          return r as Result<JsonValue>;
-        }
-        out.push(r.value);
-      }
-      for (const key of Object.getOwnPropertyNames(val)) {
-        if (key === 'length') continue;
-        const num = Number(key);
-        if (!/^\d+$/.test(key) || String(num) !== key || num >= val.length) {
-          seen.delete(val);
-          return {
-            ok: false,
-            error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue array must not have extra property: ${key}`),
-          };
-        }
-      }
-      if (Object.getOwnPropertySymbols(val).length > 0) {
-        seen.delete(val);
-        return {
-          ok: false,
-          error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue array must not have symbol properties'),
-        };
-      }
+    return { ok: true, value: n };
+  }
+  return null;
+}
+
+function validateJsonArray(val: unknown[], seen: WeakSet<object>): Result<JsonValue> {
+  if (Object.getPrototypeOf(val) !== Array.prototype) {
+    return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue array must have Array.prototype') };
+  }
+  if (seen.has(val)) {
+    return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', 'Cyclic reference detected in JsonValue') };
+  }
+  seen.add(val);
+  const out: JsonValue[] = [];
+  for (let i = 0; i < val.length; i++) {
+    const desc = Object.getOwnPropertyDescriptor(val, String(i));
+    if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable || !('value' in desc)) {
       seen.delete(val);
-      return { ok: true, value: out };
+      return {
+        ok: false,
+        error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue sparse/invalid array at index ${i}`),
+      };
     }
-    if (isPlainObject(val)) {
-      if (seen.has(val)) {
-        return {
-          ok: false,
-          error: mechanismFailure('E_JSON_VALUE_INVALID', 'Cyclic reference detected in JsonValue'),
-        };
-      }
-      seen.add(val);
-      const ownKeys = Object.getOwnPropertyNames(val);
-      for (const key of ownKeys) {
-        const desc = Object.getOwnPropertyDescriptor(val, key);
-        if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
-          seen.delete(val);
-          return {
-            ok: false,
-            error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue object has invalid property: ${key}`),
-          };
-        }
-      }
-      if (Object.getOwnPropertySymbols(val).length > 0) {
-        seen.delete(val);
-        return {
-          ok: false,
-          error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue object must not have symbol properties'),
-        };
-      }
-      const out: { [key: string]: JsonValue } = {};
-      for (const key of ownKeys) {
-        const r = validate(val[key]);
-        if (!r.ok) {
-          seen.delete(val);
-          return r as Result<JsonValue>;
-        }
-        Object.defineProperty(out, key, {
-          value: r.value,
-          writable: true,
-          enumerable: true,
-          configurable: true,
-        });
-      }
+    const r = validateJsonValueInner(val[i], seen);
+    if (!r.ok) {
       seen.delete(val);
-      return { ok: true, value: out };
+      return r as Result<JsonValue>;
     }
+    out.push(r.value);
+  }
+  for (const key of Object.getOwnPropertyNames(val)) {
+    if (key === 'length') continue;
+    const num = Number(key);
+    if (!/^\d+$/.test(key) || String(num) !== key || num >= val.length) {
+      seen.delete(val);
+      return {
+        ok: false,
+        error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue array must not have extra property: ${key}`),
+      };
+    }
+  }
+  if (Object.getOwnPropertySymbols(val).length > 0) {
+    seen.delete(val);
     return {
       ok: false,
-      error: mechanismFailure('E_JSON_VALUE_INVALID', `Unsupported JsonValue type: ${typeof val}`),
+      error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue array must not have symbol properties'),
     };
   }
+  seen.delete(val);
+  return { ok: true, value: out };
+}
 
-  return validate(value);
+function validateJsonObject(val: Record<string, unknown>, seen: WeakSet<object>): Result<JsonValue> {
+  if (seen.has(val)) {
+    return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', 'Cyclic reference detected in JsonValue') };
+  }
+  seen.add(val);
+  const ownKeys = Object.getOwnPropertyNames(val);
+  for (const key of ownKeys) {
+    const desc = Object.getOwnPropertyDescriptor(val, key);
+    if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
+      seen.delete(val);
+      return {
+        ok: false,
+        error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue object has invalid property: ${key}`),
+      };
+    }
+  }
+  if (Object.getOwnPropertySymbols(val).length > 0) {
+    seen.delete(val);
+    return {
+      ok: false,
+      error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue object must not have symbol properties'),
+    };
+  }
+  const out: { [key: string]: JsonValue } = {};
+  for (const key of ownKeys) {
+    const r = validateJsonValueInner(val[key], seen);
+    if (!r.ok) {
+      seen.delete(val);
+      return r as Result<JsonValue>;
+    }
+    Object.defineProperty(out, key, {
+      value: r.value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  seen.delete(val);
+  return { ok: true, value: out };
+}
+
+function validateJsonValueInner(value: unknown, seen: WeakSet<object>): Result<JsonValue> {
+  const prim = validateJsonPrimitive(value);
+  if (prim !== null) return prim;
+  if (Array.isArray(value)) return validateJsonArray(value, seen);
+  if (isPlainObject(value)) return validateJsonObject(value, seen);
+  return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', `Unsupported JsonValue type: ${typeof value}`) };
 }

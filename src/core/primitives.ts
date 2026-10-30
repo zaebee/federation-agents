@@ -76,7 +76,7 @@ export const STANDARD_TEMPORAL_FIELDS: readonly TemporalBasis[] = Object.freeze(
   'DECIDED_AT',
 ]);
 
-const EXT_REF_REGEX = new RegExp(String.raw`^[A-Za-z]\w*(\.[A-Za-z]\w*)*$`);
+const EXT_REF_REGEX = /^[A-Za-z]\w*(\.[A-Za-z]\w*)*$/;
 
 function hasLoneSurrogate(value: string): boolean {
   let i = 0;
@@ -130,7 +130,7 @@ export function validateTemporalFieldRef(value: unknown): Result<TemporalFieldRe
       ok: false,
       error: mechanismFailure(
         'E_TEMPORAL_FIELD_REF_INVALID',
-        'TemporalFieldRef extension must match ^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$',
+        String.raw`TemporalFieldRef extension must match ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$`,
       ),
     };
   }

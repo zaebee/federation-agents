@@ -293,6 +293,26 @@ test('ownership: validateJsonValue accepts valid JSON', () => {
   expect(r.ok).toBe(true);
 });
 
+test('ownership: deepCopy preserves __proto__ as own data key', () => {
+  const src = JSON.parse('{"__proto__":{"x":1}}') as Record<string, unknown>;
+  const r = deepCopy(src);
+  expect(r.ok).toBe(true);
+  if (r.ok) {
+    expect(Object.prototype.hasOwnProperty.call(r.value, '__proto__')).toBe(true);
+    expect(Object.getPrototypeOf(r.value)).toBe(Object.prototype);
+  }
+});
+
+test('ownership: validateJsonValue preserves __proto__ as own data key', () => {
+  const src = JSON.parse('{"__proto__":{"x":1}}') as unknown;
+  const r = validateJsonValue(src);
+  expect(r.ok).toBe(true);
+  if (r.ok && r.value !== null && typeof r.value === 'object' && !Array.isArray(r.value)) {
+    expect(Object.prototype.hasOwnProperty.call(r.value, '__proto__')).toBe(true);
+    expect(Object.getPrototypeOf(r.value)).toBe(Object.prototype);
+  }
+});
+
 test('ownership: validateJsonValue rejects undefined', () => {
   const r = validateJsonValue({ a: undefined });
   expect(r.ok).toBe(false);
