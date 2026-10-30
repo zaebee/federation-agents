@@ -78,7 +78,7 @@ export const STANDARD_TEMPORAL_FIELDS: readonly TemporalBasis[] = Object.freeze(
 
 const EXT_REF_REGEX = /^[A-Za-z]\w*(\.[A-Za-z]\w*)*$/;
 
-function hasLoneSurrogate(value: string): boolean {
+export function hasLoneSurrogate(value: string): boolean {
   let i = 0;
   while (i < value.length) {
     const cp = value.codePointAt(i);

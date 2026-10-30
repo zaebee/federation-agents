@@ -58,7 +58,7 @@ test('canonical: U+2028 and U+2029 handling (ECMAScript JSON.stringify)', () => 
   const s = 'a\u2028b\u2029c';
   const out = canonicalize(s as unknown as JsonValue);
   // ECMAScript JSON.stringify does not escape U+2028/U+2029 (raw).
-  expect(out).toBe(JSON.stringify(s));
+  expect(out).toBe('"a\u2028b\u2029c"');
 });
 
 test('canonical: number edge cases', () => {
@@ -230,7 +230,6 @@ test('canonical: getter is not invoked during validation', () => {
 test('canonical: inputs unchanged after failure', () => {
   const obj: Record<string, unknown> = { a: 1 };
   obj.self = obj;
-  const before = JSON.stringify({ a: 1 });
   try {
     canonicalize(obj as unknown as JsonValue);
   } catch {
@@ -239,7 +238,6 @@ test('canonical: inputs unchanged after failure', () => {
   // The original object still has its self-reference and a.
   expect(obj.a).toBe(1);
   expect(obj.self).toBe(obj);
-  void before;
 });
 
 // Integration with SHA-256
@@ -274,19 +272,7 @@ test('canonical: RFC 8785 property sort test data', () => {
   obj['\u0080'] = 'Control';
   obj['\u00f6'] = 'Latin Small Letter O With Diaeresis';
   const out = canonicalize(obj as unknown as JsonValue);
-  // Expected order of values after sorting: Carriage Return, One, Control, Latin..., Euro Sign, Emoji, Hebrew
-  const expectedValues = [
-    'Carriage Return',
-    'One',
-    'Control',
-    'Latin Small Letter O With Diaeresis',
-    'Euro Sign',
-    'Emoji: Grinning Face',
-    'Hebrew Letter Dalet With Dagesh',
-  ];
-  for (const v of expectedValues) {
-    expect(out).toContain(JSON.stringify(v));
-  }
-  // Verify the first property key in output is "\r" (carriage return) serialized as "\r"? Actually JSON.stringify("\r") = "\r" escaped as \r -> "\r" in source? Output contains "\r":...
-  expect(out.startsWith('{"\\r":')).toBe(true);
+  const expected =
+    '{"\\r":"Carriage Return","1":"One","\u0080":"Control","\u00f6":"Latin Small Letter O With Diaeresis","\u20ac":"Euro Sign","\ud83d\ude00":"Emoji: Grinning Face","\ufb33":"Hebrew Letter Dalet With Dagesh"}';
+  expect(out).toBe(expected);
 });

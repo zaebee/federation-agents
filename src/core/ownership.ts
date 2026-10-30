@@ -9,6 +9,7 @@
 // requires a JSON value. Do not conflate the two.
 
 import type { JsonValue } from './primitives.js';
+import { hasLoneSurrogate } from './primitives.js';
 import type { Result } from './errors.js';
 import { mechanismFailure } from './errors.js';
 
@@ -192,7 +193,15 @@ function validateJsonPrimitive(val: unknown): Result<JsonValue> | null {
   if (val === null) return { ok: true, value: null };
   const t = typeof val;
   if (t === 'boolean') return { ok: true, value: val as boolean };
-  if (t === 'string') return { ok: true, value: val as string };
+  if (t === 'string') {
+    if (hasLoneSurrogate(val as string)) {
+      return {
+        ok: false,
+        error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue string must not contain lone surrogates'),
+      };
+    }
+    return { ok: true, value: val as string };
+  }
   if (t === 'number') {
     const n = val as number;
     if (!Number.isFinite(n)) {
@@ -257,6 +266,16 @@ function validateJsonObject(val: Record<string, unknown>, seen: WeakSet<object>)
   seen.add(val);
   const ownKeys = Object.getOwnPropertyNames(val);
   for (const key of ownKeys) {
+    if (hasLoneSurrogate(key)) {
+      seen.delete(val);
+      return {
+        ok: false,
+        error: mechanismFailure(
+          'E_JSON_VALUE_INVALID',
+          `JsonValue object key must not contain lone surrogates: ${key}`,
+        ),
+      };
+    }
     const desc = Object.getOwnPropertyDescriptor(val, key);
     if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
       seen.delete(val);
