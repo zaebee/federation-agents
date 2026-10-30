@@ -42,9 +42,9 @@ Phases are sequential at the level of dependencies, not of effort: P1 and P4 can
 - `src/core/` typechecks with `"types": []` and imports no runtime API.
 - Normative and mechanism error codes are distinct types; mechanism codes cannot appear in `UiaErrorCode`.
 - Canonicalization rejects the full list of unsupported structures, including accessors, symbol keys, non-plain prototypes, cycles, and lone surrogates in values and keys.
-- Deep copy on construction and recursive deep freeze are tested against caller mutation.
+- Deep copy and recursive deep freeze are tested against caller mutation.
 
-**Evidence:** `tests/unit/{scaffold,canonical,sha256,ownership,entities}.test.ts`.
+**Evidence:** `tests/unit/{scaffold,canonical,sha256,ownership}.test.ts`, plus error-model and `DeepReadonly` type assertions in `entities.test.ts`.
 
 ## 4. P1 — Identity, lineage, assessment, traversal (Next)
 

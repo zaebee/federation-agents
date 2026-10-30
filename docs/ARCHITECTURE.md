@@ -59,7 +59,7 @@ The architecture must remain useful **without** CORE-002/003/004: identity, prov
 ### 2.1. Boundary rules
 
 1. **The core is runtime-free.** `src/core/` may not import `node:*`, `bun:*`, or Node core modules, and may not use the `process` or `Buffer` globals. This is enforced twice: `tsconfig.core.json` typechecks the core with `"types": []`, and ESLint restricts imports and globals under `src/core/`.
-2. **Policy arrives as an argument.** There is no global policy object and no implicit `now`. `evaluateBinding`, `assessEdge`, `evaluateAssurance`, and `evaluateHistoricalSignature` take `Policy` and `TemporalContext` explicitly.
+2. **Policy arrives as an argument.** There is no global policy object and no implicit `now`. The planned evaluation API — `evaluateBinding`, `assessEdge`, `evaluateAssurance`, `evaluateHistoricalSignature` — will take `Policy` and `TemporalContext` explicitly; no module may read them from ambient state.
 3. **Adapters translate, they do not decide.** An adapter may parse JSON, verify a signature, or load a record, but it must hand validated domain values to the core — never raw transport objects.
 4. **No layer may invent authority.** No function in this repository returns a grant, capability, or permission. Those belong to CORE-003.
 
@@ -85,11 +85,13 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/acceptance.ts`      | §9       | Planned     | `LocalAcceptanceRecord` and lifecycle transitions                       |
 | `core/ledger.ts`          | —        | Planned     | Append-only in-memory stores — a **mechanism**, not protocol semantics  |
 
-`src/index.ts` exports `UIA_CORE_001_REVISION` and re-exports the core barrel. The module-private `ApplicableAssessments` brand is deliberately not exported.
+`src/index.ts` exports `UIA_CORE_001_REVISION` and re-exports the core barrel. When the assessment module lands, the `ApplicableAssessments` brand is to remain module-private and must not be exported through `src/index.ts`.
 
 ## 4. Data flow
 
 ### 4.1. Intake
+
+The validation and ownership steps exist today as helpers; the evaluation step is planned. The flow is the contract every future record constructor must follow.
 
 ```text
 untrusted input (JSON, transport, storage)
@@ -109,7 +111,9 @@ Result<T> = { ok: true; value: T } | { ok: false; error: Failure }
 
 Semantic failures — an invalid relation, an unsatisfied assurance predicate, a missing traversal path — are **values**, not exceptions. Callers narrow on `ok` and then on `error.kind`.
 
-### 4.2. Descriptor hashing
+### 4.2. Descriptor hashing (planned)
+
+> **Status:** the flow below is the target, not the current state. Today only `canonicalize` (RFC 8785) and `sha256Hex` exist. `descriptorHashInput` and `descriptorHash` belong to Task 4 and are not implemented.
 
 ```text
 IdentityVersionDescriptor
@@ -132,22 +136,24 @@ sha256Hex (pure TS)
 urn:hash:sha256:<64 hex>
 ```
 
-Wrappers, envelopes, message signatures, ledger metadata, later assessments, revocations, and acceptance records are **outside** the projection: they cannot change the hash.
+Wrappers, envelopes, message signatures, ledger metadata, later assessments, revocations, and acceptance records are **outside** the projection: they must not change the hash.
 
 `canonicalize` throws instead of returning `Result` because it is a mechanism boundary with no protocol-level alternative outcome. Everything with a protocol-level meaning returns a discriminated union.
 
 ## 5. Core invariants
 
-| #   | Invariant              | Consequence                                                                 |
-| --- | ---------------------- | --------------------------------------------------------------------------- |
-| A1  | Purity                 | Same validated inputs and policies produce the same output; no hidden state  |
-| A2  | Determinism            | Graph iteration is explicitly sorted; edge arrival order and storage order do not matter |
-| A3  | Ownership              | Constructors deep-copy, then deep-freeze; mutating the caller's object cannot change a record |
-| A4  | Error separation       | Normative codes and mechanism codes never mix; a mechanism failure never looks like a protocol state |
-| A5  | Explicit context       | No global policy, no ambient clock, no implicit trust                              |
-| A6  | Edge-bound assessments | An assessment set is usable only for the edge it was built for (runtime brand)     |
-| A7  | Four trust outcomes    | `TRUSTED`, `UNTRUSTED`, `UNASSESSED`, `TRUST_ASSESSMENT_UNAVAILABLE` stay distinct |
-| A8  | Unknown boundary       | `unknown` is validated before it reaches any domain record                        |
+The table separates guarantees the repository already provides from properties required of modules that do not exist yet. Treating a target as an implemented guarantee is exactly what the threat model's review questions are meant to catch.
+
+| #   | Invariant              | Status today | Where it is enforced / planned                                              |
+| --- | ---------------------- | ------------ | --------------------------------------------------------------------------- |
+| A1  | Purity                 | Implemented for existing primitives | `canonical.ts`, `sha256.ts`, `ownership.ts`; required of every future module |
+| A2  | Determinism            | Partial      | Canonicalization and SHA-256 are deterministic; graph and edge-order independence are planned with traversal |
+| A3  | Ownership              | Foundation   | `deepCopy`, `deepFreeze`, `DeepReadonly` in `ownership.ts`; record constructors planned in `entities.ts` |
+| A4  | Error separation       | Implemented  | `errors.ts` type split, asserted in `tests/unit/entities.test.ts`            |
+| A5  | Explicit context       | Target       | No globals exist today; `Policy` and `TemporalContext` parameters arrive with the evaluation API |
+| A6  | Edge-bound assessments | Target       | Planned `assessment.ts` runtime brand, enforced by `evaluateAssurance`       |
+| A7  | Four trust outcomes    | Target       | Planned `credential.ts` and temporal model                                   |
+| A8  | Unknown boundary       | Implemented (helpers) | `validateUnknown`, `validateJsonValue`, strict canonicalization; adapters are not written yet |
 
 A2 does not require enumerating all paths: memoization and dynamic programming are allowed, provided the result is identical.
 
@@ -163,9 +169,9 @@ The split is architectural, not cosmetic: a wrong selector scheme is not a proto
 
 When several candidate paths fail for different reasons, per-path outcomes are preserved in `details.perPath`; the top-level code is an aggregation, not a normative precedence rule.
 
-## 7. Traversal pipeline
+## 7. Traversal pipeline (planned)
 
-Traversal is split into independently testable phases:
+Traversal is split into independently testable phases. None of the functions below exist yet; the split is an architectural decision that fixes their contracts before implementation.
 
 | Phase | Function                | Responsibility                                                                 |
 | ----- | ----------------------- | ------------------------------------------------------------------------------ |
@@ -178,9 +184,9 @@ Phase 3 implements **immediate closure** only — §8.6's literal text about the
 
 Scope and closure cannot contradict each other: a merge node can appear on a selected path only under `FULL_ANCESTRY`, so closure branches never cross a scope-excluded relation.
 
-## 8. Temporal model
+## 8. Temporal model (target)
 
-Timestamp **selection** and timestamp **trust** are separate.
+Timestamp **selection** and timestamp **trust** are separate in the design; the implementation of this model is planned with the credential module.
 
 - `TemporalContext.basis` selects which declared field governs an operation (domain policy, §10.2).
 - Trust arrives only as an externally assessed `TemporalTrustInput`, bound to a specific `(subject_ref, field, timestamp_value)` triple.
@@ -188,7 +194,7 @@ Timestamp **selection** and timestamp **trust** are separate.
 
 There is no clock in the core. Whether "now" matters is a question for the host and for CORE-003's JIT authorization.
 
-## 9. Extension points
+## 9. Extension points (target)
 
 | Extension              | Shape                                                              | Constraint                                                       |
 | ---------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |

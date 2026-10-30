@@ -4,7 +4,7 @@
 **Scope:** `UIA-CORE-001 Rev 0.3.3` protocol semantics and the reference implementation in this repository.
 **Out of scope:** CORE-002 (events, transport, ledger), CORE-003 (authority, execution), CORE-004 (evidence, rulings). Their threats are named only where CORE-001 depends on them.
 
-This document records what we protect, from whom, what the protocol already enforces, what the implementation enforces today, and what remains unmitigated. It is meant to be attacked in review: every "mitigated" claim should be falsifiable by a test or by a precise spec citation.
+This document records what we protect, from whom, what the protocol already enforces, what the implementation enforces today, and what remains unmitigated. It is meant to be attacked in review: every "mitigated" claim should be falsifiable by a test or by a precise spec citation. Each status names the basis: protocol, implemented, planned, blocked, or an external dependency.
 
 Normative requirements come from [`CORE-001`](./CORE-001.md). Implementation structure comes from [`ARCHITECTURE.md`](./ARCHITECTURE.md). Where this document and the specification disagree, the specification wins.
 
@@ -92,8 +92,8 @@ An attacker is **not** assumed to:
 *Status:* planned. Residual risk: trust in assessors is configuration, and configuration can be wrong.
 
 **T-07 Conflicting assessments, or "assessment shopping".** Two applicable trusted assessments disagree; the attacker hopes the newest or most favourable one wins.
-*Mitigation:* no automatic majority vote and no "latest wins" (§6.3 #6, §6.4); supersession is a link, not an authority transfer; conflicting claims become `CONTESTED`, not resolved.
-*Status:* **partially BLOCKED.** Rev 0.3.3 does not define what makes two assessments contradict each other (A-4b). `CONTESTED` is reachable only through an explicitly configured non-default `Policy.conflictPredicate`; the library ships no rule and by default detects no contradiction. Any claim that conflict handling works requires the missing clarifier first.
+*Mitigation:* the specification defines a `CONTESTED` outcome for conflicting claims and forbids an automatic majority vote or "latest wins" (§6.3 #6, §6.4); supersession is a link, not an authority transfer.
+*Status:* **partially BLOCKED.** Rev 0.3.3 does not define what makes two applicable assessments contradict each other (A-4b). The reference implementation detects no contradiction automatically; `CONTESTED` is reachable only through an explicitly configured non-default `Policy.conflictPredicate`, which is an extension point, not normative semantics. Any claim that conflict handling works requires the missing clarifier first.
 
 **T-08 Assessment supersession abused to rewrite history.** A new assessment is published to erase an inconvenient earlier one.
 *Mitigation:* assessments are immutable; supersession chains are acyclic; old assessments are preserved; earlier decisions are not rewritten (§6.3).
@@ -101,7 +101,7 @@ An attacker is **not** assumed to:
 
 **T-09 Cycle injection.** A publisher supplies a lineage cycle to make continuity appear provable or to crash the evaluator.
 *Mitigation:* cycles are detected and reported as `CYCLE_DETECTED`; declarations are preserved; the cycle is not accepted as proof; no global deletion or process abortion (§11.2).
-*Status:* planned. Residual risk: availability — see T-15.
+*Status:* planned. Residual risk: availability — see T-17.
 
 **T-10 Delayed or unresolved parent.** A child arrives before its parent, and the domain treats the missing parent as acceptable.
 *Mitigation:* the declaration is stored, the unresolved reference is preserved, and assessment records `PARENT_UNRESOLVED`; absence of evidence is never success (§11.1, §8.5).
@@ -124,12 +124,12 @@ An attacker is **not** assumed to:
 ### D. Data integrity and encoding
 
 **T-14 History mutation through aliasing.** A caller keeps a reference to an input object and mutates it after construction.
-*Mitigation:* constructors copy structurally and freeze recursively; public record types are `DeepReadonly<T>`; mutation of the caller's original cannot affect the stored record.
-*Status:* implemented (`src/core/ownership.ts`). Residual risk: `any` casts or adapters that retain their own mutable copies.
+*Mitigation:* when the ownership layer is applied by constructors, records are copied structurally and frozen recursively, and public record types are `DeepReadonly<T>`; mutation of the caller's original then cannot affect the stored record.
+*Status:* **partially implemented.** `deepCopy`, `deepFreeze`, and `DeepReadonly` exist and are unit-tested in `src/core/ownership.ts`, but record constructors and `entities.ts` are planned, so the guarantee is not yet exercised on domain records. Residual risk: `any` casts or adapters that retain their own mutable copies.
 
 **T-15 Canonicalization divergence.** Two implementations hash "the same" descriptor differently, so `DESCRIPTOR_HASH_CONFIRMED` disagrees or a hash can be smuggled by encoding tricks.
-*Mitigation:* RFC 8785 JCS over a strict data model; explicit 8-field projection (never whole-object serialization); rejection of `undefined`, `NaN`, infinities, `BigInt`, functions, symbols, accessors, symbol keys, non-enumerable own properties, array extra properties, sparse arrays, non-`Object.prototype` prototypes, cycles, and lone surrogates in values and keys.
-*Status:* implemented and unit-tested. Residual risk: correctness depends on cross-implementation vectors and on SHA-256 assumptions.
+*Mitigation:* **implemented** — RFC 8785 JCS over a strict data model, pure-TS SHA-256, and rejection of `undefined`, `NaN`, infinities, `BigInt`, functions, symbols, accessors, symbol keys, non-enumerable own properties, array extra properties, sparse arrays, non-`Object.prototype` prototypes, cycles, and lone surrogates in values and keys. **Planned** — the explicit 8-field §7.1 projection (`descriptorHashInput`) and `descriptorHash`, which must never serialize the whole object.
+*Status:* canonicalization and strict validation are implemented and unit-tested; the descriptor projection and hash are **planned** (Task 4). Residual risk: correctness depends on cross-implementation vectors and on SHA-256 assumptions.
 
 **T-16 Untrusted input reaching a domain record.** An adapter passes raw JSON, a class instance, or `unknown` straight into a constructor.
 *Mitigation:* `validateUnknown` / `validateJsonValue` at the boundary; typed public API with no `any`; records reject unsupported structures instead of coercing them.
@@ -139,7 +139,7 @@ An attacker is **not** assumed to:
 
 **T-17 Graph or payload exhaustion.** An attacker supplies a huge graph, a diamond explosion, or deeply nested JSON to exhaust CPU or memory during traversal.
 *Mitigation (planned):* determinism permits memoization; cycles are dead ends; immediate closure bounds closure work to direct parents.
-*Status:* **unmitigated by design gap.** Rev 0.3.3 sets no input limits, and the library currently defines none. A host must cap descriptor count, graph depth, and payload size before calling the core. This should become an explicit adapter contract.
+*Status:* **unmitigated by design gap.** Rev 0.3.3 sets no input limits, and the library defines none. Deployments should enforce descriptor-count, graph-depth, and payload-size limits until an explicit resource-limit contract is defined. This should become an explicit adapter contract.
 
 **T-18 Policy hook abuse.** A caller-supplied hook returns assessments that do not apply to the edge, or a forged "applicable" set.
 *Mitigation:* applicable sets are constructed only by `assessEdge` and carry a module-private runtime brand; `evaluateAssurance` rejects unbranded input with `E_APPLICABLE_ASSESSMENTS_UNBRANDED`; hook output is intersected with the applicable set and non-members are discarded and reported.
