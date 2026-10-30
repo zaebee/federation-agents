@@ -1,0 +1,133 @@
+да давай PR
+
+---
+
+### Medium finding
+
+**Location:** `tests/unit/hashing.test.ts:226-266`
+
+Every hash test compares one hash to another. None pins the actual `urn:hash:sha256:…` value for a fixed descriptor. Hashes from this spec are meant to work across implementations, so a change to key order, number serialization, or projection shape would change every hash and the suite would still pass. Add a known-answer test with a hard-coded expected hash. 
+---
+### Medium finding
+
+**Location:** `tests/unit/hashing.test.ts:171-192`
+
+The test `is unaffected by metadata outside the §7.1 projection` is tautological. It builds eight artifact objects that are never passed to the hash. It then checks `Object.keys(artifacts)` has length 8 and that hashing a fresh `validated()` gives the same result as before. Neither assertion can fail because of metadata. Only the wrapper-throws check at the end does real work. Either remove the dead setup or turn it into a real check, for example attaching the metadata as extra keys and expecting rejection, or showing that the projection ignores it. 
+---
+### Low finding
+
+**Location:** `src/core/hashing.ts:27`
+
+`credential.usage.map((usage) => usage)` and `source.declared_protocols.map((protocol) => protocol)` are identity maps that do nothing. `JsonValue` already accepts `readonly JsonValue[]`, and the source is already an owned, frozen copy. Pass the arrays directly. 
+---
+### Low finding
+
+**Location:** `src/core/hashing.ts:90-93`
+
+`descriptorHash` re-implements `canonicalSha256` from `canonical.ts`, i.e. `sha256Hex(new TextEncoder().encode(canonicalize(value)))`, instead of calling it. Use `canonicalSha256(descriptorHashInput(descriptor))`. 
+---
+### Low finding
+
+**Location:** `src/core/hashing.ts:33-53`
+
+The `every §7.1 field affects the hash` mutations and the projection-shape test only use fixtures where the optional fields are absent. The conditional branches for `not_after`, `revocation_endpoint_ref`, `declared_rationale` and `continuity_proof_ref` in `projectCredential` and `projectLineageLink` are never run. If one of them were dropped from the hash input, no test would fail. Add mutations that set each optional field. 
+---
+Посмотрел Task 4 на ветке [`feat/task-4-descriptor-hash`](https://github.com/zaebee/federation-agents/tree/feat/task-4-descriptor-hash?utm_source=chatgpt.com).
+
+APPROVE
+
+По коду — блокирующих замечаний нет
+
+Проверял относительно CORE-001 Rev 0.3.3, §7.1–7.2 и согласованного Rev E плана.
+
+## Что получилось
+
+Ветка опережает `main` на один коммит, отставания нет. Коммит:
+
+`9562786b1cafeb5c822dc29365ba4fb2fe67550b`
+
+Изменены ровно четыре файла:
+
+| Файл                         | Оценка                                                          |
+| ---------------------------- | --------------------------------------------------------------- |
+| `src/core/entities.ts`       | Хорошая минимальная модель дескрипторов и структурная валидация |
+| `src/core/hashing.ts`        | Явная проекция и SHA-256                                        |
+| `src/core/index.ts`          | Корректное расширение публичного API                            |
+| `tests/unit/hashing.test.ts` | Хорошее покрытие основных контрактов                            |
+
+## Что проверил
+
+1\. Hashing scope — корректный.
+
+Проекция формируется явно, поле за полем. В ней ровно восемь полей из §7.1:
+
+- `id`
+- `participant_id`
+- `version_label`
+- `version_scheme`
+- `declared_protocols`
+- `public_credentials`
+- `lineage`
+- `published_at`
+
+Никакой сериализации всего объекта с последующим удалением лишних полей.
+
+2\. Nested projection — сделана правильно.
+
+`CredentialDescriptor` и `LineageLink` тоже проходят через явные whitelist-проекции. При этом неизвестные поля не игнорируются молча: `validateIdentityVersionDescriptor` отклоняет их на входной границе.
+
+Это именно то решение, которое мы согласовали. Особенно важно, что проверяются неизвестные поля и на верхнем уровне, и внутри обоих вложенных типов.
+
+3\. Ownership и immutable boundary — соблюдены.
+
+Валидатор:
+
+- сначала вызывает `validateJsonValue`;
+- проверяет обязательные поля и типы;
+- проверяет enum-значения;
+- отклоняет присутствующий `undefined`;
+- создаёт собственную структуру;
+- возвращает рекурсивно замороженный объект.
+
+То есть мутация исходного объекта после валидации не должна менять результат хеширования.
+
+4\. Защита от неправильного вызова API — хорошая.
+
+`descriptorHashInput` повторно валидирует вход. Если кто-то обошёл типовую систему и передал объект с `undefined`, неизвестным полем или wrapper вместо самого дескриптора, функция бросает `CanonicalizationError`, а не хеширует неполные данные.
+
+Это правильное поведение для такого API.
+
+5\. Криптографическая композиция — корректная по структуре.
+
+```
+canonicalize(descriptorHashInput(descriptor))
+→ TextEncoder
+→ sha256Hex
+→ urn:hash:sha256:<digest>
+```
+
+Используется уже реализованный Task 3 canonicalization и pure TypeScript SHA-256. Runtime crypto API в Core не появился.
+
+## Что можно улучшить, но это не блокирует
+
+1. Тесты optional-полей. Есть проверка `not_after: undefined`, но я бы добавил аналогичную проверку для optional-поля `LineageLink` (`declared_rationale` или `continuity_proof_ref`). Это небольшое усиление регрессионного покрытия.
+2. Тесты изменения вложенных данных. Сейчас изменение `algorithm_family` меняет хеш, а изменение `relation` тоже проверяется. Можно дополнить тестами для `not_after`, `revocation_endpoint_ref` и `continuity_proof_ref`, чтобы закрепить включение всех optional-полей в хеш. Это особенно полезно для будущих изменений схемы.
+
+Это улучшения покрытия, не найденные ошибки реализации.
+
+## CI и итог
+
+CI не подтверждён
+
+Для коммита `9562786` GitHub не вернул связанных workflow runs. Поэтому я не буду утверждать, что тесты, typecheck, lint и format-check прошли. Это нужно подтвердить локальным запуском:
+
+```
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+```
+
+Мой вердикт: Task 4 можно принимать по коду. Границы задачи соблюдены: не начали преждевременно реализовывать семантику Lineage, cardinality или CONTENT_HASH. Это важно — структурная валидация не подменяет будущую нормативную проверку.
+
+После зелёного локального прогона я бы закрывал Task 4 и переходил к Task 5.
