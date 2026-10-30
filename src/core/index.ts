@@ -4,3 +4,5 @@
 export * from './errors.js';
 export * from './primitives.js';
 export * from './ownership.js';
+export * from './canonical.js';
+export * from './sha256.js';

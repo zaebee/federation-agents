@@ -338,6 +338,20 @@ test('ownership: validateJsonValue rejects functions', () => {
   expect(r.ok).toBe(false);
 });
 
+test('ownership: validateJsonValue rejects lone surrogate in string value', () => {
+  const r = validateJsonValue('\ud800');
+  expect(r.ok).toBe(false);
+  if (!r.ok) expect(r.error.code).toBe('E_JSON_VALUE_INVALID');
+});
+
+test('ownership: validateJsonValue rejects lone surrogate in object key', () => {
+  const obj: Record<string, unknown> = {};
+  Object.defineProperty(obj, '\ud800', { value: 1, enumerable: true, writable: true, configurable: true });
+  const r = validateJsonValue(obj);
+  expect(r.ok).toBe(false);
+  if (!r.ok) expect(r.error.code).toBe('E_JSON_VALUE_INVALID');
+});
+
 // STANDARD_TEMPORAL_FIELDS frozen at runtime
 test('ownership: STANDARD_TEMPORAL_FIELDS is frozen at runtime', () => {
   expect(Object.isFrozen(STANDARD_TEMPORAL_FIELDS)).toBe(true);
