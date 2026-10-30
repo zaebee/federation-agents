@@ -60,13 +60,13 @@ export type TemporalBasis = 'ASSERTED_AT' | 'SIGNED_AT' | 'INGESTED_AT' | 'ASSES
 // autocomplete for the standard kinds.
 export type TemporalFieldRef = TemporalBasis | (string & { readonly __temporalFieldExt?: never });
 
-export const STANDARD_TEMPORAL_FIELDS: readonly TemporalBasis[] = [
+export const STANDARD_TEMPORAL_FIELDS: readonly TemporalBasis[] = Object.freeze([
   'ASSERTED_AT',
   'SIGNED_AT',
   'INGESTED_AT',
   'ASSESSED_AT',
   'DECIDED_AT',
-];
+]);
 
 const EXT_REF_REGEX = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
 
@@ -97,16 +97,9 @@ export function validateTemporalFieldRef(value: unknown): Result<TemporalFieldRe
       },
     };
   }
-  // No whitespace or control characters.
-  let hasControl = false;
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i);
-    if (c <= 0x1f || c === 0x7f) {
-      hasControl = true;
-      break;
-    }
-  }
-  if (/\s/.test(value) || hasControl) {
+  // No whitespace or control characters (C0 and C1 ranges).
+  // eslint-disable-next-line no-control-regex
+  if (/\s|[\x00-\x1F\x7F-\x9F]/.test(value)) {
     return {
       ok: false,
       error: {

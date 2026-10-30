@@ -1,6 +1,7 @@
 import { test, expect } from 'bun:test';
-import { deepCopy, deepFreeze, validateUnknown } from '../../src/core/ownership.js';
+import { deepCopy, deepFreeze, validateUnknown, validateJsonValue } from '../../src/core/ownership.js';
 import type { DeepReadonly } from '../../src/core/ownership.js';
+import { STANDARD_TEMPORAL_FIELDS } from '../../src/core/primitives.js';
 
 test('ownership: deep copy is structurally equal', () => {
   const src = { a: { b: [1, 2, { c: 3 }] }, d: 'x' };
@@ -153,6 +154,147 @@ test('ownership: validateUnknown does not cast arbitrary input', () => {
   expect(r.ok).toBe(false);
 });
 
+// validateUnknown establishes ownership
+test('ownership: validateUnknown returns an owned copy, not the original', () => {
+  const src = { a: { b: [1, 2] } };
+  const r = validateUnknown(src, (v): v is { a: { b: number[] } } => typeof v === 'object' && v !== null);
+  expect(r.ok).toBe(true);
+  if (r.ok) {
+    expect(r.value).not.toBe(src);
+    expect(r.value.a).not.toBe(src.a);
+    expect(r.value.a.b).not.toBe(src.a.b);
+  }
+});
+
+test('ownership: validateUnknown result is isolated from original mutations', () => {
+  const src: { a: { b: number[] } } = { a: { b: [1, 2] } };
+  const r = validateUnknown(src, (v): v is { a: { b: number[] } } => typeof v === 'object' && v !== null);
+  expect(r.ok).toBe(true);
+  if (r.ok) {
+    src.a.b.push(999);
+    src.a = { b: [0] };
+    expect(r.value.a.b).toEqual([1, 2]);
+  }
+});
+
+test('ownership: validateUnknown rejects unsupported structures', () => {
+  const r = validateUnknown(
+    { fn: () => 1 } as unknown,
+    (v): v is Record<string, unknown> => typeof v === 'object' && v !== null,
+  );
+  expect(r.ok).toBe(false);
+  if (!r.ok) expect(r.error.kind).toBe('MECHANISM');
+});
+
+test('ownership: validateUnknown rejects invalid input', () => {
+  const r = validateUnknown(42, (v): v is string => typeof v === 'string');
+  expect(r.ok).toBe(false);
+});
+
+// deepCopy array hardening
+test('ownership: deepCopy rejects sparse arrays', () => {
+  const arr = new Array(3);
+  arr[0] = 1;
+  arr[2] = 3;
+  const r = deepCopy(arr);
+  expect(r.ok).toBe(false);
+});
+
+test('ownership: deepCopy rejects accessor element without invoking getter', () => {
+  const arr: unknown[] = [1, 2];
+  let counter = 0;
+  Object.defineProperty(arr, '0', {
+    get() {
+      counter++;
+      return 999;
+    },
+    enumerable: true,
+  });
+  const r = deepCopy(arr);
+  expect(r.ok).toBe(false);
+  expect(counter).toBe(0);
+});
+
+test('ownership: deepCopy rejects non-enumerable indexed property', () => {
+  const arr: unknown[] = [1, 2];
+  Object.defineProperty(arr, '0', { value: 999, writable: true, enumerable: false, configurable: true });
+  const r = deepCopy(arr);
+  expect(r.ok).toBe(false);
+});
+
+// deepFreeze cycle safety
+test('ownership: deepFreeze handles cyclic structures without stack overflow', () => {
+  const obj: Record<string, unknown> = { a: 1 };
+  obj.self = obj;
+  let result: unknown;
+  expect(() => {
+    result = deepFreeze(obj);
+  }).not.toThrow();
+  expect(Object.isFrozen(result)).toBe(true);
+});
+
+test('ownership: deepFreeze handles cyclic arrays', () => {
+  const arr: unknown[] = [1];
+  (arr as unknown as Record<string, unknown>)[1] = arr;
+  let result: unknown;
+  expect(() => {
+    result = deepFreeze(arr);
+  }).not.toThrow();
+  expect(Object.isFrozen(result)).toBe(true);
+});
+
+// validateJsonValue strict JSON
+test('ownership: validateJsonValue accepts valid JSON', () => {
+  const r = validateJsonValue({ a: [1, 2, null, true, 'x'] });
+  expect(r.ok).toBe(true);
+});
+
+test('ownership: validateJsonValue rejects undefined', () => {
+  const r = validateJsonValue({ a: undefined });
+  expect(r.ok).toBe(false);
+});
+
+test('ownership: validateJsonValue rejects NaN', () => {
+  const r = validateJsonValue(NaN);
+  expect(r.ok).toBe(false);
+});
+
+test('ownership: validateJsonValue rejects Infinity', () => {
+  const r = validateJsonValue(Infinity);
+  expect(r.ok).toBe(false);
+});
+
+test('ownership: validateJsonValue rejects -Infinity', () => {
+  const r = validateJsonValue(-Infinity);
+  expect(r.ok).toBe(false);
+});
+
+test('ownership: validateJsonValue rejects functions', () => {
+  const r = validateJsonValue(() => 1);
+  expect(r.ok).toBe(false);
+});
+
+// STANDARD_TEMPORAL_FIELDS frozen at runtime
+test('ownership: STANDARD_TEMPORAL_FIELDS is frozen at runtime', () => {
+  expect(Object.isFrozen(STANDARD_TEMPORAL_FIELDS)).toBe(true);
+  expect(() => {
+    (STANDARD_TEMPORAL_FIELDS as string[]).push('X');
+  }).toThrow();
+});
+
 // Type-level: DeepReadonly applies recursively (compile-time check).
 const _typeCheck: DeepReadonly<{ a: { b: number[] } }> = { a: { b: [1, 2] } };
 void _typeCheck;
+
+// Type-level negative assertions (must fail to compile; @ts-expect-error ensures they do).
+const _ro: DeepReadonly<{ a: { b: number } }> = { a: { b: 1 } };
+// @ts-expect-error intentional type error
+_ro.a = { b: 2 };
+// @ts-expect-error intentional type error
+_ro.a.b = 2;
+
+const _roArr: DeepReadonly<{ a: number[] }> = { a: [1, 2] };
+// @ts-expect-error intentional type error
+_roArr.a[0] = 9;
+// @ts-expect-error intentional type error
+_roArr.a.push(3);

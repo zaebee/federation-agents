@@ -85,3 +85,8 @@ test('error model: CanonicalizationError is an Error subclass', () => {
 // Type-level: DeepReadonly is exported and assignable (compile-time check).
 const _deepReadonlyCheck: DeepReadonly<{ a: { b: number[] } }> = { a: { b: [1, 2] } };
 void _deepReadonlyCheck;
+
+// Type-level negative: a mechanism error code is not assignable to UiaErrorCode.
+// @ts-expect-error intentional type error
+const _badNormativeCode: UiaErrorCode = 'E_OWNERSHIP_UNSUPPORTED';
+void _badNormativeCode;
