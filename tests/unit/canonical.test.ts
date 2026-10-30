@@ -276,3 +276,95 @@ test('canonical: RFC 8785 property sort test data', () => {
     '{"\\r":"Carriage Return","1":"One","\u0080":"Control","\u00f6":"Latin Small Letter O With Diaeresis","\u20ac":"Euro Sign","\ud83d\ude00":"Emoji: Grinning Face","\ufb33":"Hebrew Letter Dalet With Dagesh"}';
   expect(out).toBe(expected);
 });
+
+test('canonical: serializes validated snapshot, not original input (Proxy)', () => {
+  let reads = 0;
+  const target = { a: 1 };
+  const proxy = new Proxy(target, {
+    get(_t, prop, receiver) {
+      if (prop === 'a') {
+        reads += 1;
+        return reads === 1 ? 1 : 999;
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+    getOwnPropertyDescriptor(_t, prop) {
+      if (prop === 'a') {
+        return { value: 1, writable: true, enumerable: true, configurable: true };
+      }
+      return Object.getOwnPropertyDescriptor(target, prop as string);
+    },
+    ownKeys() {
+      return ['a'];
+    },
+    has(_t, prop) {
+      return prop === 'a';
+    },
+  });
+  const out = canonicalize(proxy as unknown as JsonValue);
+  // The validated snapshot carries a=1; the serializer must not re-read the
+  // original (which would yield 999 on the second read).
+  expect(out).toBe('{"a":1}');
+});
+
+test('canonical: no Unicode normalization (NFC vs NFD strings)', () => {
+  const nfc = '\u00e9'; // é composed
+  const nfd = '\u0065\u0301'; // e + combining acute
+  expect(nfc).not.toBe(nfd);
+  const outNfc = canonicalize(nfc as unknown as JsonValue);
+  const outNfd = canonicalize(nfd as unknown as JsonValue);
+  expect(outNfc).not.toBe(outNfd);
+  // Each serializes its own code units unchanged.
+  expect(outNfc).toBe(JSON.stringify(nfc));
+  expect(outNfd).toBe(JSON.stringify(nfd));
+});
+
+test('canonical: no Unicode normalization (NFC vs NFD keys)', () => {
+  const nfcKey = '\u00e9';
+  const nfdKey = '\u0065\u0301';
+  const objNfc: Record<string, number> = {};
+  objNfc[nfcKey] = 1;
+  const objNfd: Record<string, number> = {};
+  objNfd[nfdKey] = 1;
+  const outNfc = canonicalize(objNfc as unknown as JsonValue);
+  const outNfd = canonicalize(objNfd as unknown as JsonValue);
+  expect(outNfc).not.toBe(outNfd);
+});
+
+test('canonical: exact UTF-16 ordering around supplementary and BMP chars', () => {
+  const obj: Record<string, number> = {};
+  // U+007F (DEL, single code unit) vs U+0080 (two? no, single) — BMP boundary.
+  obj['\u007f'] = 1;
+  obj['\u0080'] = 2;
+  // Supplementary: U+1F600 (surrogate pair) sorts after BMP by first code unit (0xD83D).
+  obj['\ud83d\ude00'] = 3;
+  const out = canonicalize(obj as unknown as JsonValue);
+  // Order by UTF-16 code units: \u007f (0x7f) < \u0080 (0x80) < \ud83d... (0xd83d)
+  expect(out).toBe('{"\u007f":1,"\u0080":2,"\ud83d\ude00":3}');
+});
+
+test('canonical: Appendix B number vectors (exponent boundaries and rounding)', () => {
+  // From RFC 8785 Appendix B
+  expect(canonicalize(0 as unknown as JsonValue)).toBe('0');
+  expect(canonicalize(5e-324 as unknown as JsonValue)).toBe('5e-324');
+  expect(canonicalize(1.7976931348623157e308 as unknown as JsonValue)).toBe('1.7976931348623157e+308');
+  expect(canonicalize(9007199254740992 as unknown as JsonValue)).toBe('9007199254740992');
+  expect(canonicalize(-9007199254740992 as unknown as JsonValue)).toBe('-9007199254740992');
+  expect(canonicalize(295147905179352830000 as unknown as JsonValue)).toBe('295147905179352830000');
+  expect(canonicalize(9.999999999999997e22 as unknown as JsonValue)).toBe('9.999999999999997e+22');
+  expect(canonicalize(1e23 as unknown as JsonValue)).toBe('1e+23');
+  expect(canonicalize(1.0000000000000001e23 as unknown as JsonValue)).toBe('1.0000000000000001e+23');
+  expect(canonicalize(999999999999999700000 as unknown as JsonValue)).toBe('999999999999999700000');
+  expect(canonicalize(999999999999999900000 as unknown as JsonValue)).toBe('999999999999999900000');
+  expect(canonicalize(1e21 as unknown as JsonValue)).toBe('1e+21');
+  expect(canonicalize(9.999999999999997e-7 as unknown as JsonValue)).toBe('9.999999999999997e-7');
+  expect(canonicalize(0.000001 as unknown as JsonValue)).toBe('0.000001');
+  expect(canonicalize(333333333.3333332 as unknown as JsonValue)).toBe('333333333.3333332');
+  expect(canonicalize(333333333.33333325 as unknown as JsonValue)).toBe('333333333.33333325');
+  expect(canonicalize(333333333.3333333 as unknown as JsonValue)).toBe('333333333.3333333');
+  expect(canonicalize(333333333.3333334 as unknown as JsonValue)).toBe('333333333.3333334');
+  expect(canonicalize(333333333.33333343 as unknown as JsonValue)).toBe('333333333.33333343');
+  expect(canonicalize(-0.0000033333333333333333 as unknown as JsonValue)).toBe('-0.0000033333333333333333');
+  // eslint-disable-next-line no-loss-of-precision
+  expect(canonicalize(1424953923781206.2 as unknown as JsonValue)).toBe('1424953923781206.2');
+});

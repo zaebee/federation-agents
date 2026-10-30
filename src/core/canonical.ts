@@ -15,25 +15,30 @@ import { validateJsonValue } from './ownership.js';
 // is thrown instead of returning a Result, since canonicalize() returns string)
 // ---------------------------------------------------------------------------
 
-function validate(value: unknown): void {
+function validate(value: unknown): JsonValue {
   const result = validateJsonValue(value);
   if (!result.ok) {
     throw new CanonicalizationError(result.error.message);
   }
+  return result.value;
 }
 
 // ---------------------------------------------------------------------------
 // Serialization
 // ---------------------------------------------------------------------------
 
-function serialize(value: unknown): string {
+function serialize(value: JsonValue): string {
   if (value === null) return 'null';
   const t = typeof value;
   if (t === 'boolean') return value ? 'true' : 'false';
   if (t === 'string') return JSON.stringify(value);
   if (t === 'number') return JSON.stringify(value);
   if (Array.isArray(value)) {
-    return '[' + value.map(serialize).join(',') + ']';
+    const parts: string[] = [];
+    for (let i = 0; i < value.length; i++) {
+      parts.push(serialize(value[i]));
+    }
+    return '[' + parts.join(',') + ']';
   }
   if (typeof value === 'object' && value !== null) {
     const keys = Object.keys(value).sort((a, b) => {
@@ -41,9 +46,12 @@ function serialize(value: unknown): string {
       if (a > b) return 1;
       return 0;
     });
-    return (
-      '{' + keys.map((k) => JSON.stringify(k) + ':' + serialize((value as Record<string, unknown>)[k])).join(',') + '}'
-    );
+    const parts: string[] = [];
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      parts.push(JSON.stringify(k) + ':' + serialize((value as Record<string, JsonValue>)[k]));
+    }
+    return '{' + parts.join(',') + '}';
   }
   throw new CanonicalizationError('Unsupported value during serialization');
 }
@@ -54,8 +62,9 @@ function serialize(value: unknown): string {
 
 export function canonicalize(value: JsonValue): string {
   // Defensive validation even though the type is JsonValue: callers may cast.
-  validate(value);
-  return serialize(value);
+  // The serializer operates exclusively on the owned, validated representation.
+  const validated = validate(value);
+  return serialize(validated);
 }
 
 export function canonicalSha256(value: JsonValue): string {
