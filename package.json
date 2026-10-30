@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Reference implementation of UIA-CORE-001 Rev 0.3.3 (identity, credentials, lineage, assessments, conditional version binding, local acceptance).",
   "type": "module",
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "default": "./build/index.js"
+    }
+  },
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
