@@ -1,0 +1,1869 @@
+# Task: Implement UIA-CORE-001 Reference Implementation
+
+You are acting as a senior protocol engineer and implementation agent.
+
+Your task is to implement a testable reference implementation of **UIA-CORE-001 Rev 0.3.3**, using the specification provided in the repository as the normative source.
+
+This is a protocol implementation task, not an opportunity to redesign the architecture.
+
+## 1. First: inspect, do not modify
+
+Before writing code:
+
+1. Inspect the repository structure.
+2. Identify the existing language, runtime, build system, testing framework and coding conventions.
+3. Locate the UIA-CORE-001 Rev 0.3.3 specification.
+4. Identify existing identity, lineage, credential, assessment, acceptance or graph-related code.
+5. Identify existing tests and fixtures.
+6. Determine whether an implementation already exists partially and whether it conflicts with the specification.
+
+Do not modify files during this phase.
+
+Produce a concise implementation assessment:
+
+- Existing relevant components.
+- Missing components.
+- Conflicting semantics.
+- Reusable infrastructure.
+- Proposed module boundaries.
+- Proposed implementation and test plan.
+
+If the repository contains an existing implementation, preserve compatible work rather than replacing it without justification.
+
+## 2. Normative source and implementation boundaries
+
+`UIA-CORE-001 Rev 0.3.3` is the normative source.
+
+The implementation MUST preserve these distinctions:
+
+- Participant ≠ IdentityVersion.
+- IdentityVersion ≠ RuntimeInstance.
+- Participant ≠ AuthorityPrincipal.
+- Credential ≠ Authority Grant.
+- Lineage Declaration ≠ Lineage Assessment.
+- Lineage Assessment ≠ Local Acceptance.
+- Local Acceptance ≠ Authority Grant.
+- Historical validity ≠ current authorization.
+- Identity lineage ≠ authority inheritance.
+
+Do not introduce authority inheritance through identity lineage.
+
+Do not implement CORE-002, CORE-003 or CORE-004 as part of this task, except for minimal interfaces or test doubles strictly required to validate CORE-001 boundaries.
+
+## 3. Implementation scope
+
+Implement the following components.
+
+### A. Identity model
+
+- ParticipantRecord.
+- IdentityVersionDescriptor.
+- RuntimeInstanceDescriptor.
+- VersionScheme validation.
+- Descriptor immutability.
+- Descriptor canonicalization and hashing.
+
+Use RFC 8785 JSON Canonicalization Scheme and SHA-256 for descriptor hashing, according to the specification.
+
+Ensure that only the explicitly defined descriptor fields participate in hashing.
+
+Transport metadata, signatures, Ledger metadata, assessments, revocation records and acceptance records MUST NOT affect the descriptor hash.
+
+### B. Credential model
+
+Implement:
+
+- CredentialDescriptor.
+- Credential usage validation.
+- CredentialRevocationRecord.
+- Temporal credential validation.
+- Historical signature assessment semantics.
+
+Explicitly distinguish:
+
+- ROTATION;
+- KEY_LOST;
+- SUSPECTED_COMPROMISE;
+- CONFIRMED_COMPROMISE;
+- ADMINISTRATIVE.
+
+Do not treat `revoked_at` as the automatic start of compromise.
+
+Do not treat `compromise_effective_at` as trustworthy without its evidence and applicable local policy.
+
+Do not claim that a valid signature proves operator identity, intent, authority or runtime legitimacy.
+
+### C. Lineage graph
+
+Implement:
+
+- CONTINUATION;
+- FORKED_FROM;
+- MERGED_FROM.
+- Cardinality validation.
+- Participant constraints for CONTINUATION.
+- Graph integrity validation.
+- Cycle detection.
+- Delayed parent resolution.
+
+Preserve the direction:
+
+`Child → Parent`
+
+Do not introduce artifact provenance relations into the identity lineage graph.
+
+### D. Continuity Assessment
+
+Implement:
+
+- ContinuityAssessment.
+- Assessment profile and method version references.
+- Verified and unverified claims.
+- Evidence references.
+- Trusted assessor policy.
+- Conflicting assessment detection.
+- Assessment supersession.
+
+Assessment records MUST be immutable.
+
+Supersession MUST NOT mutate or delete historical assessments.
+
+Do not implement "latest assessment wins" as a universal rule. Applicable assessment selection is policy-dependent.
+
+### E. Conditional Version Binding
+
+Implement:
+
+- ConditionalVersionBinding.
+- LineageTraversalScope:
+  - CONTINUATION_ONLY;
+  - CONTINUATION_AND_FORK;
+  - FULL_ANCESTRY.
+- Selector validation.
+- Origin anchoring.
+- Path Discovery.
+- Path Validation.
+- Merge Closure Validation.
+
+This is the most important algorithmic part of the implementation.
+
+#### Path Discovery requirements
+
+Given a candidate IdentityVersion and an origin IdentityVersion:
+
+1. Validate the target Participant.
+2. Validate version scheme and selector expression.
+3. Search for permitted paths from candidate to origin.
+4. Respect the selected LineageTraversalScope.
+5. Evaluate applicable assessments on path edges.
+6. Reject paths with missing or conflicting required assessments.
+
+#### Merge Closure requirements
+
+Whenever a selected path traverses a MERGED_FROM node:
+
+- Validate every parent edge of that merge node.
+- Validate branches even when they do not lead to the requested origin.
+- Do not silently ignore an unvalidated branch.
+- Reject the selected path if any required parent branch fails assurance.
+
+A candidate is eligible if at least one permitted path to the origin exists, every edge on that path satisfies assurance, and every parent edge of every MERGED_FROM node encountered on that path satisfies merge closure requirements.
+
+Do not enumerate all possible paths if that creates exponential complexity.
+
+You may use memoization, dynamic programming or another equivalent algorithm, but the result MUST be semantically equivalent to the specification.
+
+The result MUST NOT depend on:
+
+- edge insertion order;
+- node storage order;
+- traversal implementation details;
+- arrival order of an otherwise identical final set of declarations and assessments.
+
+If you discover ambiguity in the specification that changes observable results, do not silently choose an interpretation. Document it and request clarification.
+
+### F. Local Acceptance
+
+Implement:
+
+- LocalAcceptanceRecord.
+- ACCEPTED / REJECTED decisions.
+- Context scope.
+- Grounding assessment references.
+- Lifecycle events.
+- ACTIVE / SUSPENDED / REINSTATED / REVOKED / EXPIRED states.
+
+Keep immutable decision records separate from lifecycle events.
+
+Do not require Local Acceptance for every interaction. Its applicability belongs to local domain policy.
+
+### G. Temporal semantics
+
+Implement explicit handling of:
+
+- asserted_at;
+- signed_at;
+- ingested_at;
+- assessed_at;
+- decided_at.
+
+Do not assume a global trusted clock.
+
+Do not conflate a declared timestamp with an independently trusted timestamp.
+
+## 4. Conformance test suite
+
+Implement the complete test corpus from Section 12 of CORE-001:
+
+- Category A: A-1 through A-5.
+- Category B: B-1 through B-7.
+- Category C: C-1 through C-2.
+- Category D: D-1 through D-4.
+
+Every test must verify:
+
+1. Expected result.
+2. Expected state effects.
+3. Forbidden side effects.
+
+Do not implement tests that merely assert that a function returns `true` or `false`.
+
+Tests must validate the actual semantic contract.
+
+### Additional property-based tests
+
+Add property-based tests where supported by the existing stack:
+
+1. Graph storage order does not change traversal results.
+2. Edge insertion order does not change traversal results.
+3. Assessment arrival order does not change final results when the final evidence and policy set is identical.
+4. Missing Assessment never results in successful assurance validation.
+5. Historical descriptors remain unchanged after subsequent events.
+6. Assessment supersession does not mutate historical records.
+7. Cyclic lineage never produces a successful continuity result.
+8. No CORE-001 entity creates or implies an Authority Grant.
+
+Use generated DAGs and merge structures to test traversal and merge closure.
+
+## 5. Error model
+
+Define stable, explicit error/result types.
+
+At minimum, preserve the specification's semantic error distinctions, including:
+
+- ERR_INVALID_RELATION;
+- ERR_INVALID_CARDINALITY;
+- ERR_NO_TRAVERSAL_PATH;
+- ERR_MERGE_BRANCH_UNSATISFIED;
+- ERR_ASSURANCE_PREDICATE_UNSATISFIED;
+- ERR_AUTHORITY_BINDING_MISMATCH;
+- CYCLE_DETECTED;
+- PARENT_UNRESOLVED.
+
+Do not collapse all failures into generic `false`, `null` or exceptions without structured context.
+
+If the repository has an existing error convention, follow it while preserving semantic distinctions.
+
+## 6. Architecture constraints
+
+- Follow the existing repository conventions.
+- Keep domain logic separate from persistence and transport.
+- Prefer pure functions for graph validation and traversal where practical.
+- Keep immutable domain records separate from mutable projections.
+- Avoid unnecessary external dependencies.
+- Do not introduce a database, distributed ledger, blockchain or message broker unless the repository already requires it.
+- Do not add global consensus, vector clocks, two-phase commit or universal arbitration.
+- Do not introduce implicit authority inheritance.
+- Do not invent additional normative claims.
+
+If a mechanism is not specified, choose the smallest implementation mechanism that preserves the contract and document the choice.
+
+## 7. Documentation
+
+Add or update:
+
+- Implementation architecture overview.
+- Module/API documentation.
+- Algorithm explanation for Path Discovery and Merge Closure.
+- Test coverage mapping to specification sections.
+- Explicit list of implementation assumptions.
+- Explicit list of unresolved specification ambiguities.
+
+Keep normative requirements separate from implementation decisions.
+
+## 8. Work process
+
+Work incrementally.
+
+### Phase 1 — Repository assessment
+
+Inspect the repository and report the implementation plan.
+
+Do not modify code yet.
+
+### Phase 2 — Domain model
+
+Implement immutable models and structural validation.
+
+Add unit tests.
+
+### Phase 3 — Lineage and assessment
+
+Implement graph validation, cycle detection, assessment handling and supersession.
+
+Add tests.
+
+### Phase 4 — Traversal engine
+
+Implement Path Discovery, Path Validation and Merge Closure Validation.
+
+Add focused tests for all B-series cases, including generated graph tests.
+
+### Phase 5 — Credentials and temporal semantics
+
+Implement credential lifecycle and historical signature evaluation.
+
+### Phase 6 — Local Acceptance
+
+Implement acceptance records and lifecycle events.
+
+### Phase 7 — Full conformance
+
+Run the complete A-D corpus.
+
+Run the existing project test suite.
+
+Run formatting, linting and type checking where available.
+
+### Phase 8 — Final report
+
+Report:
+
+- What was implemented.
+- Files changed.
+- Public APIs introduced.
+- Tests added and executed.
+- Test results.
+- Known limitations.
+- Specification ambiguities.
+- Any deviations from CORE-001.
+- Whether the implementation is ready for independent conformance testing.
+
+## 9. Critical instruction
+
+Do not silently reinterpret the specification.
+
+Do not optimize away semantic requirements.
+
+Do not mark a test as passing unless it was actually executed.
+
+Do not claim the implementation is deterministic merely because the algorithm is deterministic in one example.
+
+Do not claim full conformance until the entire conformance corpus has been executed successfully.
+
+If a specification defect prevents correct implementation, stop at the relevant boundary, explain the issue, and propose the smallest normative clarification.
+
+**The goal is not to make the code look complete. The goal is to make the protocol semantics executable, testable and independently verifiable.**
+
+---
+
+код пока не пишем. Сохрани свой план в md - я закину на ревью
+
+---
+
+The plan is directionally approved, but **do not start implementation yet**. Please revise the plan to address the following semantic and API issues first.
+
+1. **Bind assurance evaluation to an explicit edge.** `evaluateAssurance` must receive an `EdgeRef`, candidate assessments, an assurance requirement, an assessment policy, and an explicit evaluation context. Assessment applicability must not be inferred from an unscoped array.
+
+2. **Do not equate `unverified_claims` with refutation without normative support.** Distinguish lack of verification from an affirmative negative finding. If Rev 0.3.3 does not define this distinction, record it as a blocking ambiguity and propose the smallest spec clarification. Do not silently invent semantics.
+
+3. **Make traversal phases explicit and independently testable:** Path Discovery, Path Validation, Merge Closure Validation. Add a nested-merge test inside a non-origin branch. Preserve the distinction between no path and a merge-closure failure.
+
+4. **Test traversal scopes explicitly.** Verify CONTINUATION, FORKED_FROM and MERGED_FROM behavior under each scope. Ensure merge closure cannot traverse relations excluded by the selected scope.
+
+5. **Harden canonicalization.** `canonicalize` should accept strict `JsonValue` only and reject unsupported values. Build the descriptor-hash input explicitly from the eight §7.1 fields; do not rely on stripping extra properties or silently omitting `undefined`.
+
+6. **Define immutable ownership semantics.** Copy input data on record construction, recursively freeze plain objects/arrays, avoid exposing mutable Map/Set internals, and test that mutating the caller's original input after construction cannot mutate a stored record.
+
+7. **Replace the ambiguous `now` parameter with an explicit temporal evaluation context.** Preserve the distinctions among asserted_at, signed_at, ingested_at, assessed_at and decided_at. Do not introduce temporal rules not supported by the spec; record unresolved choices as ambiguities.
+
+8. **Improve result types where boolean is insufficient.** In particular, `SignatureVerifier` and KEY_LOST evaluation must distinguish invalid, unsupported, unavailable and policy-dependent outcomes where applicable.
+
+9. **Keep implementation mechanisms separate from normative semantics.** The in-memory ledger, default policies, selector grammar and pure-TS SHA-256 are implementation choices. Document their boundaries and versioning implications.
+
+Return the revised plan and an updated Ambiguities Register. Do not modify source code yet. In particular, do not resolve ambiguities by silently choosing a convenient implementation behavior. After the revised plan is reviewed, we can approve implementation.
+
+---
+
+Rev B is substantially improved. The previous review points are mostly reflected in explicit APIs and tests. However, I am not approving implementation yet. Please make one focused revision (Rev C) addressing the remaining issues below. Do not modify source code.
+
+**1. Clarify `unverified_claims` semantics.**
+
+The plan currently says that an unverified claim does not fail a requirement, but also says that a missing required claim produces `ERR_ASSURANCE_PREDICATE_UNSATISFIED`.
+
+Make the distinction explicit:
+- `unverified_claims` is not refutation and is not negative evidence.
+- It provides no positive support for satisfying `required_claims`.
+- If a required claim is not verified by applicable assessments, the requirement remains unsatisfied.
+- This does not establish a negative finding about the claim.
+
+Do not change the normative meaning of CORE-001.
+
+**2. Fix the temporal trust model.**
+
+`TemporalContext.observed.signed_at` is currently described as trusted only when an applicable trusted-time mechanism exists, but the interface carries no evidence or trust assessment.
+
+Do not invent a trusted-time mechanism. Either introduce an explicit input representing an externally assessed trusted-time result, or mark timestamp trust evaluation as an unresolved dependency and prevent the core from treating a caller-supplied timestamp as trusted merely because it is present.
+
+Keep timestamp selection (`basis`) separate from timestamp trust.
+
+**3. Resolve or block recursive merge-closure semantics.**
+
+The plan acknowledges that §8.6 does not clearly define the depth of closure recursion, but Task 10 pins recursive closure through a nested-merge test.
+
+Do not promote that interpretation into normative conformance merely by testing it.
+
+Either:
+- propose a minimal normative clarification to CORE-001 §8.6; or
+- mark nested-merge behavior BLOCKED, keep its test explicitly non-conformance/experimental, and exclude it from passing normative corpus coverage until clarified.
+
+Preserve the distinction between immediate merge closure and recursive merge closure.
+
+**4. Make the scope × merge-closure matrix internally consistent.**
+
+Task 11 says closure recursion is structurally impossible under narrower scopes, but also proposes a synthetic test for an excluded edge during closure.
+
+Clarify the intended behavior for:
+- a MERGED_FROM node on a path;
+- an origin that is itself a MERGED_FROM node;
+- a closure branch containing a relation excluded by the selected scope.
+
+Do not infer the answer from implementation convenience. Mark unresolved cases BLOCKED if CORE-001 does not define them.
+
+**5. Complete `evaluateBinding` dependencies.**
+
+Its current signature does not receive `Policy`, `TemporalContext`, or an explicit assurance requirement, although the orchestrator invokes functions requiring them.
+
+Revise the signature so every semantic dependency is explicit. No hidden global policy or implicit temporal context.
+
+**6. Verify B-4 error classification against §12.**
+
+The plan assigns `ERR_MERGE_BRANCH_UNSATISFIED` to a missing/disqualified assessment on `D→B`. Confirm whether that edge belongs to the selected candidate-to-origin path or to a closure-only branch.
+
+A failure on a path edge and a failure on an additional merge-closure branch must not be conflated. Use the exact B-4 fixture and normative section to justify the expected error code.
+
+**7. Harden the TypeScript ownership and canonicalization contracts.**
+
+- Introduce a recursive `DeepReadonly<T>` for public immutable record types; shallow `Readonly<T>` is insufficient.
+- Specify handling of accessor properties, symbol keys, non-standard prototypes, cyclic references, and invalid Unicode in canonicalization.
+- Preserve the strict JSON data model; never silently omit unsupported data.
+
+**8. Fix execution and task-order details.**
+
+- Specify how TypeScript tests are compiled before `node --test` on Node 20; do not add an unnecessary runtime loader.
+- Fix Task 10/11 ordering: Task 10 currently references a scope-matrix test file that Task 11 creates.
+- Ensure Task 17 checks the actual assertions and side effects of each corpus case, not merely the presence of test names.
+
+Return:
+1. Revised plan Rev C.
+2. Updated Ambiguities Register.
+3. A list of changes from Rev B.
+4. A short explicit list of semantics that remain BLOCKED and therefore cannot be claimed as conformant.
+
+Do not implement anything yet. We will review Rev C before authorizing Phase 1 implementation.
+
+---
+
+Rev C стала заметно сильнее Rev B. Видно, что вы не просто закрыли замечания, а попытались формализовать границы того, что реализация вправе утверждать. Особенно удачны три изменения:
+
+- Immediate vs recursive merge closure теперь разделены, а экспериментальные тесты не маскируются под conformance.
+- Timestamp selection vs timestamp trust выделены как разные вещи.
+- Три фазы traversal имеют самостоятельные контракты, а B-4 разбирается через конкретную структуру путей, а не через удобную реализационную эвристику.
+
+Но я бы пока не давал разрешение на реализацию. В Rev C есть несколько оставшихся проблем, и две из них — не косметика, а противоречия в семантике.
+
+## 1. Блокеры
+
+### 1.1. `trusted: false` ошибочно превращается в `TEMPORAL_TRUST_UNASSESSED`
+
+Это самая существенная проблема.
+
+Сейчас Global Constraint 10 говорит:
+
+> absent, NOT_ASSESSED, or trusted:false → trust-unresolved outcome
+
+Но эти три состояния не эквивалентны:
+
+| Состояние                  | Что известно                                     |
+| -------------------------- | ------------------------------------------------ |
+| Нет результата             | Доверие не оценивалось или результат недоступен  |
+| `NOT_ASSESSED`             | Явно зафиксировано отсутствие оценки             |
+| `ASSESSED, trusted: false` | Оценка проведена, timestamp признан недоверенным |
+| `ASSESSED, trusted: true`  | Timestamp признан доверенным                     |
+
+`trusted: false` — это не отсутствие оценки. Это отрицательный результат оценки.
+
+Если свести его к `TEMPORAL_TRUST_UNASSESSED`, система теряет важное различие между неизвестно и установлено, что доверять нельзя. Это противоречит общей эпистемической модели UIA, в которой отсутствие знания и отрицательное установление не должны сливаться.
+
+Предлагаю разделить результаты:
+
+```
+type TemporalTrustOutcome =
+  | { status: 'TRUSTED' }
+  | { status: 'UNTRUSTED'; assessment: AssessedTrustResult }
+  | { status: 'UNASSESSED' }
+  | { status: 'TRUST_ASSESSMENT_UNAVAILABLE' };
+```
+
+При этом не нужно заранее придумывать, что делать с каждым исходом на уровне всех операций. Достаточно сохранить различия в типах и передать локальной политике решение о допустимости.
+
+A-9 остаётся BLOCKED в части механизма оценки доверия. Но это не основание терять уже полученную информацию о результате оценки.
+
+### 1.2. `evaluateAssurance` всё ещё допускает рассогласование EdgeRef
+
+В интерфейсе:
+
+```
+function evaluateAssurance(
+  edgeRef: EdgeRef,
+  applicable: SSApplied,
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext
+): AssuranceResult;
+```
+
+И одновременно:
+
+```
+type SSApplied = {
+  edge: EdgeRef;
+  assessments: readonly DeepReadonly<ContinuityAssessment>[];
+  unresolved: boolean;
+};
+```
+
+Получается, что одна и та же функция получает два EdgeRef. Что произойдёт, если:
+
+```
+edgeRef = { child: 'A', parent: 'B', relation: 'CONTINUATION' }
+
+applicable.edge = {
+  child: 'X',
+  parent: 'Y',
+  relation: 'FORKED_FROM'
+}
+```
+
+Это не просто теоретический вопрос: именно против edge substitution мы вводили edge-bound assurance.
+
+Нужно выбрать один из двух контрактов:
+
+1. `evaluateAssurance` принимает только `ApplicableAssessments`, в котором EdgeRef уже связан с результатом, а объект создаётся исключительно через `assessEdge`.
+2. Функция принимает оба значения, но обязана проверить их полное структурное равенство и вернуть типизированную ошибку при несовпадении.
+
+Я предпочёл бы первый вариант: меньше возможностей для некорректного состояния.
+
+Есть ещё один связанный момент: `Policy.applicableAssessments` может вернуть произвольный список. Если это hook только для выбора применимых оценок, он должен иметь право сузить множество, но не расширить его за счёт assessment, относящегося к другому edge. Повторная проверка subject/relation/parent должна оставаться ответственностью core.
+
+### 1.3. Доверие к `signed_at` не должно обходиться через D-3
+
+В Rev C написано:
+
+> compromise-time logic uses revocation + local policy acceptance, not signed_at trust
+
+Но D-3 сравнивает:
+
+```
+signed_at = 100
+compromise_effective_at = 80
+```
+
+и ожидает:
+
+```
+historical signature = INVALID
+```
+
+Для такого вывода необходимо знать, что сравниваемое время подписи достоверно. Иначе можно получить математически корректное сравнение двух чисел, но не обоснованный исторический вывод.
+
+Здесь нельзя одновременно утверждать:
+
+- `signed_at` не доверен;
+- `signed_at` не нужен для определения исторической валидности;
+- подпись была сделана после момента компрометации.
+
+Это нужно развести.
+
+Предлагаю: D-3 даёт `INVALID` только при наличии достаточного основания доверять обоим временным значениям в рамках локальной политики. Если доверие к `signed_at` отсутствует, результат должен сохранять неопределённость, а не выдавать `INVALID`.
+
+Иначе новый temporal trust model сам себе противоречит.
+
+Дополнительно `AssessedTrustResult` должен быть привязан к конкретному timestamp: как минимум к его значению и типу (`SIGNED_AT` и т. п.). Сейчас результат доверия можно потенциально повторно применить после изменения значения timestamp. Для внешнего механизма оценки это опасный контракт.
+
+## 2. Важные замечания, которые стоит закрыть до реализации
+
+### 2.1. Error precedence — это уже семантика, а не просто механизм
+
+GC-18 устанавливает приоритет:
+
+```
+MERGE_BRANCH_UNSATISFIED
+    >
+ASSURANCE_PREDICATE_UNSATISFIED
+    >
+NO_TRAVERSAL_PATH
+```
+
+Обоснование через B-4 выглядит разумным. Но один fixture не обязательно задаёт полное правило для всех комбинаций ошибок.
+
+Например, что делать, если:
+
+- один путь завершился `CYCLE_DETECTED`;
+- другой — `ERR_ASSURANCE_PREDICATE_UNSATISFIED`;
+- третий — `ERR_MERGE_BRANCH_UNSATISFIED`?
+
+Или если один путь проходит validation, но не closure, а другой не проходит validation по совершенно другой причине?
+
+Я бы не расширял GC-18 самостоятельно. Но в `BindingResult` стоит сохранить все per-path outcomes, а top-level error считать отдельной агрегацией. Для комбинаций, не определённых B-4, A-8 должна оставаться открытой.
+
+И главное: нельзя называть полную таблицу приоритетов нормативной, если она выведена только из одного примера.
+
+### 2.2. Canonicalization: есть ещё один способ незаметно потерять данные
+
+Вы хорошо расширили список отклоняемых значений. Но в нём не вижу явного запрета на non-enumerable own string properties.
+
+Например:
+
+```
+const value = { a: 1 };
+
+Object.defineProperty(value, 'b', {
+  value: 2,
+  enumerable: false
+});
+```
+
+Обычная сериализация может пропустить `b`. Тогда объект содержит данные, которые не попали в hash, хотя вызывающий код мог считать их частью descriptor.
+
+Нужно явно решить: отклонять любые собственные string properties, которые не являются enumerable, или определить другой строгий контракт.
+
+Также проверьте аналогичную ситуацию с дополнительными свойствами массива: sparse arrays вы запретили, но нужно исключить незаметное игнорирование нестандартных own properties.
+
+### 2.3. B-5 должен быть именно conformance case
+
+В Coverage Map B-5 указан в `tests/unit/assessment.test.ts` и `b.test.ts`, но Task 8 описывает его как unit-level test, а Task 10 не включает B-5 в список corpus tests.
+
+Task 17 требует проверить все 18 кейсов A-1…D-4 на уровне конкретных assertions.
+
+Нужно, чтобы B-5 был явно оформлен как conformance-тест, а не просто похожий unit-тест. Иначе в отчёте можно случайно засчитать проверку механизма за проверку нормативного примера.
+
+### 2.4. Разделить нормативные error codes и локальные ошибки механизма
+
+GC-4 говорит, что error codes должны быть ровно перечисленными. Но Task 5 добавляет:
+
+```
+S_SELECTOR_INCOMPATIBLE_SCHEME
+```
+
+Это допустимо как локальная ошибка реализации, но её нельзя незаметно включать в `UiaErrorCode`.
+
+Я бы разделил:
+
+```
+type UiaErrorCode = /* только ошибки CORE-001 */;
+
+type ImplementationErrorCode =
+  | 'S_SELECTOR_INCOMPATIBLE_SCHEME'
+  | ...;
+```
+
+Или ввёл отдельное поле `kind: 'SPEC' | 'IMPLEMENTATION'`.
+
+Важно не смешивать нормативные состояния протокола с ошибками конкретной библиотеки.
+
+## 3. Что я считаю удачным и не стал бы менять
+
+Immediate closure. Вы правильно отказались объявлять recursive closure установленным фактом. §8.6 в приведённой вами формулировке говорит о непосредственных родительских рёбрах merge-узла. Это хорошее основание для текущей реализации, пока более глубокая семантика не согласована.
+
+Origin closure. A-11 корректно оставлена открытой. Не надо делать вид, что термин «проходит через» однозначно разрешает включение конечного узла.
+
+Unverified claims. Разделение A-4a и A-4b — правильное решение. Не следует смешивать отсутствие положительной поддержки с refutation. А сам predicate для `CONTESTED` действительно требует отдельного нормативного определения.
+
+Ownership. `DeepReadonly`, copy-on-construction и тесты на мутацию исходного объекта — правильная основа. Особенно важно, что это проверяется не только на типовом уровне, но и в runtime.
+
+B-4. Объяснение двойной роли `D→B` хорошее: одно ребро может быть path edge для одного пути и closure branch для другого. Сохранение обоих исходов в `perPath` — правильный подход.
+
+Отсутствие authority API. Это принципиальная граница. CORE-001 должен моделировать identity и lineage, а не создавать полномочия вследствие существования связей между версиями.
+
+## 4. Итоговый вердикт
+
+Rev C — условно одобрен по архитектуре, не одобрен к реализации
+
+| Область                  | Оценка                                   |
+| ------------------------ | ---------------------------------------- |
+| Архитектурное разделение | Хорошо                                   |
+| Lineage и traversal      | Хорошо, с оговорками                     |
+| Merge closure            | Аккуратно ограничено                     |
+| Assessment semantics     | Хорошо, edge binding требует исправления |
+| Temporal trust           | Есть семантическое противоречие          |
+| Canonicalization         | Почти готово                             |
+| Conformance strategy     | Хорошо, проверить B-5                    |
+| Границы CORE-001         | Хорошо                                   |
+
+Я бы отправил OpenCode ещё одну небольшую ревизию — Rev D. Не нужно переписывать план или снова менять архитектуру. Достаточно закрыть четыре обязательных пункта:
+
+1. Развести `UNASSESSED` и `ASSESSED_UNTRUSTED`.
+2. Устранить возможность рассогласования EdgeRef в `evaluateAssurance` и расширения применимых assessments через policy hook.
+3. Согласовать D-3 с обязательностью доверия к `signed_at`.
+4. Уточнить границы GC-18 и разделить normative errors от implementation errors.
+
+Плюс проверить canonicalization на non-enumerable properties и явно закрепить B-5 в conformance suite.
+
+Мой главный критерий здесь: реализация должна уметь сказать «не знаю», «оценка отрицательная» и «не могу проверить» — и не превращать одно в другое ради удобства API. Это касается и assessment, и temporal trust, и traversal. Если Rev D сохранит эти различия, я бы уже разрешил Phase 1 implementation.
+
+Могу сразу подготовить точный prompt для OpenCode на Rev D, чтобы он внёс только эти изменения, не трогая уже согласованные части.
+
+---
+
+# UIA-CORE-001 Rev D — Final Review Corrections
+
+Prepare **Rev E** of the implementation plan. This is a targeted correction pass, not an architectural redesign.
+
+Do not write or modify source code. Do not begin implementation.
+
+Address the following:
+
+1. **Make all four temporal trust input states representable.**
+   - The current `Partial<Record<TemporalBasis, AssessedTrustResult>>` cannot explicitly represent mechanism unavailability.
+   - Introduce a discriminated input type distinguishing `ASSESSED`, `NOT_ASSESSED`, and `UNAVAILABLE`.
+   - Define deterministic mapping from input states to `TRUSTED`, `UNTRUSTED`, `UNASSESSED`, and `TRUST_ASSESSMENT_UNAVAILABLE`.
+   - Preserve timestamp mismatch as unavailable, not unassessed.
+
+2. **Bind temporal trust assessments to the exact temporal assertion.**
+   - `basis + timestamp_value` is insufficient because different subjects can share the same timestamp.
+   - Add an explicit subject/reference binding.
+   - Ensure D-3 can assess both `signed_at` and `compromise_effective_at`, with the latter bound to its revocation record.
+   - Do not assume that the five standard timestamp kinds exhaust every timestamp-bearing field that may require external trust assessment.
+
+3. **Make ApplicableAssessments genuinely edge-bound.**
+   - A public structural object type does not enforce creation through `assessEdge`.
+   - Introduce an opaque/nominal brand or an equivalent construction and validation mechanism.
+   - Ensure callers cannot create a valid ApplicableAssessments through an ordinary object literal.
+   - Keep the existing policy-hook narrowing and core re-validation rules.
+
+4. Apply minor wording/contract corrections:
+   - B-5 must not describe `unverified_claims` as negative evidence or a negative finding.
+   - Clarify that `unknown` may be accepted at untrusted input boundaries but must be validated before entering the public domain model.
+   - Explicitly validate lone surrogates in object keys as well as string values.
+   - Separate formatting and formatting-check scripts.
+   - Bind D-3 compromise-time trust to the exact revocation record.
+
+5. Update the affected interfaces, tests, task descriptions, coverage map, and ambiguity register consistently.
+
+Constraints:
+- Preserve all Rev D architectural decisions.
+- Do not silently resolve any normative ambiguity.
+- Do not expand the implementation scope.
+- Keep recursive merge closure and origin-node closure BLOCKED.
+- Keep CORE-002/003/004 out of scope.
+- No source code changes.
+
+Deliver:
+- Complete Rev E plan.
+- A concise Rev D → Rev E change log.
+- A list of remaining BLOCKED semantics.
+- Explicit statement that no implementation has started.
+
+---
+
+# UIA-CORE-001 Rev E — Final Implementation Gate
+
+Rev E is architecturally approved. Do not produce another full plan revision. Before implementation, make the following targeted clarifications in the plan or explicitly record them as implementation constraints:
+
+1. **TemporalContext subject scope**
+   - Clarify whether one TemporalContext is scoped to exactly one `subject_ref`.
+   - If yes, add `subject_ref` to TemporalContext and require all trust assessments to match it.
+   - If no, define trust lookup by `(subject_ref, field)` so multiple subjects cannot collide within one context.
+   - Add a test with two subjects sharing the same timestamp value.
+
+2. **TemporalFieldRef validation**
+   - Add runtime validation for standard and extension field references.
+   - Standard fields must remain reserved well-known references.
+   - Reject empty or malformed extension references.
+   - Do not allow an extension to redefine a standard field's semantics.
+
+3. **ApplicableAssessments runtime brand**
+   - Keep the `unique symbol` module-private; do not export it through the public barrel.
+   - Create the runtime brand using a real symbol property (e.g. `Object.defineProperty`), not a type-only assertion.
+   - Validate the brand in `evaluateAssurance`.
+   - Deep-freeze the branded result.
+   - Test that a structurally identical object and an object with a forged ordinary string property are rejected.
+
+4. **B-5 trusted-assessor isolation**
+   - Explicitly assert that the untrusted assessment is excluded from the trusted applicable set.
+   - Assert that policy narrowing cannot reintroduce it.
+   - Assert that the trusted assessor's missing verified claim is the actual reason for UNSATISFIED.
+   - Assert that neither assessment is mutated.
+
+Also replace Global Constraint 17 with:
+
+"No public domain record or semantic result may expose unvalidated `unknown`. Boundary adapters MAY accept `unknown` and MUST validate it before domain construction. No exported API may use `any`."
+
+Do not change normative semantics, scope, task ordering, or the ambiguities register beyond these targeted clarifications.
+
+After these clarifications, begin implementation with **Task 1 only**. Do not execute all 17 tasks as one autonomous batch. Stop after Task 1, report the files changed, commands run, test results, and commit hash. Await approval before proceeding to Task 2.
+
+---
+
+давай только использовать bun вместо npm
+
+---
+
+# Task: Align UIA-CORE-001 Implementation Plan with Bun Runtime
+
+## Context
+
+We intentionally chose **Bun 1.4.x** as the runtime, package manager, and test runner for this project.
+
+The current implementation in `feat/core-001` uses:
+- Bun runtime
+- Bun package manager (`bun.lock`)
+- `bun:test`
+- TypeScript
+- ESM
+
+This is an intentional architectural choice, not an accidental deviation.
+
+The existing implementation plan at:
+
+`docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`
+
+still contains the previous Node.js-oriented execution contract (`node:test`, Node 20, compiled tests executed through `node --test`, etc.).
+
+Your task is to reconcile the implementation plan with the actual chosen stack.
+
+## Objectives
+
+### 1. Update the implementation plan
+
+Revise the plan to explicitly establish:
+
+- Bun 1.4.x as the target runtime.
+- Bun as the package manager.
+- `bun.lock` as the dependency lockfile.
+- `bun:test` as the test framework.
+- TypeScript strict mode.
+- ESM module semantics.
+- Exact dependency versions and reproducible installation.
+
+Remove obsolete requirements that mandate:
+- Node 20 as the target runtime.
+- `node:test`.
+- Running compiled tests through `node --test`.
+- Node-specific execution as the primary test contract.
+
+Do not introduce Node.js compatibility as a requirement unless it is explicitly justified by an existing project constraint.
+
+### 2. Preserve runtime-independent Core architecture
+
+Bun is the execution environment, not part of UIA's domain semantics.
+
+The `src/core/**` layer must remain independent of runtime-specific APIs.
+
+In particular:
+- No Bun-specific imports or APIs in `src/core/**`.
+- No Node-specific imports or APIs in `src/core/**`.
+- No filesystem, process, network, environment, or runtime-global dependencies in the Core domain layer.
+- Core must remain deterministic and testable through explicit inputs and outputs.
+- Runtime-specific functionality belongs in adapters or infrastructure layers, outside Core.
+
+Review the existing ESLint restrictions and TypeScript configuration. Strengthen them only where necessary to enforce these constraints.
+
+Do not overengineer a runtime abstraction layer.
+
+### 3. Validate the current scaffold
+
+Inspect the existing Task 1 implementation.
+
+Verify:
+- Bun version assumptions are explicit and consistent.
+- `package.json` scripts are coherent with Bun.
+- `bun.lock` matches `package.json`.
+- `bun:test` is used consistently.
+- TypeScript strict settings remain enabled.
+- ESM configuration is correct.
+- Core restrictions are enforced by lint/typecheck configuration.
+- Formatting and lint scripts work as intended.
+- No accidental Node-only assumptions remain in the plan or scaffold.
+
+Run the available validation commands, preferably:
+
+```bash
+bun --version
+bun install --frozen-lockfile
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+```
+
+If any command is missing or fails, report the exact reason. Do not silently weaken checks to make them pass.
+
+### 4. Preserve UIA architecture and Rev E decisions
+
+This task is strictly about the execution/toolchain contract.
+
+Do not change:
+- UIA domain semantics.
+- Evidence / Finding / Ruling / Execution Authorization distinctions.
+- Temporal trust model.
+- Subject-bound temporal trust assessments.
+- Runtime validation of `TemporalFieldRef`.
+- Runtime nominal brand for `ApplicableAssessments`.
+- B-5 adversarial test requirements.
+- Global Constraint 17.
+- Any other Rev E architectural constraints.
+
+Do not simplify, reinterpret, or remove requirements to make implementation easier.
+
+### 5. Scope and workflow
+
+This is a plan/scaffold alignment task only.
+
+- Do not start Task 2.
+- Do not implement Core domain types.
+- Do not introduce additional features.
+- Do not refactor unrelated files.
+- Keep changes minimal and focused.
+- If the current scaffold already satisfies the Bun contract, do not modify working code unnecessarily.
+
+## Deliverables
+
+1. Updated implementation plan reflecting Bun as the intentional runtime/toolchain.
+2. Short report describing:
+   - What was changed.
+   - What was already correct.
+   - Validation commands and their actual results.
+   - Any remaining risks or unresolved decisions.
+3. A clear statement confirming that Task 2 has not been started.
+
+## Acceptance criteria
+
+- The implementation plan no longer contradicts the chosen Bun stack.
+- Bun is explicitly documented as the target runtime and test environment.
+- Core remains free of Bun/Node runtime dependencies.
+- All existing Rev E architectural requirements remain intact.
+- Validation results are based on commands actually executed.
+- No Task 2 implementation has been started.
+
+Stop after completing this task and wait for approval.
+
+---
+
+I created PR: https://github.com/zaebee/federation-agents/pull/1
+Could you please read reviewer comments and remediate?
+use `gh`
+
+---
+
+remediate new comments: https://github.com/zaebee/federation-agents/pull/1#pullrequestreview-5718461786
+
+---
+
+remediate new comments: https://github.com/zaebee/federation-agents/pull/1#pullrequestreview-5718512268
+
+---
+
+merged
+---
+# UIA-CORE-001 — Execute Task 2: Error Model, Primitives & Ownership
+
+You are implementing **Task 2 only** from:
+
+`docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`
+
+Normative source: `docs/CORE-001.md` — UIA-CORE-001 Rev 0.3.3.
+
+Approved implementation plan: Rev E (0.3.3).
+
+## 0. Preconditions
+
+- Task 1 scaffold has been reviewed and approved.
+- Use the merged Task 1 state as the starting point.
+- Work on a dedicated implementation branch based on the current main branch.
+- Before editing, inspect the actual repository state, current commit, plan, scaffold, TypeScript configuration, ESLint configuration and existing tests.
+- Do not assume that the repository still matches an earlier snapshot.
+
+If the plan or repository state materially differs from the approved Rev E / Task 1 baseline, STOP and report the discrepancy before implementing.
+
+## 1. Scope — Task 2 only
+
+Create:
+
+- `src/core/errors.ts`
+- `src/core/primitives.ts`
+- `src/core/ownership.ts`
+
+Create tests:
+
+- `tests/unit/entities.test.ts`
+- `tests/unit/ownership.test.ts`
+
+Implement only the error model, primitive domain types, immutable ownership utilities and untrusted-input validation boundary.
+
+Do NOT implement Tasks 3+.
+
+In particular, do not implement:
+- canonicalization or RFC 8785 serialization;
+- SHA-256 or descriptor hashing;
+- domain entity constructors or the full entity model;
+- version schemes, selectors, credentials, lineage, assessments or traversal;
+- ledger, acceptance or runtime lifecycle;
+- any authority or grant-producing functionality.
+
+If a test requires a future module, use a minimal local test fixture. Do not pull future task implementation into this task.
+
+## 2. Error model — `errors.ts`
+
+Implement the types and structures required by Global Constraint 4.
+
+`UiaErrorCode` must contain exactly these eight normative codes:
+
+- `ERR_INVALID_RELATION`
+- `ERR_INVALID_CARDINALITY`
+- `ERR_NO_TRAVERSAL_PATH`
+- `ERR_MERGE_BRANCH_UNSATISFIED`
+- `ERR_ASSURANCE_PREDICATE_UNSATISFIED`
+- `ERR_AUTHORITY_BINDING_MISMATCH`
+- `CYCLE_DETECTED`
+- `PARENT_UNRESOLVED`
+
+Mechanism errors must be represented separately by `ImplementationErrorCode`.
+
+At minimum, include the mechanism codes already specified in the plan, including:
+
+- `S_SELECTOR_INCOMPATIBLE_SCHEME`
+- `E_APPLICABLE_ASSESSMENTS_UNBRANDED`
+
+Do not put mechanism codes in `UiaErrorCode`.
+
+Implement:
+- `Result<T>`;
+- `Failure` as the appropriate discriminated union;
+- normative vs mechanism failure separation;
+- `CanonicalizationError` as specified by the plan, without implementing canonicalization itself.
+
+The `Result` contract must support reliable TypeScript narrowing through its discriminant.
+
+Do not use bare `false`, `null` or thrown exceptions to represent semantic failures.
+
+Do not invent additional normative error codes or reinterpret the eight specified codes.
+
+## 3. Domain primitives — `primitives.ts`
+
+Implement the primitive types required by the plan:
+
+- branded identifiers;
+- `DomainID`;
+- `Timestamp`;
+- strict `JsonValue`;
+- `TemporalFieldRef`.
+
+Requirements:
+
+1. Follow the normative specification and the existing Rev E plan for representation and validation.
+2. Keep identifiers nominally distinct where the specification requires it. Do not replace branded types with interchangeable plain strings.
+3. Keep the public types strongly typed.
+4. Do not expose unvalidated `unknown` through any public domain type.
+5. Do not export `any` from any API.
+6. Preserve the distinction between the five standard temporal references and extension references.
+7. Do not silently normalize invalid input.
+
+For `TemporalFieldRef`, implement the Rev E runtime validation contract:
+
+- standard refs are reserved well-known references;
+- extension refs must match:
+
+  `^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$`
+
+- reject empty, malformed, whitespace-containing, control-character-containing and lone-surrogate references;
+- reject attempts to redefine or collide with standard refs;
+- report invalid extension refs as a mechanism failure with `E_TEMPORAL_FIELD_REF_INVALID`.
+
+Apply validation at the boundaries where a `TemporalFieldRef` is accepted.
+
+Do not assume the five standard timestamp fields exhaust all possible timestamp-bearing fields.
+
+## 4. Ownership and immutability — `ownership.ts`
+
+Implement:
+
+- `DeepReadonly<T>`;
+- structural deep copy;
+- recursive deep freeze;
+- validation/rejection of unsupported input structures;
+- an unknown-boundary validation helper.
+
+The ownership contract is defined by Global Constraint 5.
+
+### Deep copy
+
+A successful copy must:
+
+- be structurally equal to the input;
+- be reference-disjoint at every nested object/array level;
+- preserve supported primitive values;
+- never retain mutable references to caller-owned objects.
+
+### Deep freeze
+
+The copied structure must be recursively immutable.
+
+Freezing must apply to nested objects and arrays, not just the root object.
+
+### Reject unsupported structures
+
+Reject rather than silently convert:
+
+- function-valued properties;
+- symbol-keyed own properties;
+- accessor properties;
+- objects whose prototype is not `Object.prototype`;
+- cyclic inputs.
+
+Follow the plan's documented prototype policy. Do not silently add support for `Map`, `Set`, `Date`, class instances or null-prototype objects.
+
+Do not silently omit unsupported properties.
+
+### Unknown input boundary
+
+Implement the helper:
+
+`validateUnknown<T>(value: unknown, guard): Result<T>`
+
+This helper is the explicit boundary through which untrusted input may be validated before entering a domain record.
+
+Requirements:
+
+- invalid input must be rejected before domain construction;
+- validation must not cast arbitrary input into `T`;
+- domain constructors must not accept `unknown` directly;
+- no public record or semantic result may expose unvalidated `unknown`.
+
+Keep the guard contract strongly typed and make sure the returned value is actually validated.
+
+## 5. Test-first implementation
+
+Follow the task's prescribed sequence.
+
+First write failing tests. Then run them and confirm that they fail for the expected reasons. Implement the minimum required code. Run them again.
+
+Tests must cover:
+
+### Error model
+
+- all eight normative codes exist as literal discriminants of `UiaErrorCode`;
+- mechanism codes belong to `ImplementationErrorCode`;
+- mechanism codes cannot be assigned to `UiaErrorCode`;
+- `Result<T>` narrows correctly in a discriminant-based match;
+- normative and mechanism failures remain distinguishable.
+
+### Ownership
+
+- nested object copy is structurally equal;
+- every nested reference is disjoint from the original;
+- nested objects and arrays are frozen;
+- attempts to mutate the frozen copy fail or leave it unchanged, according to runtime semantics;
+- mutations to the original after copying do not affect the copy;
+- every rejection case listed above is tested.
+
+### Type-level guarantees
+
+- public record literals can be assigned to `DeepReadonly<Record>`;
+- readonly applies recursively to nested objects and arrays;
+- invalid assignments fail at compile time where expected.
+
+### Unknown boundary
+
+- valid input passes the supplied guard;
+- invalid input is rejected;
+- invalid input cannot reach domain construction;
+- no domain constructor accepts `unknown` directly;
+- no exported API uses `any`.
+
+Use `bun:test` and the repository's existing test conventions.
+
+Do not weaken tests merely to make implementation pass.
+
+## 6. Runtime and architecture constraints
+
+The project uses Bun 1.4.x, TypeScript 5, strict ESM and `bun:test`.
+
+Use the existing project scripts and lockfile.
+
+**Core runtime independence is mandatory:**
+
+`src/core/**` MUST NOT import or use:
+
+- `node:*`;
+- `bun:*`;
+- Bun or Node globals;
+- filesystem, process, network or environment APIs.
+
+Use only language/runtime-agnostic constructs and approved WHATWG types.
+
+Do not add runtime dependencies.
+
+Do not modify the package manager or migrate the project away from Bun.
+
+Do not weaken `tsconfig.core.json`, its `types: []` restriction, or the ESLint restrictions.
+
+## 7. Semantic invariants — non-negotiable
+
+Preserve all Global Constraints from Rev E.
+
+In particular:
+
+- identity lineage never implies authority inheritance;
+- no authority grant is created or implied by CORE-001;
+- no grant-producing API exists;
+- Evidence, Finding, Ruling and Execution Authorization remain distinct concepts;
+- no automatic revocation semantics are introduced;
+- no unvalidated `unknown` enters public domain records or semantic results;
+- implementation errors never masquerade as normative protocol states;
+- implementation mechanisms do not silently become protocol semantics.
+
+Do not resolve any BLOCKED ambiguity (A-4b, A-5, A-9, A-11).
+
+Do not modify the ambiguity register to make an implementation choice appear normative.
+
+## 8. Validation
+
+Run and report the actual output of:
+
+```bash
+bun --version
+bun install --frozen-lockfile
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+```
+
+Also verify that:
+
+- `bun.lock` was not modified;
+- package dependencies were not changed;
+- `src/core/**` remains free of Node/Bun runtime imports and globals;
+- `tsconfig.core.json` still enforces `types: []`.
+
+Do not claim a command passed unless it was actually executed.
+
+## 9. Commit
+
+When all tests and checks pass, create one focused commit:
+
+`feat(core): result model, strict primitives and immutable ownership boundary`
+
+Do not start Task 3.
+
+## 10. Final report
+
+Report:
+
+1. Files created or modified.
+2. Public API and exported types introduced.
+3. Exact normative and mechanism error-code separation.
+4. Primitive types and validation behavior.
+5. Ownership guarantees and rejection cases.
+6. Unknown-boundary validation design.
+7. Tests added and actual test results.
+8. Actual output/status of every validation command.
+9. Confirmation that lockfile and dependencies were not changed.
+10. Any deviations, unresolved questions or limitations.
+
+If an ambiguity in the plan or spec prevents a correct implementation, stop and report it rather than inventing semantics.
+
+**Stop after Task 2 and wait for explicit review and approval before Task 3.**
+
+---
+
+# UIA-CORE-001 Task 2 — Ownership Boundary Corrective Pass
+
+Review and fix the current implementation on `feat/task-2-error-primitives-ownership`.
+
+Do not start Task 3. Do not change the normative semantics of UIA-CORE-001 Rev 0.3.3 or expand the scope.
+
+The current implementation has several ownership and validation gaps. Fix them with focused changes and adversarial tests.
+
+## 1. `validateUnknown` must establish ownership
+
+Current behavior returns the caller-owned reference after guard validation.
+
+This is insufficient.
+
+Required behavior:
+- Run the supplied type guard.
+- Reject invalid input.
+- For accepted structured input, establish an owned copy before returning success.
+- Ensure subsequent mutations of the caller's original object cannot affect the returned value.
+- Apply the documented recursive immutability contract where appropriate.
+- Propagate ownership/copy failures as mechanism failures.
+- Do not use `as T` as a substitute for validation.
+- Do not execute accessors while validating or copying.
+
+Add tests proving that:
+- the returned object is not the original object;
+- nested references are disjoint;
+- mutations of the original after successful validation do not affect the result;
+- unsupported structures are rejected;
+- invalid input never becomes a successful domain value.
+
+If the intended API contract cannot support this behavior without changing the approved plan, stop and report the conflict instead of silently weakening the contract.
+
+## 2. Harden array handling in `deepCopy`
+
+Current implementation checks array keys but reads elements directly without validating property descriptors.
+
+Required:
+- Reject accessor elements without invoking getters.
+- Reject non-enumerable indexed properties.
+- Reject sparse arrays rather than silently converting holes to `undefined`.
+- Reject unexpected own properties and symbol properties.
+- Copy only validated data properties.
+- Preserve the documented array prototype policy.
+
+Add adversarial tests, including a getter with a side-effect counter. Assert the getter was never invoked.
+
+## 3. Harden `deepFreeze`
+
+The exported recursive function currently has no cycle protection.
+
+Either:
+- make recursive freezing cycle-safe; or
+- narrow the public API so only validated owned structures can reach the recursive freeze operation.
+
+Do not leave an exported function that can recurse indefinitely on cyclic input.
+
+Add a cycle test.
+
+## 4. Clarify strict JSON versus generic ownership copying
+
+`deepCopy` currently accepts `undefined`, and accepts non-finite numbers.
+
+Do not silently treat these as valid JSON.
+
+Keep generic ownership copying and strict JSON validation distinct if the specification requires both.
+
+Ensure:
+- `JsonValue` cannot contain `undefined`;
+- strict JSON validation rejects `NaN`, `Infinity` and `-Infinity`;
+- unsupported values are rejected explicitly;
+- no claim is made that a generic deep copy is automatically a valid JSON value.
+
+Do not implement Task 3 canonicalization.
+
+## 5. Freeze standard temporal references
+
+`STANDARD_TEMPORAL_FIELDS` is exported as a readonly TypeScript array but is not frozen at runtime.
+
+Make the runtime collection immutable and add a test proving consumers cannot mutate the standard reference set.
+
+Preserve all five standard values and the existing extension-reference validation rules.
+
+## 6. Strengthen type-level tests
+
+Add compile-time negative assertions for:
+- mutation of a nested `DeepReadonly` property;
+- mutation of an element in a nested readonly array;
+- assigning a mechanism error code to `UiaErrorCode`.
+
+Use the project's TypeScript conventions. Do not introduce `any` or weaken compiler options.
+
+## 7. Preserve existing constraints
+
+- Keep normative and mechanism error codes separate.
+- Keep all eight normative codes unchanged.
+- No public API may expose unvalidated `unknown`.
+- No exported API may use `any`.
+- No Node/Bun runtime dependencies in `src/core/**`.
+- Preserve `tsconfig.core.json` with `types: []`.
+- Do not add runtime dependencies.
+- Do not introduce authority grants or future-task functionality.
+- Do not modify the ambiguity register to justify implementation choices.
+
+## 8. Validation and report
+
+Run:
+```bash
+bun install --frozen-lockfile
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+```
+
+Report actual command outputs. Confirm `bun.lock` and dependencies remain unchanged.
+
+Commit the focused fix as:
+
+`fix(core): enforce ownership at untrusted boundaries`
+
+Stop after this corrective pass and wait for review. Do not start Task 3. 
+---
+also remediate comments: https://github.com/zaebee/federation-agents/pull/3#pullrequestreview-5718640425
+
+---
+
+remediate:
+-  https://github.com/zaebee/federation-agents/pull/3#pullrequestreview-5718725043
+- https://sonarcloud.io/project/issues?id=zaebee_federation-agents&pullRequest=3&issueStatuses=OPEN,CONFIRMED&sinceLeakPeriod=true
+
+---
+
+### Medium finding
+
+**Location:** `src/core/ownership.ts:129`
+
+For input such as `JSON.parse('{"__proto__":{"x":1}}')`, this assignment invokes the inherited prototype setter instead of copying an own property, silently losing the key and changing the output's prototype. The same defect exists in `validateJsonValue` at `src/core/ownership.ts:251`. Define own data properties explicitly so both helpers preserve valid JSON keys without changing the prototype. 
+---
+### Medium finding
+
+**Location:** `src/core/ownership.ts:129`
+
+`out[key] = r.value` on a fresh `{}` goes through the `Object.prototype.__proto__` setter when `key === '__proto__'`. Untrusted input from `JSON.parse('{"__proto__":{...}}')` has that as an own data key, so the copy gets its prototype replaced, the key disappears, and the result is no longer a plain object. The same pattern appears in `validateJsonValue` at line 251. Use `Object.defineProperty`, or reject the key explicitly. 
+---
+### Low finding
+
+**Location:** `src/core/ownership.ts:203`
+
+The file header says strict JSON validation must not be conflated with ownership copying, yet every `validateJsonValue` failure uses `E_OWNERSHIP_UNSUPPORTED`. Callers cannot tell a JSON-model violation from an ownership violation. Either add a dedicated code or drop the claim in the header. 
+---
+### Medium finding
+
+**Location:** `src/core/ownership.ts:247-252`
+
+The new `validateJsonValue` builds its output with `out[key] = r.value` on an ordinary `{}` literal. For untrusted JSON such as `JSON.parse('{"__proto__":{"isAdmin":true}}')`, this calls the `__proto__` setter instead of storing a data key. The "validated" JsonValue then has an attacker-chosen prototype: `out.isAdmin === true` is inherited, while `Object.keys(out)` is `[]`. This function is the strict JSON gate for spec-required JSON values. Its output can therefore carry inherited fields that downstream checks will read, and the key-based checks inside the function never inspected those fields. Reproduced at head. Build `out` with `Object.defineProperty`/`Object.fromEntries`, or reject the `__proto__` key. 
+---
+### Low finding
+
+**Location:** `src/core/primitives.ts:144`
+
+Two comments are leftover debris. Line 46 says JsonValue runtime enforcement lives in a future `canonical.ts`, but this Change already ships it as `validateJsonValue` in ownership.ts. The trailing `// (No re-export; MechanismFailure lives in errors.ts.)` describes an abandoned approach. Separately, `validateTemporalFieldRef` (and `validateUnknown`) build mechanism-failure objects by hand four times instead of calling the `mechanismFailure` helper this Change adds. 
+---
+### Low finding
+
+**Location:** `tests/unit/ownership.test.ts:252-280`
+
+The `validateJsonValue` tests only cover undefined, NaN/±Infinity and functions. None covers the sparse-array, accessor, extra-array-property, non-plain-prototype, symbol or cyclic rejection branches the function implements, so the two defects above go undetected. Separately, the 'frozen copy cannot be mutated' test computes `threw` and then throws it away with `void threw`, and 'validateUnknown rejects invalid input' is declared twice. 
+---
+
+---
+
+and return back .entire folder
+
+---
+
+Check failure on line R56
+Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+Check failure: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGOxP7XoYbKsR1GSnFM&open=AaGOxP7XoYbKsR1GSnFM&pullRequest=3 
+---
+Check failure on line R178
+Refactor this function to reduce its Cognitive Complexity from 44 to the 15 allowed.
+Check failure: Refactor this function to reduce its Cognitive Complexity from 44 to the 15 allowed.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGOxP7XoYbKsR1GSnFN&open=AaGOxP7XoYbKsR1GSnFN&pullRequest=3 
+---
+Check warning on line R77
+Use a regular expression literal instead of the 'RegExp' constructor.
+Check warning: Use a regular expression literal instead of the 'RegExp' constructor.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGOxP8eoYbKsR1GSnFO&open=AaGOxP8eoYbKsR1GSnFO&pullRequest=3
+
+---
+
+Check warning on line R141
+`String.raw` should be used to avoid escaping `\`.
+Check warning: `String.raw` should be used to avoid escaping `\`.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGOoao6K4I7DtHszjrq&open=AaGOoao6K4I7DtHszjrq&pullRequest=3
+
+---
+
+merged.
+---
+# Task 3 — Canonicalization and SHA-256
+
+You are implementing **Task 3** of the UIA-CORE-001 specification in the `zaebee/federation-agents` repository.
+
+## 0. Mandatory context — read before coding
+
+First inspect the current repository state and read:
+
+1. `docs/CORE-001.md` — normative specification, UIA-CORE-001 Rev 0.3.3.
+2. `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md` — approved implementation plan, Rev E (0.3.3).
+3. Existing implementations:
+   - `src/core/errors.ts`
+   - `src/core/primitives.ts`
+   - `src/core/ownership.ts`
+   - `src/core/index.ts`
+   - `src/index.ts`
+4. Existing tests and package configuration.
+
+Treat the specification and approved plan as authoritative. Do not silently reinterpret normative requirements or resolve blocked ambiguities through implementation choices.
+
+The previous Task 2 is complete. Preserve its API and behavior unless a change is strictly required by the specification. If a change is necessary, explain why and keep it minimal.
+
+## 1. Scope
+
+Implement only:
+
+- `src/core/canonical.ts`
+- `src/core/sha256.ts`
+- `tests/unit/canonical.test.ts`
+- `tests/unit/sha256.test.ts`
+
+Update public exports only where necessary.
+
+Do not implement Task 4 or any later task.
+
+In particular, do NOT implement:
+- descriptor hashing;
+- entity construction;
+- identity or authority semantics;
+- event envelopes;
+- provenance resolution;
+- graph traversal;
+- assurance evaluation;
+- rulings or execution authorization;
+- any grant-producing API.
+
+## 2. Runtime and architectural constraints
+
+Preserve all existing project constraints:
+
+- Bun 1.4.x is the package manager, runtime and test runner.
+- TypeScript strict mode, ESM, NodeNext.
+- Core must remain runtime-independent.
+- No Node.js APIs or imports.
+- No Bun APIs or imports inside Core.
+- No filesystem, process, network, environment or runtime-specific APIs inside Core.
+- No runtime dependencies.
+- No `any` in exported APIs.
+- No unvalidated `unknown` in public domain records or semantic results.
+- Do not modify the lockfile or dependencies.
+- Keep the implementation compatible with the existing `tsconfig.core.json` configuration (`types: []`).
+
+Use standard ECMAScript language features and typed arrays where appropriate.
+
+## 3. Canonicalization — RFC 8785 JCS
+
+Implement deterministic JSON canonicalization according to **RFC 8785 (JSON Canonicalization Scheme)**.
+
+This is not merely `JSON.stringify` with sorted keys.
+
+The implementation must conform to RFC 8785 semantics, including:
+
+### Object property ordering
+
+- Sort object property names according to UTF-16 code unit ordering.
+- Do not use locale-sensitive comparison.
+- Apply the same ordering recursively to nested objects.
+- Preserve the RFC's exact ordering semantics for supplementary Unicode characters.
+
+### String serialization
+
+Follow ECMAScript-compatible JSON string serialization required by JCS:
+
+- Correct quote and backslash escaping.
+- Correct escaping of control characters.
+- Correct handling of U+2028 and U+2029 according to JCS/ECMAScript behavior.
+- Do not introduce unnecessary escaping.
+- Reject invalid Unicode strings containing lone surrogates.
+- Validate object property names as well as string values.
+
+### Number serialization
+
+Use the ECMAScript number serialization behavior required by RFC 8785.
+
+Pay particular attention to:
+
+- `-0`;
+- exponent notation;
+- positive and negative exponents;
+- exponent thresholds;
+- rounding behavior;
+- large and small finite IEEE-754 numbers.
+
+Do not implement an approximate custom floating-point formatter.
+
+Do not assume that sorting keys and calling `JSON.stringify` on each value is sufficient without validating the complete input first.
+
+### Input validation
+
+Canonicalization must reject values that are not valid JCS-compatible JSON inputs.
+
+At minimum, explicitly test and reject:
+
+- `undefined` (including top-level and object-property values);
+- `NaN`;
+- `Infinity` and `-Infinity`;
+- `BigInt`;
+- functions;
+- symbols;
+- symbol-keyed properties;
+- accessor properties (getters/setters);
+- non-enumerable own string properties;
+- sparse arrays;
+- arrays with extra own properties;
+- cyclic structures;
+- unsupported object prototypes;
+- `Date`, `Map`, `Set`, class instances and null-prototype objects;
+- lone surrogates in property names and string values.
+
+Do not silently omit unsupported properties or coerce unsupported values.
+
+### Deterministic errors
+
+Use the existing `CanonicalizationError` abstraction from `errors.ts`.
+
+Invalid input must produce a deterministic canonicalization failure, not:
+- silent data loss;
+- accidental coercion;
+- an arbitrary native exception;
+- an uncontrolled `RangeError` caused by recursion depth or cyclic serialization.
+
+Use a cycle-detection strategy that distinguishes an actual cycle from a repeated but non-cyclic reference, if shared references are otherwise valid under the specification.
+
+Do not mutate the input.
+
+### Validation before serialization
+
+Prefer a clearly separated validation/preparation pass before serialization.
+
+The serializer should operate only on validated input.
+
+Do not invoke getters while inspecting input. Inspect own property descriptors instead.
+
+Use the existing ownership utilities where appropriate, but do not introduce unnecessary copying or change their public contract without justification.
+
+## 4. SHA-256 implementation
+
+Implement SHA-256 in `src/core/sha256.ts`.
+
+Requirements:
+
+- Pure TypeScript implementation.
+- No Node.js `crypto` module.
+- No Bun APIs.
+- No Web Crypto dependency.
+- No runtime dependencies.
+- Accept UTF-8 bytes as input.
+- Return a deterministic SHA-256 digest in a clearly documented representation.
+- Use correct SHA-256 padding, message schedule, compression rounds and 32-bit arithmetic.
+- Handle input lengths and padding correctly.
+- Avoid accidental signed-integer or overflow errors in JavaScript bitwise operations.
+- Do not use platform-specific APIs.
+
+The module should expose the smallest useful API needed by canonicalization and subsequent tasks.
+
+If the specification or approved plan defines an exact API or digest representation, follow it rather than inventing a new one.
+
+Document whether the public digest representation is hexadecimal, bytes, or another specified form.
+
+## 5. Canonicalization + SHA-256 integration
+
+Provide a small, well-defined API that allows a validated JSON-compatible value to be canonicalized and its UTF-8 representation hashed.
+
+Do not implement descriptor hashing (Task 4).
+
+Keep these concepts separate:
+
+1. validation of input;
+2. canonical JSON string generation;
+3. UTF-8 encoding;
+4. SHA-256 digest calculation.
+
+Avoid coupling the canonicalization module to future entity or descriptor types.
+
+## 6. Required test coverage
+
+Write tests first where practical. Tests must be deterministic and runnable under `bun test`.
+
+### A. RFC 8785 canonicalization vectors
+
+Use official RFC 8785 examples and test vectors wherever applicable.
+
+Cover:
+
+- simple primitives;
+- nested objects;
+- arrays;
+- recursively sorted keys;
+- UTF-16 key ordering;
+- strings with quotes, backslashes and control characters;
+- Unicode strings;
+- U+2028 and U+2029;
+- supplementary Unicode characters;
+- numeric edge cases;
+- empty arrays and objects.
+
+Include the RFC number examples, especially:
+
+- `333333333.33333329`;
+- `1E+30`;
+- `4.50`;
+- `2e-3`;
+- `0.000000000000000000000000001`;
+- `-0`;
+- `1e-6`;
+- values around the exponent-notation boundaries.
+
+Where relevant, compare against the exact canonical output specified by RFC 8785.
+
+### B. Invalid-input tests
+
+For every rejection category in Section 3, add a test proving that canonicalization rejects it.
+
+Important test details:
+
+- A getter must not be invoked.
+- A sparse array must not be silently converted into an array containing `null`.
+- Extra array properties must not be ignored.
+- Symbol keys must not disappear silently.
+- Cyclic inputs must fail deterministically.
+- Repeated non-cyclic references must be tested separately.
+- Lone surrogates must be rejected both in keys and values.
+- Inputs must remain unchanged after success or failure.
+
+### C. Canonicalization invariants
+
+Test:
+
+- Same logical JSON value produces the same canonical string regardless of insertion order.
+- Canonicalization does not mutate the original input.
+- Canonical output is deterministic across repeated calls.
+- Nested object ordering is deterministic.
+- Invalid inputs never produce partial canonical output.
+
+### D. SHA-256 vectors
+
+Use standard SHA-256 known-answer test vectors.
+
+At minimum include:
+
+- empty input;
+- `"abc"`;
+- `"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"`;
+- a message spanning multiple 512-bit blocks;
+- a sufficiently large input to exercise multi-block processing and padding boundaries.
+
+Verify the exact digest bytes or hexadecimal strings against published SHA-256 test vectors.
+
+Test padding boundaries around:
+
+- 55 bytes;
+- 56 bytes;
+- 63 bytes;
+- 64 bytes;
+- 65 bytes.
+
+### E. Integration tests
+
+Verify that:
+
+- canonicalizing the same JSON value produces the same SHA-256 digest;
+- different canonical JSON strings produce different expected digests for known test fixtures;
+- UTF-8 encoding is correct for non-ASCII strings;
+- the hash function operates on bytes, not JavaScript UTF-16 code units.
+
+Do not claim cryptographic collision resistance based on these tests. They verify implementation correctness against known-answer vectors.
+
+## 7. Type safety and API design
+
+- Keep public types explicit.
+- Do not export `any`.
+- Do not expose unvalidated `unknown` as a domain result.
+- Use the existing `Result<T>` / `Failure` conventions where they apply.
+- Preserve the distinction between normative specification failures and mechanism-level failures.
+- Do not add new normative error codes unless the specification explicitly requires them.
+- Keep `CanonicalizationError` consistent with Task 2.
+- Add compile-time tests for relevant public type contracts where useful.
+
+If the current specification does not define a detail necessary for implementation, do not silently invent normative semantics. Identify the ambiguity and stop for clarification if it materially affects correctness.
+
+## 8. Code quality
+
+- Prefer small, auditable functions.
+- Avoid clever bitwise abstractions that make SHA-256 difficult to review.
+- Add comments for non-obvious RFC or cryptographic requirements.
+- Avoid unnecessary abstractions and premature generalization.
+- Do not duplicate existing validation logic without a reason.
+- Do not weaken or bypass existing lint/type checks.
+- Do not change unrelated files or formatting configuration.
+
+## 9. Validation commands
+
+Run these commands on the final Task 3 working tree:
+
+```bash
+bun --version
+bun install --frozen-lockfile
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+```
+
+If any command fails:
+
+- report the exact command;
+- include the relevant error output;
+- explain whether the failure is caused by this task or pre-existing state;
+- do not claim the task is complete.
+
+Also verify:
+
+- `bun.lock` is unchanged;
+- `package.json` dependencies are unchanged;
+- no Node.js or Bun runtime imports have entered Core;
+- no Task 4+ implementation has been added;
+- the public exports are minimal and intentional.
+
+## 10. Git and completion boundary
+
+Work on a dedicated branch:
+
+`feat/task-3-canonicalization-sha256`
+
+Before committing, inspect the complete diff.
+
+Commit with:
+
+`feat(core): add RFC 8785 canonicalization and SHA-256`
+
+Do not merge the branch.
+
+Do not begin Task 4.
+
+## 11. Final report
+
+When finished, provide:
+
+1. Summary of implemented functionality.
+2. Files added or changed.
+3. Public API introduced.
+4. RFC 8785 conformance coverage and any deviations.
+5. SHA-256 known-answer vectors tested.
+6. Exact validation command results.
+7. Confirmation that dependencies and `bun.lock` were not changed.
+8. Confirmation that no Task 4+ code was introduced.
+9. Commit SHA.
+10. Any unresolved ambiguity, limitation or concern.
+
+**Stop after Task 3. Wait for review and explicit approval before starting Task 4.**
+
+The goal is not merely to make tests pass. The goal is to implement a small, deterministic, auditable canonicalization and hashing foundation that can be independently reviewed against UIA-CORE-001 Rev 0.3.3.
