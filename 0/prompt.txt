@@ -1,0 +1,5 @@
+да
+
+---
+
+давай набросаем драфты ARCHITECTURE.md, затем сделал THREAT-MODEL.md и ROADMAP.md в конце - я закину на ревью
