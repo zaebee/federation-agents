@@ -1,0 +1,366 @@
+давай сделаем авто отправку?
+
+---
+
+да
+
+---
+
+давай Task 4? вот у меня такая постановка от chatgpt:
+---
+# Task 4 — Descriptor Hash with Explicit §7.1 Projection
+
+You are implementing **Task 4** of the approved UIA-CORE-001 implementation plan.
+
+Repository: `zaebee/federation-agents`
+
+Normative specification: `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3  
+Approved implementation plan: `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`, Rev E.
+
+Task 3 (RFC 8785 canonicalization + pure TypeScript SHA-256) has been merged. Work on top of the current default branch. Inspect the actual repository state before making changes.
+
+## 1. First: read the normative sources
+
+Read these sections in full:
+
+- `docs/CORE-001.md` §3.2 — `IdentityVersionDescriptor`
+- `docs/CORE-001.md` §4.2 — `CredentialDescriptor`
+- `docs/CORE-001.md` §7.1 — Hashing Scope
+- `docs/CORE-001.md` §7.2 — Canonicalization Algorithm
+- Global Constraints in the approved implementation plan
+- Task 4 in the approved implementation plan
+
+Do not infer or expand the normative hashing scope from implementation convenience.
+
+## 2. Task scope
+
+**Create:**
+- `src/core/hashing.ts`
+
+**Extend only where necessary:**
+- `src/core/entities.ts` or the existing descriptor type definitions, if present.
+- `src/core/index.ts` for public exports.
+- `tests/unit/hashing.test.ts`
+
+Before editing, inspect the current source tree. The implementation plan separates descriptor hashing from the full entity/lineage implementation in Task 6. Do not implement Task 6 prematurely.
+
+If the required descriptor types or validation boundary do not yet exist, implement only the minimum Task 4-level types/validation needed to establish the hashing contract. Do not introduce Registry, LineageGraph, lineage validation, or other later-task functionality.
+
+## 3. Normative projection — exactly eight fields
+
+Per CORE-001 §7.1, the hash input MUST contain exactly these eight fields:
+
+1. `id`
+2. `participant_id`
+3. `version_label`
+4. `version_scheme`
+5. `declared_protocols`
+6. `public_credentials`
+7. `lineage`
+8. `published_at`
+
+Implement an explicit projection function:
+
+```ts
+function descriptorHashInput(
+  d: DeepReadonly<IdentityVersionDescriptor>
+): JsonValue;
+```
+
+The projection MUST construct a new object containing exactly those eight properties.
+
+Requirements:
+
+- Do not spread the descriptor (`{ ...d }`).
+- Do not serialize the entire descriptor.
+- Do not include dynamically discovered keys.
+- Do not include transport or runtime metadata.
+- Do not silently omit any of the eight normative fields.
+- Do not normalize, reinterpret, reorder, or otherwise semantically transform field values beyond what RFC 8785 canonicalization requires.
+- Nested values (`public_credentials`, `lineage`) must be represented according to their declared descriptor structures, not replaced with IDs or summaries.
+
+The projection must be explicit and reviewable.
+
+## 4. Hash API
+
+Implement:
+
+```ts
+function descriptorHashInput(
+  d: DeepReadonly<IdentityVersionDescriptor>
+): JsonValue;
+
+function descriptorHash(
+  d: DeepReadonly<IdentityVersionDescriptor>
+): `urn:hash:sha256:${string}`;
+```
+
+`descriptorHash` MUST:
+
+1. Call `descriptorHashInput(d)`.
+2. Canonicalize the resulting projection using Task 3's `canonicalize`.
+3. Encode the canonical string as UTF-8.
+4. Hash those bytes using Task 3's `sha256Hex`.
+5. Return exactly:
+
+```text
+urn:hash:sha256:<64 lowercase hexadecimal characters>
+```
+
+Reuse the existing Task 3 implementation. Do not implement another canonicalizer, UTF-8 encoder, or SHA-256 implementation.
+
+No Node.js, Bun, Web Crypto, or external runtime crypto APIs.
+
+No runtime dependencies.
+
+## 5. Optional fields and invalid descriptors
+
+The descriptor structures include optional fields in nested records, for example:
+
+- `CredentialDescriptor.not_after`
+- `CredentialDescriptor.revocation_endpoint_ref`
+
+A property that is present with the value `undefined` MUST NOT be silently treated as an absent optional property.
+
+Follow the approved plan's requirement:
+
+> present-`undefined` optional fields rejected at descriptor validation.
+
+Inspect the existing descriptor construction/validation boundary and enforce this there. Do not silently omit invalid properties in `descriptorHashInput`.
+
+If the descriptor validation boundary is not yet implemented, add only the smallest appropriate validation needed for this requirement. Do not implement the complete Task 6 structural validation system.
+
+Preserve the distinction between:
+- an optional property that is absent;
+- an optional property explicitly present with `undefined`.
+
+The latter is invalid.
+
+## 6. Required tests
+
+Create `tests/unit/hashing.test.ts`.
+
+Tests MUST cover all of the following.
+
+### A. Exact projection key set
+
+Assert that `descriptorHashInput()` returns exactly the eight §7.1 keys.
+
+Assert both:
+- no required key is missing;
+- no additional key is present.
+
+This test is particularly important: it must fail if someone later replaces the explicit projection with whole-object serialization or object spreading.
+
+### B. Optional undefined rejection
+
+Construct a descriptor with an optional nested field explicitly present as `undefined`.
+
+Assert that descriptor validation rejects it.
+
+Also verify that the same optional property being absent is valid, assuming the remaining descriptor data is valid.
+
+### C. Construction key-order independence
+
+Construct logically identical descriptors with different property insertion orders.
+
+Assert that their descriptor hashes are identical.
+
+This must rely on the existing RFC 8785 canonicalization implementation, not on manually sorting descriptor fields in the hashing module.
+
+### D. Excluded metadata does not affect the hash
+
+Verify that adding or changing metadata outside the normative §7.1 projection does not change the hash.
+
+Cover representative categories:
+
+- transport Envelope metadata;
+- external message signatures;
+- delivery metadata;
+- local Ledger metadata;
+- subsequent Assessment records;
+- Credential Revocation records;
+- Local Acceptance records;
+- lifecycle metadata.
+
+These values are explicitly excluded by §7.1.
+
+The test should demonstrate that the hashing function only sees the explicit descriptor projection. Do not accidentally expand the hash input to wrapper objects.
+
+### E. Every hashed field affects the hash
+
+For each of the eight normative fields, independently mutate its value while keeping the other seven unchanged.
+
+Assert that the resulting hash changes.
+
+Include nested mutations within:
+- `public_credentials`;
+- `lineage`.
+
+Do not test only top-level field replacement.
+
+### F. Hash identifier format
+
+Assert that the result matches:
+
+```regex
+^urn:hash:sha256:[0-9a-f]{64}$
+```
+
+### G. Determinism
+
+Repeated calls with the same descriptor must produce the same hash.
+
+The hash must not depend on object construction order or unrelated metadata.
+
+## 7. Architectural constraints
+
+Preserve all existing UIA invariants and implementation constraints:
+
+- No public API may expose unvalidated `unknown`.
+- No exported API may use `any`.
+- Preserve strict TypeScript settings.
+- Preserve the existing `DeepReadonly<T>` ownership model.
+- Do not mutate the supplied descriptor.
+- Do not introduce authority semantics.
+- Do not introduce automatic revocation or acceptance behavior.
+- Do not add a grant-producing API.
+- Do not collapse normative failures and mechanism failures.
+- Do not change the meaning of the eight normative fields.
+- Do not modify Task 3 canonicalization or SHA-256 behavior unless a concrete defect is found. If a defect is found, report it separately rather than silently broadening Task 4.
+
+Keep the Core portable:
+- no Node.js APIs;
+- no Bun APIs in Core;
+- no Web Crypto;
+- no filesystem, process, network, or environment access;
+- no new runtime dependencies.
+
+Do not modify `bun.lock` unless a concrete dependency change is strictly necessary. No dependency change is expected.
+
+## 8. Explicitly out of scope
+
+Do NOT implement:
+
+- Task 5 version schemes or selectors;
+- Task 6 Registry or full structural validation;
+- Task 7 lineage graph;
+- Task 8 assessments;
+- Task 9–15 functionality;
+- transport Envelope hashing;
+- generic arbitrary-object hashing API;
+- credential signature verification;
+- authority or capability logic.
+
+Do not resolve any BLOCKED ambiguity from the plan.
+
+## 9. Workflow
+
+Follow the test-first workflow:
+
+1. Inspect the current repository and existing Task 2/3 APIs.
+2. Write `tests/unit/hashing.test.ts`.
+3. Run the new tests and confirm they fail for the expected missing functionality.
+4. Implement the explicit projection and descriptor hash.
+5. Run the full test suite.
+6. Run:
+
+```bash
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+```
+
+7. Inspect the final diff:
+   - only Task 4 files changed;
+   - no accidental changes to Task 3;
+   - no dependency or lockfile changes;
+   - no unrelated configuration changes;
+   - no accidental public API expansion.
+
+If a required test cannot be implemented without pulling in a later task, stop and explain the dependency rather than implementing that later task implicitly.
+
+## 10. Commit and stop
+
+Commit:
+
+```text
+feat(core): descriptor hash with explicit section-7 projection
+```
+
+Do not merge the branch.
+
+Do not start Task 5.
+
+At the end, provide a concise implementation report:
+
+1. Files changed.
+2. Public APIs added.
+3. Exact eight-field projection.
+4. Tests added and their coverage.
+5. Commands executed and actual results.
+6. Any deviations from the approved plan.
+7. Any unresolved issues or dependencies.
+8. Commit SHA.
+
+**Stop after Task 4. Wait for code review before proceeding.**
+
+---
+
+Подтверждаю все три решения. План агента корректный, и я бы зафиксировал его именно так.
+
+### 1. Вложенная проекция — вариант Б
+
+Явный whitelist для `public_credentials` и `lineage`.
+
+Причина: §7.1 включает эти поля целиком, но это не означает, что хеширование должно принимать любые дополнительные свойства вложенных объектов.
+
+- Явно перечислить поля `CredentialDescriptor`.
+- Явно перечислить поля `LineageLink`.
+- Не использовать spread и динамическое перечисление ключей.
+- Неизвестные свойства не должны незаметно влиять на хеш.
+
+Важная оговорка: whitelist проекции не заменяет валидацию. Неизвестные поля должны отклоняться на границе дескриптора, а не просто исчезать при проекции. Иначе можно получить ситуацию, когда валидатор принимает один объект, а хеш отражает только его часть.
+
+### 2. Область валидатора — вариант А
+
+Минимальный `validateIdentityVersionDescriptor` в `entities.ts`.
+
+Сейчас это оправданная минимальная зависимость Task 4 от будущего Task 6.
+
+Валидатор должен:
+
+- проверять strict JSON через существующий `validateJsonValue`;
+- проверять форму обязательных полей и типы значений;
+- проверять допустимость optional-полей, включая запрет present-`undefined`;
+- отклонять неизвестные поля;
+- возвращать собственную глубокую копию, защищённую от последующей мутации.
+
+При этом не проверять:
+
+- cardinality lineage;
+- количество родителей для `CONTINUATION`;
+- семантическую корректность связей;
+- формат и содержимое `CONTENT_HASH`;
+- другие правила, относящиеся к Task 5/6.
+
+То есть структурная валидность дескриптора — да; нормативная валидность lineage — пока нет.
+
+### 3. `present-undefined` — `CanonicalizationError`
+
+Тоже подтверждаю.
+
+`descriptorHashInput()` должен бросать `CanonicalizationError`, если невалидный объект каким-либо образом прошёл мимо предусмотренной валидации. Никакого молчаливого пропуска поля.
+
+`descriptorHash()` сохраняет строковую сигнатуру из плана. Не вводим `Result` и не смешиваем механизм ошибки с нормативным решением.
+
+### Дополнительные решения — принимаю
+
+- `VersionScheme` — string union, не enum.
+- `Timestamp` — брендированный number, в JSON-проекции обычное числовое значение.
+- `DeepReadonly<Timestamp>` сохраняет брендированный тип.
+- Типы и валидатор экспортируются из `src/core/index.ts`.
+- `entities.ts` сейчас содержит только минимальный срез типов и валидации для Task 4. Полная реализация остаётся Task 6.
+
+Ещё одно требование я бы добавил агенту: тесты на неизвестные поля как в корневом дескрипторе, так и во вложенных `CredentialDescriptor` и `LineageLink`. Проверить, что они отклоняются валидатором, а не просто исключаются из хеша.
