@@ -1,0 +1,33 @@
+{
+  "name": "uia-core-001-refimpl",
+  "version": "0.1.0",
+  "description": "Reference implementation of UIA-CORE-001 Rev 0.3.3 (identity, credentials, lineage, assessments, conditional version binding, local acceptance).",
+  "type": "module",
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "default": "./build/index.js"
+    }
+  },
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "bun test",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.core.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/bun": "1.4.4",
+    "@types/node": "22.20.5",
+    "eslint": "9.39.5",
+    "fast-check": "3.23.2",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1"
+  }
+}
