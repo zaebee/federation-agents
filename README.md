@@ -162,6 +162,9 @@ Runtime dependencies: none.
 | `README.md`                                                                             | What is this project and why does it exist?                                |
 | `docs/PRD.md`                                                                           | What problem are we solving, for whom, and what should the project become? |
 | `docs/CORE-001.md`                                                                      | Which semantic and technical contracts are implemented?                    |
+| `docs/ARCHITECTURE.md`                                                                  | How is the implementation structured, and where are its boundaries?        |
+| `docs/THREAT-MODEL.md`                                                                  | What do we protect, from whom, and what remains unmitigated?               |
+| `docs/ROADMAP.md`                                                                       | In what order do the protocol and the implementation develop?              |
 | [Implementation plan](docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md) | Which implementation tasks remain?                                         |
 
 The normative specification and implementation are deliberately kept separate.
