@@ -48,7 +48,7 @@ test('sha256: cross-check against node:crypto (all boundary sizes)', async () =>
 test('sha256: sha256Bytes returns 32 bytes', () => {
   const b = sha256Bytes(enc.encode('abc'));
   expect(b).toBeInstanceOf(Uint8Array);
-  expect(b.length).toBe(32);
+  expect(b).toHaveLength(32);
   // matches hex
   let hex = '';
   for (const byte of b) hex += byte.toString(16).padStart(2, '0');

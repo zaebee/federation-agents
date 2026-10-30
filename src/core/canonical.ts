@@ -36,7 +36,7 @@ function serialize(value: unknown): string {
     return '[' + value.map(serialize).join(',') + ']';
   }
   if (typeof value === 'object' && value !== null) {
-    const keys = Object.keys(value).sort();
+    const keys = Object.keys(value).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     return (
       '{' + keys.map((k) => JSON.stringify(k) + ':' + serialize((value as Record<string, unknown>)[k])).join(',') + '}'
     );
