@@ -2,3 +2,5 @@
 // Populated incrementally as tasks land. No `any`/`unknown` may be exported unvalidated.
 
 export const UIA_CORE_001_REVISION = '0.3.3' as const;
+
+export * from './core/index.js';
