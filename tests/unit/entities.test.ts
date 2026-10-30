@@ -24,7 +24,7 @@ const NORMATIVE_CODES: readonly UiaErrorCode[] = [
 ];
 
 test('error model: all eight normative codes are assignable to UiaErrorCode', () => {
-  expect(NORMATIVE_CODES.length).toBe(8);
+  expect(NORMATIVE_CODES).toHaveLength(8);
   for (const code of NORMATIVE_CODES) {
     const f: SpecFailure = specFailure(code, 'msg');
     expect(f.kind).toBe('SPEC');

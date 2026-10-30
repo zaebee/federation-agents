@@ -186,7 +186,7 @@ test('ownership: validateUnknown rejects unsupported structures', () => {
   if (!r.ok) expect(r.error.kind).toBe('MECHANISM');
 });
 
-test('ownership: validateUnknown rejects invalid input', () => {
+test('ownership: validateUnknown rejects non-string input for string guard', () => {
   const r = validateUnknown(42, (v): v is string => typeof v === 'string');
   expect(r.ok).toBe(false);
 });
@@ -198,6 +198,50 @@ test('ownership: deepCopy rejects sparse arrays', () => {
   arr[2] = 3;
   const r = deepCopy(arr);
   expect(r.ok).toBe(false);
+});
+
+test('ownership: deepCopy rejects non-standard numeric array keys (01, out of bounds)', () => {
+  const arr: unknown[] = [1, 2];
+  Object.defineProperty(arr, '01', { value: 3, enumerable: true, writable: true, configurable: true });
+  const r1 = deepCopy(arr);
+  expect(r1.ok).toBe(false);
+
+  const arr2: unknown[] = [1, 2];
+  Object.defineProperty(arr2, '5', { value: 3, enumerable: true, writable: true, configurable: true });
+  const r2 = deepCopy(arr2);
+  expect(r2.ok).toBe(false);
+});
+
+test('ownership: deepFreeze freezes symbol-keyed and non-enumerable properties', () => {
+  const sym = Symbol('s');
+  const obj: Record<string | symbol, unknown> = { a: { b: 1 } };
+  Object.defineProperty(obj, sym, { value: { c: 2 }, enumerable: false, writable: true, configurable: true });
+  const frozen = deepFreeze(obj);
+  expect(Object.isFrozen((frozen as Record<string | symbol, unknown>)[sym])).toBe(true);
+  // non-enumerable nested still frozen
+  expect(Object.isFrozen((frozen as { a: { b: number } }).a)).toBe(true);
+});
+
+test('ownership: validateJsonValue rejects cyclic structures', () => {
+  const obj: Record<string, unknown> = { a: 1 };
+  obj.self = obj;
+  const r = validateJsonValue(obj);
+  expect(r.ok).toBe(false);
+});
+
+test('ownership: validateJsonValue rejects unsafe getter without invoking it', () => {
+  const obj: Record<string, unknown> = {};
+  let counter = 0;
+  Object.defineProperty(obj, 'x', {
+    get() {
+      counter++;
+      return 1;
+    },
+    enumerable: true,
+  });
+  const r = validateJsonValue(obj);
+  expect(r.ok).toBe(false);
+  expect(counter).toBe(0);
 });
 
 test('ownership: deepCopy rejects accessor element without invoking getter', () => {

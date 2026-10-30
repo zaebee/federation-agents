@@ -30,114 +30,102 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 export function deepCopy<T>(value: T): Result<T> {
-  const seen = new WeakSet<object>();
-
-  function copy(input: unknown): Result<unknown> {
-    if (input === null) return { ok: true, value: null };
-    const t = typeof input;
-    if (t === 'undefined' || t === 'string' || t === 'number' || t === 'boolean') {
-      // Generic ownership copy accepts these primitives as-is. Whether they
-      // form a valid JsonValue is decided by validateJsonValue, not here.
-      return { ok: true, value: input };
-    }
-    if (t === 'bigint' || t === 'symbol' || t === 'function') {
-      return rejectUnsupported(`Unsupported value type: ${t}`);
-    }
-    if (Array.isArray(input)) {
-      if (Object.getPrototypeOf(input) !== Array.prototype) {
-        return rejectUnsupported('Array must have Array.prototype');
-      }
-      const symbols = Object.getOwnPropertySymbols(input);
-      if (symbols.length > 0) {
-        return rejectUnsupported('Array must not have symbol-keyed properties');
-      }
-      const ownKeys = Object.getOwnPropertyNames(input);
-      // 'length' is allowed; every other own key must be a dense index.
-      const indexSet = new Set<string>();
-      for (const key of ownKeys) {
-        if (key === 'length') continue;
-        if (!/^\d+$/.test(key)) {
-          return rejectUnsupported(`Array must not have non-index own property: ${key}`);
-        }
-        indexSet.add(key);
-      }
-      // Sparse array detection: every index 0..length-1 must be present.
-      for (let i = 0; i < input.length; i++) {
-        if (!indexSet.has(String(i))) {
-          return rejectUnsupported(`Sparse array: missing index ${i}`);
-        }
-      }
-      // Validate property descriptors for each index without invoking getters.
-      for (let i = 0; i < input.length; i++) {
-        const desc = Object.getOwnPropertyDescriptor(input, String(i));
-        if (!desc) {
-          return rejectUnsupported(`Missing descriptor at index ${i}`);
-        }
-        if (desc.get !== undefined || desc.set !== undefined) {
-          return rejectUnsupported(`Accessor property not allowed at index ${i}`);
-        }
-        if (!desc.enumerable) {
-          return rejectUnsupported(`Non-enumerable property not allowed at index ${i}`);
-        }
-        if (!('value' in desc)) {
-          return rejectUnsupported(`Missing data value at index ${i}`);
-        }
-      }
-      if (seen.has(input)) {
-        return rejectUnsupported('Cyclic reference detected');
-      }
-      seen.add(input);
-      const out: unknown[] = [];
-      for (let i = 0; i < input.length; i++) {
-        const r = copy(input[i]);
-        if (!r.ok) {
-          seen.delete(input);
-          return r;
-        }
-        out[i] = r.value;
-      }
-      seen.delete(input);
-      return { ok: true, value: out };
-    }
-    if (isPlainObject(input)) {
-      const ownKeys = Object.getOwnPropertyNames(input);
-      const symbols = Object.getOwnPropertySymbols(input);
-      if (symbols.length > 0) {
-        return rejectUnsupported('Object must not have symbol-keyed properties');
-      }
-      for (const key of ownKeys) {
-        const desc = Object.getOwnPropertyDescriptor(input, key);
-        if (!desc) continue;
-        if (desc.get !== undefined || desc.set !== undefined) {
-          return rejectUnsupported(`Accessor property not allowed: ${key}`);
-        }
-        if (!desc.enumerable) {
-          return rejectUnsupported(`Non-enumerable property not allowed: ${key}`);
-        }
-      }
-      if (seen.has(input)) {
-        return rejectUnsupported('Cyclic reference detected');
-      }
-      seen.add(input);
-      const out: Record<string, unknown> = {};
-      for (const key of ownKeys) {
-        const r = copy(input[key]);
-        if (!r.ok) {
-          seen.delete(input);
-          return r;
-        }
-        out[key] = r.value;
-      }
-      seen.delete(input);
-      return { ok: true, value: out };
-    }
-    // null handled above; any other object (Date, Map, Set, class instance, null-proto) rejected
-    return rejectUnsupported('Unsupported object: prototype must be Object.prototype');
-  }
-
-  const result = copy(value);
+  const result = copyValue(value, new WeakSet<object>());
   if (!result.ok) return result as Result<T>;
   return { ok: true, value: result.value as T };
+}
+
+function copyValue(input: unknown, seen: WeakSet<object>): Result<unknown> {
+  if (input === null) return { ok: true, value: null };
+  const t = typeof input;
+  if (t === 'undefined' || t === 'string' || t === 'number' || t === 'boolean') {
+    return { ok: true, value: input };
+  }
+  if (t === 'bigint' || t === 'symbol' || t === 'function') {
+    return rejectUnsupported(`Unsupported value type: ${t}`);
+  }
+  if (Array.isArray(input)) {
+    return copyArray(input, seen);
+  }
+  if (isPlainObject(input)) {
+    return copyObject(input, seen);
+  }
+  return rejectUnsupported('Unsupported object: prototype must be Object.prototype');
+}
+
+function copyArray(input: unknown[], seen: WeakSet<object>): Result<unknown> {
+  if (Object.getPrototypeOf(input) !== Array.prototype) {
+    return rejectUnsupported('Array must have Array.prototype');
+  }
+  const symbols = Object.getOwnPropertySymbols(input);
+  if (symbols.length > 0) {
+    return rejectUnsupported('Array must not have symbol-keyed properties');
+  }
+  const ownKeys = Object.getOwnPropertyNames(input);
+  const indexSet = new Set<string>();
+  for (const key of ownKeys) {
+    if (key === 'length') continue;
+    const num = Number(key);
+    if (!/^\d+$/.test(key) || String(num) !== key || num >= input.length) {
+      return rejectUnsupported(`Array must not have non-index own property: ${key}`);
+    }
+    indexSet.add(key);
+  }
+  for (let i = 0; i < input.length; i++) {
+    if (!indexSet.has(String(i))) {
+      return rejectUnsupported(`Sparse array: missing index ${i}`);
+    }
+  }
+  for (let i = 0; i < input.length; i++) {
+    const desc = Object.getOwnPropertyDescriptor(input, String(i));
+    if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable || !('value' in desc)) {
+      return rejectUnsupported(`Invalid property descriptor at index ${i}`);
+    }
+  }
+  if (seen.has(input)) {
+    return rejectUnsupported('Cyclic reference detected');
+  }
+  seen.add(input);
+  const out: unknown[] = [];
+  for (let i = 0; i < input.length; i++) {
+    const r = copyValue(input[i], seen);
+    if (!r.ok) {
+      seen.delete(input);
+      return r;
+    }
+    out[i] = r.value;
+  }
+  seen.delete(input);
+  return { ok: true, value: out };
+}
+
+function copyObject(input: Record<string, unknown>, seen: WeakSet<object>): Result<unknown> {
+  const ownKeys = Object.getOwnPropertyNames(input);
+  const symbols = Object.getOwnPropertySymbols(input);
+  if (symbols.length > 0) {
+    return rejectUnsupported('Object must not have symbol-keyed properties');
+  }
+  for (const key of ownKeys) {
+    const desc = Object.getOwnPropertyDescriptor(input, key);
+    if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
+      return rejectUnsupported(`Invalid property descriptor: ${key}`);
+    }
+  }
+  if (seen.has(input)) {
+    return rejectUnsupported('Cyclic reference detected');
+  }
+  seen.add(input);
+  const out: Record<string, unknown> = {};
+  for (const key of ownKeys) {
+    const r = copyValue(input[key], seen);
+    if (!r.ok) {
+      seen.delete(input);
+      return r;
+    }
+    out[key] = r.value;
+  }
+  seen.delete(input);
+  return { ok: true, value: out };
 }
 
 export function deepFreeze<T>(value: T): DeepReadonly<T> {
@@ -151,14 +139,8 @@ export function deepFreeze<T>(value: T): DeepReadonly<T> {
       return;
     }
     seen.add(val);
-    if (Array.isArray(val)) {
-      for (const item of val) {
-        freeze(item);
-      }
-    } else {
-      for (const key of Object.keys(val as Record<string, unknown>)) {
-        freeze((val as Record<string, unknown>)[key]);
-      }
+    for (const key of Reflect.ownKeys(val as object)) {
+      freeze((val as Record<string | symbol, unknown>)[key]);
     }
     Object.freeze(val);
   }
@@ -191,86 +173,118 @@ export function validateUnknown<T>(value: unknown, guard: (v: unknown) => v is T
 // Rejects undefined, NaN, Infinity, -Infinity, functions, symbols, non-plain
 // objects, sparse arrays, etc. Does not implement canonicalization (Task 3).
 export function validateJsonValue(value: unknown): Result<JsonValue> {
-  if (value === null) return { ok: true, value: null };
-  const t = typeof value;
-  if (t === 'boolean') return { ok: true, value: value as boolean };
-  if (t === 'string') return { ok: true, value: value as string };
-  if (t === 'number') {
-    const n = value as number;
-    if (!Number.isFinite(n)) {
-      return {
-        ok: false,
-        error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue number must be finite'),
-      };
-    }
-    return { ok: true, value: n };
-  }
-  if (Array.isArray(value)) {
-    if (Object.getPrototypeOf(value) !== Array.prototype) {
-      return {
-        ok: false,
-        error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue array must have Array.prototype'),
-      };
-    }
-    const out: JsonValue[] = [];
-    for (let i = 0; i < value.length; i++) {
-      const desc = Object.getOwnPropertyDescriptor(value, String(i));
-      if (!desc || desc.get || desc.set || !desc.enumerable) {
+  const seen = new WeakSet<object>();
+
+  function validate(val: unknown): Result<JsonValue> {
+    if (val === null) return { ok: true, value: null };
+    const t = typeof val;
+    if (t === 'boolean') return { ok: true, value: val as boolean };
+    if (t === 'string') return { ok: true, value: val as string };
+    if (t === 'number') {
+      const n = val as number;
+      if (!Number.isFinite(n)) {
         return {
           ok: false,
-          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `JsonValue sparse/invalid array at index ${i}`),
+          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue number must be finite'),
         };
       }
-      const r = validateJsonValue(value[i]);
-      if (!r.ok) return r as Result<JsonValue>;
-      out.push(r.value);
+      return { ok: true, value: n };
     }
-    // reject extra own props
-    for (const key of Object.getOwnPropertyNames(value)) {
-      if (key === 'length') continue;
-      if (!/^\d+$/.test(key)) {
+    if (Array.isArray(val)) {
+      if (Object.getPrototypeOf(val) !== Array.prototype) {
         return {
           ok: false,
-          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `JsonValue array must not have extra property: ${key}`),
+          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue array must have Array.prototype'),
         };
       }
-    }
-    if (Object.getOwnPropertySymbols(value).length > 0) {
-      return {
-        ok: false,
-        error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue array must not have symbol properties'),
-      };
-    }
-    return { ok: true, value: out };
-  }
-  if (isPlainObject(value)) {
-    const out: { [key: string]: JsonValue } = {};
-    for (const key of Object.keys(value)) {
-      const r = validateJsonValue(value[key]);
-      if (!r.ok) return r as Result<JsonValue>;
-      out[key] = r.value;
-    }
-    // reject non-enumerable/accessor/symbol props (Object.keys only returns enumerable string keys,
-    // but check descriptors anyway)
-    for (const key of Object.getOwnPropertyNames(value)) {
-      const desc = Object.getOwnPropertyDescriptor(value, key);
-      if (!desc || desc.get || desc.set || !desc.enumerable) {
+      if (seen.has(val)) {
         return {
           ok: false,
-          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `JsonValue object has invalid property: ${key}`),
+          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'Cyclic reference detected in JsonValue'),
         };
       }
+      seen.add(val);
+      const out: JsonValue[] = [];
+      for (let i = 0; i < val.length; i++) {
+        const desc = Object.getOwnPropertyDescriptor(val, String(i));
+        if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
+          seen.delete(val);
+          return {
+            ok: false,
+            error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `JsonValue sparse/invalid array at index ${i}`),
+          };
+        }
+        const r = validate(val[i]);
+        if (!r.ok) {
+          seen.delete(val);
+          return r as Result<JsonValue>;
+        }
+        out.push(r.value);
+      }
+      for (const key of Object.getOwnPropertyNames(val)) {
+        if (key === 'length') continue;
+        const num = Number(key);
+        if (!/^\d+$/.test(key) || String(num) !== key || num >= val.length) {
+          seen.delete(val);
+          return {
+            ok: false,
+            error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `JsonValue array must not have extra property: ${key}`),
+          };
+        }
+      }
+      if (Object.getOwnPropertySymbols(val).length > 0) {
+        seen.delete(val);
+        return {
+          ok: false,
+          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue array must not have symbol properties'),
+        };
+      }
+      seen.delete(val);
+      return { ok: true, value: out };
     }
-    if (Object.getOwnPropertySymbols(value).length > 0) {
-      return {
-        ok: false,
-        error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue object must not have symbol properties'),
-      };
+    if (isPlainObject(val)) {
+      if (seen.has(val)) {
+        return {
+          ok: false,
+          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'Cyclic reference detected in JsonValue'),
+        };
+      }
+      seen.add(val);
+      const ownKeys = Object.getOwnPropertyNames(val);
+      for (const key of ownKeys) {
+        const desc = Object.getOwnPropertyDescriptor(val, key);
+        if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
+          seen.delete(val);
+          return {
+            ok: false,
+            error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `JsonValue object has invalid property: ${key}`),
+          };
+        }
+      }
+      if (Object.getOwnPropertySymbols(val).length > 0) {
+        seen.delete(val);
+        return {
+          ok: false,
+          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue object must not have symbol properties'),
+        };
+      }
+      const out: { [key: string]: JsonValue } = {};
+      for (const key of ownKeys) {
+        const r = validate(val[key]);
+        if (!r.ok) {
+          seen.delete(val);
+          return r as Result<JsonValue>;
+        }
+        out[key] = r.value;
+      }
+      seen.delete(val);
+      return { ok: true, value: out };
     }
-    return { ok: true, value: out };
+    return {
+      ok: false,
+      error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `Unsupported JsonValue type: ${typeof val}`),
+    };
   }
-  return {
-    ok: false,
-    error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `Unsupported JsonValue type: ${typeof value}`),
-  };
+
+  return validate(value);
 }

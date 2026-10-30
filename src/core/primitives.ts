@@ -16,7 +16,13 @@ export type AssessmentID = Brand<string, 'AssessmentID'>;
 export type AcceptanceID = Brand<string, 'AcceptanceID'>;
 export type DomainID = Brand<string, 'DomainID'>;
 
-export type Timestamp = number;
+// Branded to avoid the redundant-alias finding (S6564) and to keep the
+// temporal value nominally distinct from arbitrary numbers.
+export type Timestamp = number & { readonly __brand: 'Timestamp' };
+
+export function timestamp(value: number): Timestamp {
+  return value as Timestamp;
+}
 
 // Convenience constructors (identity casts; validation of format is the caller's
 // responsibility at the boundary, except where a validator is provided).
@@ -68,20 +74,19 @@ export const STANDARD_TEMPORAL_FIELDS: readonly TemporalBasis[] = Object.freeze(
   'DECIDED_AT',
 ]);
 
-const EXT_REF_REGEX = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
+const EXT_REF_REGEX = new RegExp(String.raw`^[A-Za-z]\w*(\.[A-Za-z]\w*)*$`);
 
 function hasLoneSurrogate(value: string): boolean {
-  for (let i = 0; i < value.length; i++) {
-    const code = value.charCodeAt(i);
-    if (code >= 0xd800 && code <= 0xdbff) {
-      // high surrogate: must be followed by a low surrogate
-      const next = i + 1 < value.length ? value.charCodeAt(i + 1) : 0;
-      if (next < 0xdc00 || next > 0xdfff) return true;
-      i++; // consume the pair
-    } else if (code >= 0xdc00 && code <= 0xdfff) {
-      // stray low surrogate
+  let i = 0;
+  while (i < value.length) {
+    const cp = value.codePointAt(i);
+    if (cp === undefined) return true;
+    if (cp >= 0xd800 && cp <= 0xdfff) {
+      // A surrogate code point at this position means a lone surrogate:
+      // a valid pair would have produced a code point above 0xFFFF.
       return true;
     }
+    i += cp > 0xffff ? 2 : 1;
   }
   return false;
 }
