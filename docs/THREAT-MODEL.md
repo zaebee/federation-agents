@@ -125,15 +125,15 @@ An attacker is **not** assumed to:
 
 **T-14 History mutation through aliasing.** A caller keeps a reference to an input object and mutates it after construction.
 *Mitigation:* when the ownership layer is applied by constructors, records are copied structurally and frozen recursively, and public record types are `DeepReadonly<T>`; mutation of the caller's original then cannot affect the stored record.
-*Status:* **partially implemented.** `deepCopy`, `deepFreeze`, and `DeepReadonly` exist and are unit-tested in `src/core/ownership.ts`, but record constructors and `entities.ts` are planned, so the guarantee is not yet exercised on domain records. Residual risk: `any` casts or adapters that retain their own mutable copies.
+*Status:* **partially implemented.** `validateIdentityVersionDescriptor` now copies and freezes descriptors, and the ownership helpers (`deepCopy`, `deepFreeze`, `DeepReadonly`) are unit-tested; constructors for the remaining record types are still planned. Residual risk: `any` casts or adapters that retain their own mutable copies.
 
 **T-15 Canonicalization divergence.** Two implementations hash "the same" descriptor differently, so `DESCRIPTOR_HASH_CONFIRMED` disagrees or a hash can be smuggled by encoding tricks.
-*Mitigation:* **implemented** — RFC 8785 JCS over a strict data model, pure-TS SHA-256, and rejection of `undefined`, `NaN`, infinities, `BigInt`, functions, symbols, accessors, symbol keys, non-enumerable own properties, array extra properties, sparse arrays, non-`Object.prototype` prototypes, cycles, and lone surrogates in values and keys. **Planned** — the explicit 8-field §7.1 projection (`descriptorHashInput`) and `descriptorHash`, which must never serialize the whole object.
-*Status:* canonicalization and strict validation are implemented and unit-tested; the descriptor projection and hash are **planned** (Task 4). Residual risk: correctness depends on cross-implementation vectors and on SHA-256 assumptions.
+*Mitigation:* **implemented** — RFC 8785 JCS over a strict data model, pure-TS SHA-256, rejection of `undefined`, `NaN`, infinities, `BigInt`, functions, symbols, accessors, symbol keys, non-enumerable own properties, array extra properties, sparse arrays, non-`Object.prototype` prototypes, cycles, and lone surrogates in values and keys; the explicit 8-field §7.1 projection (`descriptorHashInput`), `descriptorHash` returning `urn:hash:sha256:…`, and a pinned known-answer test.
+*Status:* implemented and unit-tested (Task 4). Residual risk: correctness depends on cross-implementation vectors and on SHA-256 assumptions.
 
 **T-16 Untrusted input reaching a domain record.** An adapter passes raw JSON, a class instance, or `unknown` straight into a constructor.
-*Mitigation:* `validateUnknown` / `validateJsonValue` at the boundary; typed public API with no `any`; records reject unsupported structures instead of coercing them.
-*Status:* implemented at the validation layer; adapters do not exist yet, so the boundary is not yet exercised end-to-end.
+*Mitigation:* `validateUnknown` / `validateJsonValue` at the boundary, plus `validateIdentityVersionDescriptor` for the descriptor boundary; typed public API with no `any`; records reject unsupported structures instead of coercing them.
+*Status:* implemented for the descriptor boundary; other record boundaries and adapters are planned, so the end-to-end path is not yet exercised.
 
 ### E. Availability and integration
 

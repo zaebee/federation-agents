@@ -74,8 +74,8 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/ownership.ts`       | §3, §13  | Implemented | `DeepReadonly`, `deepCopy`, `deepFreeze`, strict JSON validation, unknown boundary |
 | `core/canonical.ts`       | §7.2     | Implemented | RFC 8785 JCS over the strict data model, SHA-256 composition           |
 | `core/sha256.ts`          | §7.2     | Implemented | Pure TypeScript SHA-256                                                |
-| `core/entities.ts`        | §3–§9    | Planned     | All CORE-001 records, copied and deep-frozen on construction           |
-| `core/hashing.ts`         | §7.1     | Planned     | Explicit 8-field descriptor projection, `urn:hash:sha256:…`            |
+| `core/entities.ts`        | §3.2, §4.2, §5.2 | Partial | Descriptor slice: types and structural validation. Full record model and constructors are Task 6 |
+| `core/hashing.ts`         | §7.1     | Implemented | Explicit 8-field descriptor projection, `urn:hash:sha256:…`, pinned known-answer test |
 | `core/version-scheme.ts`  | §3.2     | Planned     | `SEMVER_2`, `CONTENT_HASH`, `OPAQUE_TAG` comparison rules              |
 | `core/selector.ts`        | §3.2, §8.2 | Planned   | Minimal, versioned selector mechanism                                  |
 | `core/credential.ts`      | §4, §10  | Planned     | Credential usage, revocation reasons, historical signature semantics    |
@@ -91,7 +91,7 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 
 ### 4.1. Intake
 
-The validation and ownership steps exist today as helpers; the evaluation step is planned. The flow is the contract every future record constructor must follow.
+The validation and ownership steps exist today: `validateJsonValue` plus `validateIdentityVersionDescriptor`, which rejects unknown fields and returns an owned, deep-frozen copy. Evaluation steps are planned. The flow is the contract every future record constructor must follow.
 
 ```text
 untrusted input (JSON, transport, storage)
@@ -111,9 +111,9 @@ Result<T> = { ok: true; value: T } | { ok: false; error: Failure }
 
 Semantic failures — an invalid relation, an unsatisfied assurance predicate, a missing traversal path — are **values**, not exceptions. Callers narrow on `ok` and then on `error.kind`.
 
-### 4.2. Descriptor hashing (planned)
+### 4.2. Descriptor hashing
 
-> **Status:** the flow below is the target, not the current state. Today only `canonicalize` (RFC 8785) and `sha256Hex` exist. `descriptorHashInput` and `descriptorHash` belong to Task 4 and are not implemented.
+> **Status:** implemented. `descriptorHashInput` and `descriptorHash` live in `hashing.ts`; the eight-field projection is pinned by a known-answer test.
 
 ```text
 IdentityVersionDescriptor
@@ -148,12 +148,12 @@ The table separates guarantees the repository already provides from properties r
 | --- | ---------------------- | ------------ | --------------------------------------------------------------------------- |
 | A1  | Purity                 | Implemented for existing primitives | `canonical.ts`, `sha256.ts`, `ownership.ts`; required of every future module |
 | A2  | Determinism            | Partial      | Canonicalization and SHA-256 are deterministic; graph and edge-order independence are planned with traversal |
-| A3  | Ownership              | Foundation   | `deepCopy`, `deepFreeze`, `DeepReadonly` in `ownership.ts`; record constructors planned in `entities.ts` |
+| A3  | Ownership              | Implemented for descriptors | `validateIdentityVersionDescriptor` copies and freezes; other record constructors are planned |
 | A4  | Error separation       | Implemented  | `errors.ts` type split, asserted in `tests/unit/entities.test.ts`            |
 | A5  | Explicit context       | Target       | No globals exist today; `Policy` and `TemporalContext` parameters arrive with the evaluation API |
 | A6  | Edge-bound assessments | Target       | Planned `assessment.ts` runtime brand, enforced by `evaluateAssurance`       |
 | A7  | Four trust outcomes    | Target       | Planned `credential.ts` and temporal model                                   |
-| A8  | Unknown boundary       | Implemented (helpers) | `validateUnknown`, `validateJsonValue`, strict canonicalization; adapters are not written yet |
+| A8  | Unknown boundary       | Implemented  | `validateUnknown`, `validateJsonValue`, `validateIdentityVersionDescriptor`; adapters are not written yet |
 
 A2 does not require enumerating all paths: memoization and dynamic programming are allowed, provided the result is identical.
 
@@ -230,8 +230,8 @@ A passing test suite does not establish production security or interoperability;
 
 ## 12. Status
 
-Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256.
+Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the IdentityVersion descriptor slice, and §7.1 descriptor hashing.
 
-Planned: entities, descriptor hashing, version schemes and selectors, credentials, lineage, assessments, traversal, acceptance, ledger.
+Planned: the full entity model, version schemes and selectors, credentials, lineage, assessments, traversal, acceptance, ledger.
 
 Ordering and exit criteria are tracked in [`ROADMAP.md`](./ROADMAP.md) and in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md).
