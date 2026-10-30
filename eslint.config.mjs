@@ -14,7 +14,7 @@ export default tseslint.config(
   {
     files: ['src/core/**/*.ts'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: ['node:*', 'node:*/*'] }],
+      'no-restricted-imports': ['error', { patterns: ['node:*', 'node:*/*', 'bun:*', 'bun:*/*'] }],
     },
   },
   {
