@@ -11,9 +11,13 @@ test('canonical: RFC 8785 sample object', () => {
     literals: [null, true, false],
   };
   const out = canonicalize(input as JsonValue);
-  expect(out.startsWith('{"literals":')).toBe(true);
-  expect(out).toContain('"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27]');
-  expect(out).toContain('"literals":[null,true,false]');
+  // Exact canonical output per RFC 8785 §3.2.4 (UTF-8 hex).
+  const expectedHex =
+    '7b226c69746572616c73223a5b6e756c6c2c747275652c66616c73655d2c226e756d62657273223a5b3333333333333333332e333333333333332c31652b33302c342e352c302e3030322c31652d32375d2c22737472696e67223a22e282ac245c75303030665c6e4127425c225c5c5c5c2f227d';
+  const actualHex = Array.from(new TextEncoder().encode(out))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  expect(actualHex).toBe(expectedHex);
 });
 
 test('canonical: simple primitives', () => {

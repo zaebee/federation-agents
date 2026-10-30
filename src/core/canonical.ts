@@ -35,8 +35,8 @@ function serialize(value: JsonValue): string {
   if (t === 'number') return JSON.stringify(value);
   if (Array.isArray(value)) {
     const parts: string[] = [];
-    for (let i = 0; i < value.length; i++) {
-      parts.push(serialize(value[i]));
+    for (const item of value) {
+      parts.push(serialize(item));
     }
     return '[' + parts.join(',') + ']';
   }
@@ -47,8 +47,7 @@ function serialize(value: JsonValue): string {
       return 0;
     });
     const parts: string[] = [];
-    for (let i = 0; i < keys.length; i++) {
-      const k = keys[i];
+    for (const k of keys) {
       parts.push(JSON.stringify(k) + ':' + serialize((value as Record<string, JsonValue>)[k]));
     }
     return '{' + parts.join(',') + '}';
