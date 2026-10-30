@@ -157,12 +157,12 @@ Runtime dependencies: none.
 
 ## Documentation
 
-| Document            | Question it answers                                                        |
-| ------------------- | -------------------------------------------------------------------------- |
-| `README.md`         | What is this project and why does it exist?                                |
-| `docs/PRD.md`       | What problem are we solving, for whom, and what should the project become? |
-| `docs/CORE-001.md`  | Which semantic and technical contracts are implemented?                    |
-| Implementation plan | Which implementation tasks remain?                                         |
+| Document                                                                                | Question it answers                                                        |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `README.md`                                                                             | What is this project and why does it exist?                                |
+| `docs/PRD.md`                                                                           | What problem are we solving, for whom, and what should the project become? |
+| `docs/CORE-001.md`                                                                      | Which semantic and technical contracts are implemented?                    |
+| [Implementation plan](docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md) | Which implementation tasks remain?                                         |
 
 The normative specification and implementation are deliberately kept separate.
 
@@ -190,7 +190,7 @@ Related concerns may be addressed by separate specifications.
 
 The normative specification is currently a Candidate Draft Normative document.
 
-The reference implementation is being developed incrementally with unit tests, conformance tests, and property-based tests. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
+The reference implementation is being developed incrementally. Unit tests exist today; the conformance corpus and property-based tests are planned, not yet present. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
 
 ## Design philosophy
 

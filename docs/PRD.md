@@ -199,6 +199,8 @@ These boundaries are provisional and must follow the corresponding approved norm
 
 ## 8. Non-functional requirements
 
+These are engineering requirements for the reference implementation, not protocol obligations. Normative requirements remain those of `UIA-CORE-001`.
+
 ### Portability
 
 The Core MUST NOT depend on Bun- or Node-specific runtime APIs.
