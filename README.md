@@ -101,11 +101,12 @@ Implemented so far:
 - Explicit separation of normative protocol errors (`ERR_INVALID_RELATION`, `ERR_NO_TRAVERSAL_PATH`, …) from implementation/mechanism errors.
 - RFC 8785 JSON Canonicalization Scheme over a strict data model.
 - Pure TypeScript SHA-256, with no runtime crypto dependency.
+- IdentityVersion descriptor types with minimal structural validation: required fields and enum values, strict JSON, unknown-field rejection, and an owned, deep-frozen copy.
+- Descriptor hashing over the explicit §7.1 projection, pinned by a known-answer test.
 
 Still to come:
 
-- Participant and IdentityVersion descriptors.
-- Descriptor hashing with the explicit §7.1 projection.
+- The full entity model: Participant, runtime, credential and lineage record constructors.
 - Version schemes and selector evaluation.
 - Credential semantics and temporal validation.
 - Identity lineage graph construction, delayed parent resolution, cycle detection.
