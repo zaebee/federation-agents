@@ -122,7 +122,12 @@ function copyObject(input: Record<string, unknown>, seen: WeakSet<object>): Resu
       seen.delete(input);
       return r;
     }
-    out[key] = r.value;
+    Object.defineProperty(out, key, {
+      value: r.value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
   }
   seen.delete(input);
   return { ok: true, value: out };
@@ -185,7 +190,7 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
       if (!Number.isFinite(n)) {
         return {
           ok: false,
-          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue number must be finite'),
+          error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue number must be finite'),
         };
       }
       return { ok: true, value: n };
@@ -194,13 +199,13 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
       if (Object.getPrototypeOf(val) !== Array.prototype) {
         return {
           ok: false,
-          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue array must have Array.prototype'),
+          error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue array must have Array.prototype'),
         };
       }
       if (seen.has(val)) {
         return {
           ok: false,
-          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'Cyclic reference detected in JsonValue'),
+          error: mechanismFailure('E_JSON_VALUE_INVALID', 'Cyclic reference detected in JsonValue'),
         };
       }
       seen.add(val);
@@ -211,7 +216,7 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
           seen.delete(val);
           return {
             ok: false,
-            error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `JsonValue sparse/invalid array at index ${i}`),
+            error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue sparse/invalid array at index ${i}`),
           };
         }
         const r = validate(val[i]);
@@ -228,7 +233,7 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
           seen.delete(val);
           return {
             ok: false,
-            error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `JsonValue array must not have extra property: ${key}`),
+            error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue array must not have extra property: ${key}`),
           };
         }
       }
@@ -236,7 +241,7 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
         seen.delete(val);
         return {
           ok: false,
-          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue array must not have symbol properties'),
+          error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue array must not have symbol properties'),
         };
       }
       seen.delete(val);
@@ -246,7 +251,7 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
       if (seen.has(val)) {
         return {
           ok: false,
-          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'Cyclic reference detected in JsonValue'),
+          error: mechanismFailure('E_JSON_VALUE_INVALID', 'Cyclic reference detected in JsonValue'),
         };
       }
       seen.add(val);
@@ -257,7 +262,7 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
           seen.delete(val);
           return {
             ok: false,
-            error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `JsonValue object has invalid property: ${key}`),
+            error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue object has invalid property: ${key}`),
           };
         }
       }
@@ -265,7 +270,7 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
         seen.delete(val);
         return {
           ok: false,
-          error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', 'JsonValue object must not have symbol properties'),
+          error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue object must not have symbol properties'),
         };
       }
       const out: { [key: string]: JsonValue } = {};
@@ -275,14 +280,19 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
           seen.delete(val);
           return r as Result<JsonValue>;
         }
-        out[key] = r.value;
+        Object.defineProperty(out, key, {
+          value: r.value,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
       }
       seen.delete(val);
       return { ok: true, value: out };
     }
     return {
       ok: false,
-      error: mechanismFailure('E_OWNERSHIP_UNSUPPORTED', `Unsupported JsonValue type: ${typeof val}`),
+      error: mechanismFailure('E_JSON_VALUE_INVALID', `Unsupported JsonValue type: ${typeof val}`),
     };
   }
 

@@ -22,6 +22,7 @@ export type ImplementationErrorCode =
   | 'E_TEMPORAL_FIELD_REF_INVALID'
   | 'E_CANONICALIZATION_UNSUPPORTED'
   | 'E_OWNERSHIP_UNSUPPORTED'
+  | 'E_JSON_VALUE_INVALID'
   | 'E_UNKNOWN_BOUNDARY_REJECTED';
 
 export interface SpecFailure {

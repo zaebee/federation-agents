@@ -1,5 +1,6 @@
 // Primitive domain types for UIA-CORE-001 Rev 0.3.3.
 
+import { mechanismFailure } from './errors.js';
 import type { Result } from './errors.js';
 
 // ---------------------------------------------------------------------------
@@ -49,8 +50,9 @@ export function domainId(value: string): DomainID {
 }
 
 // ---------------------------------------------------------------------------
-// Strict JSON value type (data model; runtime enforcement lives in canonical.ts,
-// Task 3, but the type is declared here so ownership/canonicalization can share it)
+// Strict JSON value type (data model; runtime enforcement lives in
+// validateJsonValue in ownership.ts (Task 2) and canonical.ts (Task 3), but the
+// type is declared here so ownership/canonicalization can share it)
 // ---------------------------------------------------------------------------
 
 export type JsonValue = null | boolean | string | number | readonly JsonValue[] | { readonly [key: string]: JsonValue };
@@ -95,11 +97,7 @@ export function validateTemporalFieldRef(value: unknown): Result<TemporalFieldRe
   if (typeof value !== 'string' || value.length === 0) {
     return {
       ok: false,
-      error: {
-        kind: 'MECHANISM',
-        code: 'E_TEMPORAL_FIELD_REF_INVALID',
-        message: 'TemporalFieldRef must be a non-empty string',
-      },
+      error: mechanismFailure('E_TEMPORAL_FIELD_REF_INVALID', 'TemporalFieldRef must be a non-empty string'),
     };
   }
   // No whitespace or control characters (C0 and C1 ranges).
@@ -107,21 +105,16 @@ export function validateTemporalFieldRef(value: unknown): Result<TemporalFieldRe
   if (/\s|[\x00-\x1F\x7F-\x9F]/.test(value)) {
     return {
       ok: false,
-      error: {
-        kind: 'MECHANISM',
-        code: 'E_TEMPORAL_FIELD_REF_INVALID',
-        message: 'TemporalFieldRef must not contain whitespace or control characters',
-      },
+      error: mechanismFailure(
+        'E_TEMPORAL_FIELD_REF_INVALID',
+        'TemporalFieldRef must not contain whitespace or control characters',
+      ),
     };
   }
   if (hasLoneSurrogate(value)) {
     return {
       ok: false,
-      error: {
-        kind: 'MECHANISM',
-        code: 'E_TEMPORAL_FIELD_REF_INVALID',
-        message: 'TemporalFieldRef must not contain lone surrogates',
-      },
+      error: mechanismFailure('E_TEMPORAL_FIELD_REF_INVALID', 'TemporalFieldRef must not contain lone surrogates'),
     };
   }
 
@@ -135,15 +128,12 @@ export function validateTemporalFieldRef(value: unknown): Result<TemporalFieldRe
   if (!EXT_REF_REGEX.test(value)) {
     return {
       ok: false,
-      error: {
-        kind: 'MECHANISM',
-        code: 'E_TEMPORAL_FIELD_REF_INVALID',
-        message: 'TemporalFieldRef extension must match ^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$',
-      },
+      error: mechanismFailure(
+        'E_TEMPORAL_FIELD_REF_INVALID',
+        'TemporalFieldRef extension must match ^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$',
+      ),
     };
   }
 
   return { ok: true, value: value as TemporalFieldRef };
 }
-
-// (No re-export; MechanismFailure lives in errors.ts.)
