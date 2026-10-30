@@ -1,0 +1,157 @@
+да давай PR
+
+---
+
+### Low finding
+
+**Location:** `docs/ARCHITECTURE.md:88`
+
+This line says "The module-private `ApplicableAssessments` brand is deliberately not exported", in the present tense. The section claims to reflect the repository, but no such brand exists in `src/`. It is part of the planned assessment module. §2.1 rule 2 does the same thing: it describes `evaluateBinding`, `assessEdge`, etc. taking `Policy`/`TemporalContext` as if they already exist. Mark these as planned. 
+---
+### Low finding
+
+**Location:** `docs/THREAT-MODEL.md:104`
+
+T-09 points to the wrong threat for availability: "Residual risk: availability — see T-15". T-15 is canonicalization divergence. Graph and payload exhaustion is T-17. 
+---
+### Low finding
+
+**Location:** `docs/THREAT-MODEL.md:128`
+
+T-14 says "constructors copy structurally and freeze recursively; public record types are `DeepReadonly<T>`" and marks this as implemented. No record constructors or record types exist yet (`core/entities.ts` is Planned). Only the `deepCopy`/`deepFreeze` helpers are implemented. This is the kind of claim the doc's own §8 review question #1 is meant to catch. 
+---
+### Medium finding
+
+**Location:** `docs/THREAT-MODEL.md:131-132`
+
+T-15 lists the "explicit 8-field projection" as a mitigation with status "implemented and unit-tested". That projection belongs to `core/hashing.ts`, which ARCHITECTURE.md §3 marks as Planned (plan Task 4), and no file in `src/core/` implements it. Split the status: canonicalization and strict validation are implemented, while the descriptor projection is planned. 
+---
+Посмотрел ветку и Draft PR #8: [docs: draft architecture, threat model, and roadmap](https://github.com/zaebee/federation-agents/pull/8?utm_source=chatgpt.com).
+
+В целом — очень хороший драфт. Документы дополняют друг друга, не пытаются подменить `CORE-001`, а статусы `Implemented / Planned / Blocked / Deferred` — правильный способ описывать проект на этой стадии. Особенно удачно, что Roadmap привязан к критериям завершения, а не к календарным обещаниям.
+
+Но я бы пока не мержил: есть несколько содержательных несоответствий.
+
+## Что нужно поправить до merge
+
+
+
+Blocker
+
+&#x20;1\. Descriptor hashing ошибочно обозначен как реализованный
+
+
+
+Это главное замечание.
+
+В `THREAT-MODEL.md`, T-15 написано:
+
+> explicit 8-field projection (never whole-object serialization)
+
+И далее статус — `implemented and unit-tested`.
+
+Но в этой ветке:
+
+- `src/core/canonical.ts` реализует общую RFC 8785 canonicalization и `canonicalSha256`;
+- `src/core/hashing.ts` отсутствует;
+- `src/core/entities.ts` отсутствует;
+- `src/core/index.ts` не экспортирует descriptor hashing.
+
+То есть общая инфраструктура для хеширования есть, но нормативная проекция восьми полей `IdentityVersionDescriptor` ещё не реализована.
+
+Что изменить:
+
+- в T-15 разделить реализованную canonicalization и запланированный descriptor hashing;
+- статус проекции указать `Planned`;
+- в `ARCHITECTURE.md`, §4.2 явно обозначить весь поток descriptor hashing как `Planned`, а не как существующий механизм.
+
+
+
+Important
+
+&#x20;2\. В Architecture смешаны архитектурные инварианты и уже работающие гарантии
+
+
+
+В §5 перечислены A1–A8 как `Core invariants`. Среди них:
+
+- edge-bound assessments с runtime brand;
+- четыре temporal trust outcomes.
+
+Но соответствующие `assessment.ts`, `credential.ts` и остальные доменные модули пока отсутствуют.
+
+Я бы разделил таблицу на две части:
+
+- Implemented invariants — что действительно обеспечивает текущий код.
+- Target invariants — что архитектура требует от будущих модулей.
+
+Это важная граница: иначе читатель может принять целевое свойство за уже проверенное поведение библиотеки.
+
+
+
+Important
+
+&#x20;3\. Несогласованность в описании T-07
+
+
+
+Сначала сказано:
+
+> conflicting claims become `CONTESTED`
+
+А дальше правильно уточняется, что механизм определения противоречий заблокирован из-за A-4b и по умолчанию отсутствует.
+
+Предлагаю формулировку:
+
+- спецификация предусматривает результат `CONTESTED`;
+- критерий противоречия пока не определён;
+- reference implementation не обнаруживает противоречия автоматически;
+- пользовательская `Policy.conflictPredicate` — временная точка расширения, а не готовая нормативная семантика.
+
+Так документ не создаёт впечатления, что конфликтная оценка уже работает.
+
+4\. Неверная ссылка на доказательство P0
+
+В `ROADMAP.md`, §3, среди evidence указано:
+
+`tests/unit/{scaffold,canonical,sha256,ownership,entities}.test.ts`
+
+Но `tests/unit/entities.test.ts` в действительности содержит тесты модели ошибок и типов (`UiaErrorCode`, `Result`, `DeepReadonly`), а не сущностей.
+
+Стоит заменить на корректное описание назначения теста или переименовать его отдельным PR. Пока лучше не создавать ложного впечатления, что entity-модель уже покрыта тестами.
+
+5\. Чуть смягчить формулировку в T-17
+
+Фраза:
+
+> A host must cap descriptor count, graph depth, and payload size
+
+может выглядеть как нормативное требование UIA, хотя сам Threat Model объявлен non-normative.
+
+Лучше: `Deployments should enforce limits... until an explicit resource-limit contract is defined.`
+
+Это сохранит рекомендацию, но не введёт незаметно новое требование протокола.
+
+## Что особенно хорошо получилось
+
+- ARCHITECTURE: чётко отделены host policy, public API, core и будущие adapters. Хорошо объяснено, почему core не должен зависеть от runtime.
+- THREAT-MODEL: правильно выделена разница между криптографической корректностью, фактической истинностью и локальным доверием. Особенно полезны T-11, T-12 и T-17.
+- ROADMAP: хороший отдельный раздел BLOCKED. Неопределённости A-4b, A-5, A-11 и A-9 не превращаются в произвольные implementation decisions.
+- README: ссылки на новые документы добавлены логично, документационная навигация стала заметно лучше.
+
+## Мой вердикт
+
+Good direction
+
+| Документ          | Оценка                    | Что сделать                            |
+| ----------------- | ------------------------- | -------------------------------------- |
+| `ARCHITECTURE.md` | Хороший                   | Разделить текущие и целевые инварианты |
+| `THREAT-MODEL.md` | Хороший, требует точности | Исправить T-15 и уточнить T-07         |
+| `ROADMAP.md`      | Почти готов               | Поправить evidence для P0              |
+| `README.md`       | Готов                     | Существенных замечаний нет             |
+
+PR #8 открыт, GitHub показывает его как mergeable. Верификацию из описания PR (`103 tests`, lint, format) я отдельно не запускал.
+
+Моя рекомендация: попросить AI-коллегу внести эти небольшие исправления и после этого мержить. Переписывать документы или менять их структуру не нужно.
+
+Могу подготовить для коллеги готовый review-комментарий на английском, чтобы он исправил всё одним проходом.
