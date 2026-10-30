@@ -6,3 +6,5 @@ export * from './primitives.js';
 export * from './ownership.js';
 export * from './canonical.js';
 export * from './sha256.js';
+export * from './entities.js';
+export * from './hashing.js';
