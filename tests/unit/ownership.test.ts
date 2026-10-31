@@ -360,6 +360,73 @@ test('ownership: STANDARD_TEMPORAL_FIELDS is frozen at runtime', () => {
   }).toThrow();
 });
 
+// Iterative traversal and memoisation (#45)
+test('ownership: deeply nested objects do not exhaust the stack', () => {
+  const depth = 20_000;
+  let nested: Record<string, unknown> = { leaf: true };
+  for (let i = 0; i < depth; i += 1) nested = { next: nested };
+
+  expect(validateJsonValue(nested).ok).toBe(true);
+
+  const copied = deepCopy(nested);
+  expect(copied.ok).toBe(true);
+  const frozen = deepFreeze(copied.ok ? copied.value : {});
+
+  let node: unknown = frozen;
+  let steps = 0;
+  while (typeof node === 'object' && node !== null && 'next' in node) {
+    node = (node as Record<string, unknown>).next;
+    steps += 1;
+  }
+  expect(steps).toBe(depth);
+  expect(Object.isFrozen(node)).toBe(true);
+});
+
+test('ownership: deeply nested arrays do not exhaust the stack', () => {
+  const depth = 20_000;
+  let nested: unknown[] = [1];
+  for (let i = 0; i < depth; i += 1) nested = [nested];
+
+  expect(validateJsonValue(nested).ok).toBe(true);
+  const copied = deepCopy(nested);
+  expect(copied.ok).toBe(true);
+
+  let node: unknown = copied.ok ? copied.value : null;
+  let steps = 0;
+  while (Array.isArray(node) && Array.isArray(node[0])) {
+    node = node[0];
+    steps += 1;
+  }
+  expect(steps).toBe(depth);
+});
+
+test('ownership: shared subtrees cost work linear in distinct nodes, not in paths', () => {
+  const depth = 24;
+  let shared: Record<string, unknown> = { leaf: true };
+  for (let i = 0; i < depth; i += 1) shared = { left: shared, right: shared };
+
+  const started = performance.now();
+  const copied = deepCopy(shared);
+  const validated = validateJsonValue(shared);
+  const elapsed = performance.now() - started;
+
+  expect(copied.ok).toBe(true);
+  expect(validated.ok).toBe(true);
+  // Work proportional to 2^depth paths would not finish; distinct-node work does.
+  expect(elapsed).toBeLessThan(1_500);
+
+  const seen = new Set<unknown>();
+  const stack: unknown[] = copied.ok ? [copied.value] : [];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (typeof current !== 'object' || current === null || seen.has(current)) continue;
+    seen.add(current);
+    for (const value of Object.values(current)) stack.push(value);
+  }
+  expect(seen.size).toBeGreaterThanOrEqual(depth + 1);
+  expect(seen.size).toBeLessThanOrEqual(2 * depth + 2);
+});
+
 // Type-level: DeepReadonly applies recursively (compile-time check).
 const _typeCheck: DeepReadonly<{ a: { b: number[] } }> = { a: { b: [1, 2] } };
 void _typeCheck;

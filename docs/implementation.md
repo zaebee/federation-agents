@@ -179,7 +179,7 @@ Semantic failures are values, not exceptions. There are two deliberate exception
 ### 1.7 Immutable ownership model
 
 - Public record types are written with `readonly` fields; `DeepReadonly<T>` is used at the API boundary and preserves primitive brands.
-- Constructors validate, then copy, then freeze. `deepCopy` builds a structurally disjoint graph; `deepFreeze` freezes every reachable object and array and is cycle-safe.
+- Constructors validate, then copy, then freeze. `deepCopy` builds a graph disjoint from the source; a subtree shared between several parents is copied once, by source identity; `deepFreeze` freezes every reachable object and array and is cycle-safe. All three walks are iterative on an explicit frame stack, so nesting depth cannot exhaust the call stack.
 - `deepCopy` rejects, never coerces: functions, symbols, `bigint`, non-`Object.prototype` prototypes (including `Date`, `Map`, `Set`, class instances and null-prototype objects), accessor properties, non-enumerable own properties, symbol-keyed properties, cyclic inputs, sparse arrays and arrays with any own property beyond integer indices.
 - `deepCopy` preserves an own `__proto__` key as an own data property via `Object.defineProperty`, rather than triggering prototype assignment.
 - Caller mutation after construction cannot reach a stored record. This is tested at module level and in the property suite (P5).
@@ -311,6 +311,7 @@ function validateJsonValue(value: unknown): Result<JsonValue>;
 - `deepCopy` accepts `null`, `undefined`, string, finite or non-finite number, boolean, plain arrays and plain objects. Numbers are not checked for finiteness here; that is `validateJsonValue`'s job. `deepCopy` and strict JSON validation are deliberately separate.
 - Arrays must have `Array.prototype`, no symbol keys, only canonical integer index keys below `length`, no holes, and only data descriptors that are enumerable.
 - Objects must have `Object.prototype`, no symbol keys, and only enumerable own data properties. `undefined` values are copied as `undefined` (JSON validation rejects them later).
+- The walks are iterative: `deepCopy`, `deepFreeze` and `validateJsonValue` use an explicit frame stack, so nesting depth is data rather than control flow. A deeply nested value produces a typed result or a typed rejection, never a `RangeError` — this matters because the boundary is where untrusted, arbitrarily nested input arrives. Completed sub-results are memoised by source identity, so a subtree shared between several parents is copied or validated once; a back edge to a node on the current path is still rejected as a cycle.
 - `deepFreeze` traverses `Reflect.ownKeys`, so symbol-keyed and non-enumerable properties are frozen too, and it tolerates cycles.
 - `validateUnknown` runs the guard first, then copies and freezes. It never casts arbitrary input: a failed guard returns `E_UNKNOWN_BOUNDARY_REJECTED`.
 - `validateJsonValue` rejects `undefined` (top-level, property value or array hole), `NaN`, `±Infinity`, functions, symbols, non-plain objects, sparse arrays, arrays with extra own properties, symbol-keyed properties, accessor properties, non-enumerable properties, cyclic graphs and lone surrogates in string values **and object keys**. Rejections use `E_JSON_VALUE_INVALID`.
