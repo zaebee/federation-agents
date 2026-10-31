@@ -1,0 +1,176 @@
+Провёл аудит PR #32 на commit `b94fb05076f336751c8d033a91be366355627863`.
+
+REQUEST CHANGES
+
+CI PASS
+
+Scope соблюдён
+
+Итог: реализация в целом аккуратная. Архитектурная модель D-1 сохранена, но я нашёл один существенный дефект на границе валидации и два менее критичных замечания. Я бы попросил исправить их до merge.
+
+## 1. Что проверил
+
+| Область                             | Результат                                   |
+| ----------------------------------- | ------------------------------------------- |
+| RuntimeInstance registry            | Реализован                                  |
+| Отдельная модель FAILURE event      | Реализована                                 |
+| `RUNNING` не меняется после FAILURE | Реализовано                                 |
+| Copy-on-write                       | Реализовано                                 |
+| Deep copy / deep freeze             | Реализовано для дескрипторов и событий      |
+| Runtime branding                    | Реализовано через private symbols + WeakSet |
+| Дубликаты RuntimeInstanceID         | Отклоняются                                 |
+| Неизвестный runtime                 | Отклоняется                                 |
+| CORE-002 semantics                  | Не просочились                              |
+| Credential implementation           | Не изменена                                 |
+| `docs/CORE-001.md`                  | Не изменён                                  |
+| Task 15                             | Не реализован                               |
+
+Изменено пять файлов, 426 добавлений и 2 удаления. Новых нормативных error codes нет.
+
+## 2. Найденные замечания
+
+### P1 — `createRuntimeRegistry` не валидирует внешний массив
+
+Файл: [`src/core/runtime.ts`](https://github.com/zaebee/federation-agents/blob/b94fb05076f336751c8d033a91be366355627863/src/core/runtime.ts?utm_source=chatgpt.com)
+
+Сейчас:
+
+```
+export function createRuntimeRegistry(value: unknown): Result<RuntimeRegistry> {
+  if (!Array.isArray(value)) {
+    return invalid('$', 'expected array of RuntimeInstanceDescriptor values');
+  }
+
+  // ...
+  for (let index = 0; index < value.length; index += 1) {
+    const validated = validateRuntimeInstanceDescriptor(value[index]);
+```
+
+Проблема: каждый descriptor валидируется через `validateRuntimeInstanceDescriptor`, но сам массив не проходит `validateJsonValue`.
+
+Это означает, что внешний контейнер может содержать неподдерживаемые структуры, которые строгий JSON validator должен отклонять:
+
+- дополнительные собственные свойства массива;
+- symbol properties;
+- нестандартный prototype;
+- нестандартные дескрипторы свойств;
+- accessor properties.
+
+Например:
+
+```
+const runtimes = [validRuntime];
+(runtimes as unknown as Record<string, unknown>).metadata = 'unexpected';
+
+createRuntimeRegistry(runtimes);
+```
+
+Сейчас такой массив потенциально будет принят, потому что цикл проверяет только индексированные элементы.
+
+Это расходится с Global Constraint 5: boundary validation должна отвергать неподдерживаемые структуры.
+
+Исправление: сначала валидировать весь `unknown` через `validateJsonValue`, затем проверять, что полученное значение — массив, и работать уже с валидированной копией.
+
+```
+const json = validateJsonValue(value);
+if (!json.ok) return json;
+
+if (!Array.isArray(json.value)) {
+  return invalid('$', 'expected array of RuntimeInstanceDescriptor values');
+}
+```
+
+Добавить тесты на extra properties, symbol properties и нестандартный prototype массива.
+
+### P2 — несогласованная валидация RuntimeInstanceID
+
+В `entities.ts` существующий `validateRuntimeInstanceDescriptor` проверяет ID через `requireString`, то есть допускает пустую строку.
+
+В `runtime.ts` `createRuntimeLifecycleEvent` использует собственный `requireString`, который требует непустую строку.
+
+В результате возможна ситуация:
+
+1. Registry успешно регистрирует RuntimeInstance с `id: ''`.
+2. Event с `runtime_instance_id: ''` создать нельзя.
+3. Зарегистрированный runtime невозможно адресовать через lifecycle event.
+
+Нужно согласовать правила валидации.
+
+Я бы не вводил новое ограничение формата идентификаторов только в Task 14. Лучше придерживаться уже существующего контракта `validateRuntimeInstanceDescriptor`, если нормативная спецификация не устанавливает дополнительного ограничения.
+
+### P2 — conformance test не полностью связывает IdentityVersion с runtime
+
+Файл: [`tests/conformance/d.test.ts`](https://github.com/zaebee/federation-agents/blob/b94fb05076f336751c8d033a91be366355627863/tests/conformance/d.test.ts?utm_source=chatgpt.com)
+
+Тест создаёт IdentityVersion:
+
+```
+const identity = descriptor({
+  id: 'iv-a-1',
+  participant: 'participant-a',
+  versionLabel: '1.0.0',
+});
+```
+
+Затем создаёт два RuntimeInstance, ссылающихся на `iv-a-1`.
+
+Снимок IdentityVersion сравнивается до и после операции, что полезно. Но сама связь между зарегистрированной версией и runtime явно не проверяется.
+
+Я бы добавил assertion:
+
+```
+expect(updated.runtimes().every(
+  runtime => runtime.identity_version_id === identity.id
+)).toBe(true);
+```
+
+Это небольшое усиление conformance test: он будет проверять не просто неизменность отдельного объекта, но и соответствие сценария D-1.
+
+## 3. Что сделано хорошо
+
+Несколько важных решений я отдельно проверил.
+
+Branding. Registry и Event действительно защищены runtime-проверкой через `WeakSet`. Простого structural object недостаточно, чтобы пройти `recordRuntimeEvent`.
+
+Ownership. `recordRuntimeEvent` не использует прежние ссылки на descriptors и events: они копируются и повторно замораживаются. Исходный registry остаётся неизменным.
+
+Разделение event/state. `stateOf()` возвращает `RUNNING` для обоих runtime независимо от наличия FAILURE event. Это соответствует согласованной минимальной модели, а не случайному пропуску перехода.
+
+Отсутствие deduplication. Два одинаковых события сохраняются как два события. Это правильно: CORE-001 не определяет event identity.
+
+CORE-002. Нет timestamp, sequence, event ID, replay, delivery или persistence semantics. Агент не начал проектировать следующий протокол внутри текущей задачи.
+
+## 4. CI и GitHub
+
+GitHub Actions: success
+
+Workflow: [CI run #41172386158](https://github.com/zaebee/federation-agents/actions/runs/41172386158?utm_source=chatgpt.com).
+
+Независимо проверил статус job и шаги:
+
+- Format — success
+- Lint — success
+- Typecheck — success
+- Test — success
+- Build — success
+- Lockfile verification — success
+
+В PR описании заявлено: 484 теста, 480 pass, 4 todo, 3168 assertions. CI подтверждает успешное выполнение test step, но точные числа из его логов я отдельно не извлекал.
+
+Также проверил review submissions и inline threads: на момент аудита их нет.
+
+## 5. Рекомендация
+
+Я бы отправил агенту три замечания, но не менял бы архитектуру Task 14.
+
+Приоритет исправлений:
+
+1. Обязательно — строгая валидация внешнего массива в `createRuntimeRegistry`.
+2. Согласовать правила валидации RuntimeInstanceID.
+3. Усилить D-1 test связью IdentityVersion → RuntimeInstance.
+
+После этого достаточно повторить полный CI и проверить обновлённый diff. Не нужно менять CORE-001, вводить дополнительные lifecycle states или расширять event model.
+
+Мой вердикт сейчас — REQUEST CHANGES, но не из-за архитектуры. Основная идея Task 14 реализована корректно; проблема в полноте boundary validation.
+
+И отдельно: я не отправлял GitHub review — это результат технического аудита, а не опубликованный отзыв в PR.
