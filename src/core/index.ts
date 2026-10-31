@@ -40,6 +40,32 @@ export type {
   PathValidation,
 } from './traversal.js';
 
+export {
+  evaluateCredentialUsage,
+  evaluateHistoricalSignature,
+  revocationSubjectRef,
+  signedAtSubjectRef,
+  validateCredentialRevocationRecord,
+} from './credential.js';
+export type {
+  ClaimStatus,
+  CompromiseTimeInput,
+  CredentialRevocationRecord,
+  CredentialSubjectBinding,
+  CredentialUsageEvaluation,
+  FutureAuthorizationInput,
+  FutureAuthorizationOutcome,
+  HistoricalSignatureInput,
+  HistoricalSignatureResult,
+  HistoricalValidity,
+  RevocationReason,
+  SignatureTemporalPolicy,
+  SignatureVerificationInput,
+  SignatureVerificationOutcome,
+  SignatureVerifier,
+  TemporalTrustFailureFields,
+} from './credential.js';
+
 export { validateVersionLabel } from './version-scheme.js';
 export type { SemVer, VersionLabel } from './version-scheme.js';
 

@@ -1,10 +1,12 @@
 // Temporal context contracts for UIA-CORE-001 §10 (Global Constraint 10).
 //
-// This module carries types only. Trust derivation, the four-outcome helper
-// (`trustOutcome`), validation and temporal conformance tests belong to Task 13;
-// nothing here decides whether a timestamp is trusted.
+// Types plus the four-outcome trust derivation used by credential evaluation.
+// Trust itself is always supplied externally; the core never produces it.
 
+import type { Result } from './errors.js';
+import { mechanismFailure } from './errors.js';
 import type { DomainID, TemporalFieldRef, Timestamp } from './primitives.js';
+import { validateTemporalFieldRef } from './primitives.js';
 
 /** A trust determination bound to an exact field, subject and timestamp value. */
 export interface AssessedTrustResult {
@@ -36,4 +38,52 @@ export interface TemporalContext {
   readonly trust: Readonly<
     Record<string, Readonly<Record<TemporalFieldRef, TemporalTrustInput | undefined>> | undefined>
   >;
+}
+
+export type TemporalTrustOutcome = 'TRUSTED' | 'UNTRUSTED' | 'UNASSESSED' | 'TRUST_ASSESSMENT_UNAVAILABLE';
+
+/**
+ * Resolves external trust for one exact `(subject_ref, field, timestamp_value)`.
+ *
+ * - missing entry or NOT_ASSESSED -> UNASSESSED
+ * - UNAVAILABLE -> TRUST_ASSESSMENT_UNAVAILABLE
+ * - ASSESSED with any binding mismatch -> TRUST_ASSESSMENT_UNAVAILABLE
+ * - ASSESSED matching -> TRUSTED / UNTRUSTED
+ *
+ * Field comparison is exact: no case folding and no standard/extension aliasing.
+ */
+export function trustOutcome(
+  ctx: TemporalContext,
+  field: TemporalFieldRef,
+  subjectRef: string,
+  timestampValue: Timestamp,
+): Result<TemporalTrustOutcome> {
+  const validated = validateTemporalFieldRef(field);
+  if (!validated.ok) {
+    return validated;
+  }
+  if (typeof subjectRef !== 'string' || subjectRef.length === 0) {
+    return {
+      ok: false,
+      error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', 'Trust subject_ref must be a non-empty string'),
+    };
+  }
+
+  const entry = ctx.trust[subjectRef]?.[validated.value];
+  if (entry === undefined || entry.status === 'NOT_ASSESSED') {
+    return { ok: true, value: 'UNASSESSED' };
+  }
+  if (entry.status === 'UNAVAILABLE') {
+    return { ok: true, value: 'TRUST_ASSESSMENT_UNAVAILABLE' };
+  }
+
+  const assessment = entry.assessment;
+  if (
+    assessment.field !== validated.value ||
+    assessment.subject_ref !== subjectRef ||
+    assessment.timestamp_value !== timestampValue
+  ) {
+    return { ok: true, value: 'TRUST_ASSESSMENT_UNAVAILABLE' };
+  }
+  return { ok: true, value: assessment.trusted ? 'TRUSTED' : 'UNTRUSTED' };
 }
