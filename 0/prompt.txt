@@ -1,0 +1,2176 @@
+# UIA Task 18 — DEC-06 Owner Decision Session
+## Contradictory Assessments
+
+We are continuing UIA CORE-001 Task 18.
+
+### Context and authority
+
+Use the repository's current merged state as the baseline. Inspect the actual files before reasoning.
+
+Normative hierarchy:
+1. `docs/CORE-001.md` — CORE-001 Rev 0.3.3.
+2. Approved implementation plan Rev E.
+3. Task 17 conformance audit — historical evidence; do not rewrite its statuses.
+4. Task 18 artifacts, especially:
+   - `decision-register.md`
+   - `decision-packages/T18-09A-assurance-semantics/dec-06-contradictory-assessments.md`
+   - `interaction-matrix.md`
+   - `evidence-index.md`
+5. Current implementation and tests.
+
+DEC-06 concerns contradictory trusted Assessments and the semantics of `CONTESTED`.
+
+The current decision package explores Option C:
+- an explicit, deterministic conflict predicate;
+- no universal contradiction engine;
+- conflict detection is available only where the applicable domain/policy defines the predicate;
+- the normative obligation in CORE-001 §6.4 must not silently become optional for domains that claim §6.4 support.
+
+DEC-06 remains OPEN. Do not treat Option C or any subdecision as approved.
+
+### Your task
+
+Conduct an owner decision analysis for DEC-06. Do not implement anything.
+
+Inspect and report the exact normative wording, current implementation behavior, tests, and all relevant ambiguities.
+
+Break the decision into these independent questions:
+
+1. **Conflict predicate ownership**
+   - Is the conflict predicate supplied by the domain, by a policy, or by another explicitly identified authority?
+   - What is the minimum contract required for it to be deterministic and auditable?
+
+2. **Predicate availability**
+   - If no predicate is configured, is this:
+     a. a configuration error;
+     b. a valid limited operating mode that cannot claim §6.4 contradiction-detection support;
+     c. something else?
+   - Distinguish generic Assessment handling from a domain claiming conformance to §6.4.
+
+3. **Conflict scope**
+   - Which Assessments are eligible for comparison?
+   - Must they share the same subject, relation, parent, temporal scope, or another key?
+   - Do not invent matching semantics that are not supported by the specification. Identify each unresolved dimension.
+
+4. **Policy narrowing**
+   - Can policy narrowing remove an Assessment from the applicable set before conflict evaluation?
+   - Can narrowing ever reintroduce an Assessment previously excluded as untrusted or inapplicable?
+   - Preserve the existing invariant that untrusted Assessments cannot be reintroduced by policy narrowing.
+
+5. **Evaluation precedence (A-8)**
+   - What happens when a conflict is detected and a required verified claim is also missing?
+   - Current implementation may short-circuit to `CONTESTED` before reporting missing/disallowed claims.
+   - Do not describe missing claims as the actual returned result when conflict detection short-circuits.
+   - Keep the precedence question OPEN unless the owner explicitly decides it.
+   - Show the observable outcomes under each plausible precedence rule.
+
+6. **Result semantics**
+   - Precisely distinguish `CONTESTED`, `UNSATISFIED`, and other existing outcomes
+
+---
+
+# Task: DEC-06 — Conflict Evaluation, Evidence Preservation & Branch Semantics
+
+**Mode: Plan only. Do not modify files, source code, tests, specifications, or create commits/PRs.**
+
+## Context
+
+We have confirmed the following owner-level decisions:
+
+1. **Predicate availability**
+   - A domain claiming support for CORE-001 §6.4 or §8.5 item 5 MUST configure an explicit deterministic conflict predicate.
+   - Absence of a predicate is a configuration/conformance failure for a domain claiming that capability.
+   - A limited mode without the predicate is allowed, but it MUST NOT claim support or represent an unexamined conflict state as a successful check.
+   - CORE-001 does not define a universal conflict predicate.
+
+2. **Predicate ownership**
+   - The conflict predicate belongs to the receiving-domain policy.
+   - The meaning of "local" remains OPEN: domain boundaries, policy authority, governance, identity/versioning, and distribution are not to be decided by implementation.
+
+3. **Assessment preservation and branching** — owner-approved direction:
+   - **Evidence Preservation:** policy narrowing MUST NOT silently remove an otherwise applicable Assessment from conflict evaluation.
+   - **Branch Preservation:** conflicting applicable Assessments MUST remain independently identifiable and available for separate evaluation.
+   - **No Implicit Reconciliation:** branch selection, merging, or resolution MUST NOT happen implicitly as a side effect of applicability filtering or conflict detection.
+
+See the exploratory, non-normative discussion in:
+https://github.com/zaebee/federation-agents/issues/43
+
+## Your task
+
+Remain in Plan mode and produce a decision-support analysis.
+
+### A. Refine the semantics
+
+Distinguish explicitly:
+
+- Applicability selection under §6.3.
+- Trust filtering under §6.4.
+- Policy narrowing.
+- Conflict detection.
+- Branch-specific evaluation.
+- Normative resolution.
+
+In particular, explain the difference between:
+- legitimately excluding an Assessment because it is not applicable to a particular evaluation context;
+- silently excluding an otherwise applicable Assessment because it conflicts with another Assessment;
+- evaluating two different policy contexts as separate branches.
+
+Do not treat different verified-claim sets as automatic contradiction. Unverified claims are not negations. Conflict remains predicate-defined.
+
+### B. Define the minimum viable fork model
+
+Explore whether the semantic fork can initially be represented as separate evaluation contexts/results without introducing a persistent branching engine into CORE-001.
+
+Preserve:
+- original Assessment identity and provenance;
+- the policy/context used for each branch;
+- the reason an Assessment was excluded from a particular context;
+- independent branch outcomes;
+- the fact that no branch is automatically canonical.
+
+Do not assume that a fork requires copying or mutating Assessment records.
+
+### C. Examine current implementation
+
+Inspect the current conflict evaluation, narrowing, `ApplicableAssessments`, `assessEdge`, `evaluateAssurance`, `conflictPredicate`, and `contestedClaims` behavior.
+
+Identify exactly where current behavior violates or fails to demonstrate the approved principles.
+
+Pay special attention to:
+- whether narrowing can hide one side of a conflict;
+- whether the evaluation result preserves enough information to reconstruct the branch;
+- whether `contestedClaims` can be mistaken for a normative list of contradictions;
+- deterministic ordering and predicate input completeness;
+- whether the current API can represent separate branch outcomes without inventing authority semantics.
+
+### D. Produce recommendations, not implementation
+
+For every proposed change, classify it as:
+
+- Normative clarification;
+- API/type design;
+- Runtime implementation;
+- Conformance test;
+- Cross-spec dependency;
+- Owner decision still required.
+
+Do not resolve OPEN/BLOCKED items by assumption.
+
+Keep A-8 precedence OPEN. Keep unresolved scope questions OPEN, including edge-vs-claim scope, same-assessor conflicts, profile/method comparability, supersession, temporal scope, and the §6.4 / §8.5 trusted-assessor wording mismatch.
+
+Do not define "local" organizational or governance structure.
+
+Do not introduce a universal trust model, global arbiter, automatic reconciliation, automatic revocation, or grant-producing API.
+
+### Deliverables
+
+Return:
+
+1. A concise semantic model and terminology.
+2. A proposed minimum viable branch/evaluation model.
+3. A gap analysis against current implementation.
+4. A list of normative decisions still required from the owner.
+5. A proposed change plan split into independently reviewable tasks.
+6. Specific conformance scenarios, including tests proving that narrowing cannot silently erase an otherwise applicable conflicting Assessment.
+
+**Stop after presenting the plan. Do not implement anything.**
+
+---
+
+Good analysis. Before implementation, I want one refinement pass.
+
+The owner approves the three principles:
+- Evidence Preservation
+- Branch Preservation
+- No Implicit Reconciliation
+
+Please revise the plan according to these clarifications:
+
+1. **Conflict-dependent exclusion**
+   Replace the assumption that conflict evaluation must always happen before narrowing with a stronger semantic invariant:
+
+   An Assessment that is applicable to an evaluation context MUST NOT be silently excluded from conflict consideration solely because its presence would produce a conflict.
+
+   Do not prescribe evaluation order yet. Separate normative semantics from execution order.
+
+2. **Keep fork orchestration outside CORE-001 for the MVP**
+   Treat independent branch evaluations as separate evaluations under distinct declared contexts. `ForkEvaluation` may be a caller-side or adapter-level aggregation, not necessarily a CORE-001 API.
+   
+   CORE-001 should preserve the information required to reconstruct each evaluation, but should not become a branch lifecycle or orchestration protocol.
+
+3. **Remove branch selection from the MVP**
+   Do not introduce `selected_branch`, `resolution_ref`, or any implicit winner mechanism in this phase.
+   
+   Normative resolution and authority to select a branch remain separate cross-spec questions.
+
+4. **Do not prematurely standardize exclusion taxonomy**
+   Preserve exclusion facts, reasons, policy/context references, and provenance. Treat the proposed exclusion enum as a design option, not an approved normative vocabulary.
+   
+   In particular, do not assume that `OUT_OF_CONTEXT` is valid merely because a policy labels something out of context. Consider how declared scope criteria and post-hoc exclusion can be distinguished without defining local governance.
+
+5. **Keep all previously OPEN decisions OPEN**
+   Including A-8, edge-vs-claim scope, same-assessor conflicts, profile/method comparability, supersession, temporal scope, §6.4/§8.5 trust wording, and the meaning of local.
+
+Return:
+- revised semantic model;
+- revised minimum viable API boundary;
+- revised gap analysis;
+- explicit list of owner decisions still required;
+- revised implementation sequence.
+
+No implementation, source changes, tests, commits, or PRs.
+
+Please identify any contradictions between these clarifications and the current CORE-001 normative text rather than silently resolving them.
+
+---
+
+# DEC-06 — Owner Decision Package: Applicability, Conflict-Dependent Exclusion & Evidence Preservation
+
+**Mode: Plan only. No implementation.**
+
+## Context
+
+We have completed two rounds of DEC-06 analysis.
+
+The current refinement is the baseline:
+- Conflict evaluation must not be made ineffective by silently excluding an otherwise applicable Assessment.
+- Independent evaluation contexts remain separate.
+- Fork orchestration is caller/adapter-side, not part of the CORE-001 MVP.
+- CORE-001 should preserve enough information to reconstruct one evaluation.
+- No branch selection, winner, canonical branch, or normative resolution mechanism is introduced in this phase.
+- No standardized exclusion taxonomy has been approved.
+
+Relevant exploratory discussion:
+https://github.com/zaebee/federation-agents/issues/43
+
+Relevant normative source:
+`docs/CORE-001.md` — CORE-001 Rev 0.3.3.
+
+Relevant implementation:
+`src/core/assessment.ts`, `src/core/traversal.ts`, and associated tests.
+
+Previous analysis identified tensions T1–T10 and gaps G1–G19. Use those as the starting point. Do not repeat the full repository audit unless needed to support a specific decision.
+
+## Objective
+
+Prepare a compact, decision-oriented package for the protocol owner.
+
+The goal is to turn the approved direction into precise, testable normative requirements without prematurely fixing implementation details or resolving unrelated OPEN questions.
+
+This is not an implementation plan.
+
+## Part I — Owner decisions
+
+Prepare decision proposals for the following six questions.
+
+### DEC-06-D1 — Definition of applicability
+
+Proposed direction:
+
+Distinguish:
+1. Structural applicability.
+2. Declared context applicability.
+3. Trust admissibility.
+4. Selection for assurance evaluation.
+
+Investigate whether `applicable` should mean structural applicability plus declared context criteria, independently of the final assurance selection.
+
+Explain:
+- How this relates to CORE-001 §6.3 #6.
+- Whether this requires a normative amendment.
+- How to avoid circularity where an Assessment becomes inapplicable merely because policy selected it out.
+- What happens when context criteria themselves depend on Assessment properties.
+
+Do not resolve the §6.4/§8.5 trust wording mismatch.
+
+### DEC-06-D2 — Meaning of "silently"
+
+Two interpretations were identified:
+
+**Reading A — Procedural:** an exclusion is acceptable if recorded.
+
+**Reading B — Substantive:** a conflict-dependent exclusion is prohibited even if recorded.
+
+Recommended direction: Reading B.
+
+Evaluate both interpretations and their consequences.
+
+Explain why an audit record is necessary but does not automatically make an exclusion legitimate.
+
+Propose precise normative wording.
+
+### DEC-06-D3 — Meaning of "solely because"
+
+Distinguish legitimate selection from conflict suppression.
+
+Examples of potentially legitimate selection criteria:
+- Declared temporal scope.
+- Evidence quality.
+- Methodological scope.
+- Trust admissibility.
+- Other independently declared policy criteria.
+
+Examples of impermissible conflict-dependent selection:
+- Excluding an Assessment because the conflict predicate fires.
+- Selecting a subset specifically to obtain a non-CONTESTED result.
+- Changing applicability criteria after observing the conflict.
+
+Important nuance:
+Do not prohibit all comparative evaluation or quality-based selection. A policy may legitimately compare Assessments. The question is whether selection is independently justified or is a mechanism for suppressing conflict.
+
+Analyze difficult cases:
+- A policy prefers the newest Assessment.
+- A policy prefers a particular assessor.
+- A policy selects the highest evidence-quality score.
+- A policy excludes an Assessment after detecting a conflict but cites an independent criterion.
+- A policy changes its context declaration between evaluations.
+
+For each, state what can be established, what remains policy-dependent, and what cannot be inferred.
+
+### DEC-06-D4 — Minimum evidence of exclusion independence
+
+Compare three evidence levels:
+
+1. **Declaration:** policy/context identity, version, digest, rule reference.
+2. **Execution trace:** candidate set, rule inputs, rule output, exclusions, conflict findings.
+3. **Reproducibility:** deterministic, versioned rule that can be independently re-executed.
+
+Analyze:
+- What each level proves and does not prove.
+- Whether opaque callbacks can satisfy the requirement.
+- Whether the core can validate the declaration without understanding policy semantics.
+- Whether a rule reference alone is sufficient.
+- Whether candidate-set digests are useful or merely integrity metadata.
+- How to distinguish a predeclared criterion from a post-hoc justification.
+- What the minimum interoperable evidence should be.
+
+Recommend a minimum level for CORE-001 and identify stronger optional levels.
+
+Do not claim that recording a policy's own assertion proves the assertion true.
+
+### DEC-06-D5 — Predicate contract and conflict findings
+
+Do not finalize the predicate API.
+
+Instead, identify which requirements follow from the approved principles and which remain design choices.
+
+Consider:
+- Stable predicate identity/version.
+- Deterministic behavior.
+- Input completeness.
+- Immutable evaluation context.
+- Error and non-boolean behavior.
+- Pair ordering and symmetry.
+- Predicate-provided claims/reasons.
+- Relationship between `ConflictFinding` and existing `contestedClaims`.
+
+Keep edge-vs-claim scope, same-assessor conflicts, profile/method comparability, supersession, and temporal scope OPEN.
+
+### DEC-06-D6 — EvaluationRecord API boundary
+
+Compare:
+- Extending `ApplicableAssessments`.
+- Introducing a separate `EvaluationRecord`.
+- Replacing the existing type.
+
+Evaluate compatibility, semantic clarity, auditability, and migration risk.
+
+Provisional preference: separate `EvaluationRecord` (Option B).
+
+The record should preserve enough information to reconstruct one evaluation, without introducing:
+- ForkEvaluation or BranchEvaluation core types.
+- Branch lifecycle.
+- Branch selection.
+- Resolution references.
+- Persistence requirements.
+
+Do not finalize field names or TypeScript signatures unless needed to explain a decision.
+
+## Part II — Normative wording proposal
+
+Produce a compact proposed amendment for CORE-001.
+
+It must express these principles:
+
+1. An evaluation context has identifiable applicability criteria.
+2. Applicability is not defined solely by the final selected assurance set.
+3. An otherwise applicable Assessment cannot be excluded from conflict consideration solely because including it would produce a conflict.
+4. Recording an exclusion does not legitimize a conflict-dependent exclusion.
+5. Legitimate exclusion requires an independently declared basis.
+6. Evidence of exclusion and its justification must be preserved.
+7. Conflict detection does not itself resolve the conflict.
+8. No branch, Assessment, or policy receives automatic priority from ordering, recency, majority, or the absence of a conflict in a narrowed subset.
+
+For each proposed clause:
+- Identify the relevant existing CORE-001 section.
+- Mark it as ADDITION, REPLACEMENT, or CLARIFICATION.
+- Identify any conflict with current normative text.
+- State whether it can be accepted independently or depends on another owner decision.
+
+Do not silently change existing requirements.
+
+## Part III — Conformance model
+
+Propose testable invariants, not implementation-specific tests.
+
+At minimum address:
+
+- Narrowing cannot silently remove an otherwise applicable conflicting Assessment.
+- A recorded conflict-dependent exclusion is still impermissible.
+- A legitimate independent exclusion retains its declared basis and provenance.
+- Changing the context produces a distinct evaluation identity.
+- A result cannot claim conflict assessment was successful when no predicate was configured by a domain claiming that capability.
+- Conflict findings preserve both Assessment identities.
+- `contestedClaims` is not treated as proof of contradiction.
+- No automatic winner or resolution is produced.
+
+For each invariant classify:
+- Normative requirement.
+- Required evidence.
+- Conformance test.
+- Dependencies on unresolved decisions.
+
+Keep A-8 OPEN. Do not prescribe status precedence.
+
+## Part IV — Contradiction and dependency register
+
+Update the T1–T10 register.
+
+For every item classify it as:
+- Resolved by owner decision.
+- Requires owner decision.
+- Requires normative amendment.
+- Cross-spec dependency.
+- Implementation concern.
+- Intentionally deferred.
+
+Explicitly retain these OPEN topics:
+- A-8 precedence.
+- Edge-vs-claim conflict scope.
+- Same-assessor conflicts.
+- Profile/method comparability.
+- Supersession.
+- Temporal scope.
+- §6.4/§8.5 trust wording.
+- Meaning and governance of "local".
+- Normative resolution authority and representation.
+
+Do not resolve them by assumption.
+
+## Part V — Decision summary
+
+End with a compact table:
+
+| Decision ID | Recommended choice | Consequence | Blocking? |
+|---|---|---|---|
+
+Clearly distinguish:
+- Decisions already approved by the owner.
+- New decisions requested from the owner.
+- Design recommendations that do not require normative approval.
+
+For each new owner decision, include:
+- Recommended choice.
+- Strongest alternative.
+- What breaks or becomes impossible under each choice.
+- Whether it changes CORE-001 normative text.
+- Whether it blocks runtime implementation.
+
+## Constraints
+
+- Remain in Plan mode.
+- Do not modify files.
+- Do not change source, tests, or specifications.
+- Do not create commits, branches, or PRs.
+- Do not update Task 17 results or statuses.
+- Do not mark any previously BLOCKED or PARTIAL requirement as PASS.
+- Do not define organizational or governance meaning of "local".
+- Do not introduce a universal trust model or global arbiter.
+- Do not introduce automatic revocation, authority inheritance, or grant-producing APIs.
+- Do not turn a proposed design into an owner decision.
+- Preserve the distinction between normative semantics, API design, and implementation.
+
+**Stop after delivering the decision package. Await owner review.**
+
+---
+
+# DEC-06 — Independent Adversarial Review
+
+## Role
+
+Act as an independent protocol architect and normative specification reviewer.
+
+Your task is to challenge DEC-06, not to validate it or help implement it.
+
+Assume that the author may have made incorrect semantic assumptions even where the document is internally consistent.
+
+## Context
+
+Review the following materials in order:
+
+1. DEC-06 — Owner Decision Package.
+2. DEC-06 — Refinement Pass.
+3. Current `docs/CORE-001.md`.
+4. Referenced decisions and notes, where available.
+
+Treat the three approved principles as approved direction:
+
+- Evidence Preservation.
+- Branch Preservation.
+- No Implicit Reconciliation.
+
+Treat D1–D6 as proposals, not approved decisions.
+
+Do not silently promote recommendations into normative requirements.
+
+## Mission
+
+Determine whether the proposed model actually prevents conflict suppression, including cases where a policy satisfies every formal requirement of D1–D6.
+
+Try to construct counterexamples rather than merely identify missing documentation.
+
+### 1. Attack the applicability model
+
+Challenge D1:
+
+- Can structural applicability plus declared context criteria still permit arbitrary exclusion?
+- Can context criteria be designed specifically to exclude one conflicting Assessment?
+- Can a policy predeclare a conflict-dependent rule and thereby make suppression appear legitimate?
+- Does separating applicability from selection solve circularity, or merely relocate it?
+
+### 2. Attack the independence test
+
+Challenge D2–D4:
+
+- Can a policy provide a valid rule reference, version, digest and execution trace while still suppressing conflict?
+- Can an independently declared criterion become a post-hoc instrument through its inputs?
+- Can set-dependent selection be made indistinguishable from conflict avoidance?
+- Does Level 2 evidence provide meaningful auditability, or merely record the policy's own explanation?
+- What would Level 3 reproducibility actually establish?
+
+Provide concrete adversarial examples.
+
+### 3. Attack the predicate contract
+
+Challenge D5:
+
+- Can a deterministic, pure, versioned predicate still produce misleading conflict findings?
+- Can pairwise conflict detection miss set-level contradictions?
+- Can symmetry requirements be incorrect for certain domain relationships?
+- Can a predicate produce an empty claims list while reporting a conflict?
+- What does the protocol actually guarantee about predicate correctness?
+
+Separate mechanism correctness from semantic correctness.
+
+### 4. Attack the EvaluationRecord boundary
+
+Challenge D6:
+
+- Can applicable, considered, selected and excluded sets become inconsistent?
+- Can a record be internally valid but fail to represent what actually happened?
+- Can a caller combine multiple evaluation records and silently create a winner?
+- Is context identity sufficient to establish comparability between evaluations?
+- Can two records be compared if their policies, predicates, temporal scopes or evidence bases differ?
+
+Do not introduce core fork orchestration or branch selection as a solution.
+
+### 5. Examine normative consistency
+
+Compare proposed N1–N8 against the exact current CORE-001 wording.
+
+Identify:
+
+- Direct contradictions.
+- Hidden changes in normative authority.
+- Circular definitions.
+- Undefined terms.
+- Requirements that cannot be tested.
+- Claims that exceed what the implementation can guarantee.
+
+Explicitly distinguish ADDITION, CLARIFICATION, REPLACEMENT and CROSS-SPEC dependency.
+
+### 6. Construct adversarial scenarios
+
+Produce at least 8 concrete scenarios, including:
+
+- A predeclared but conflict-dependent exclusion rule.
+- A legitimate independent exclusion that removes a conflict.
+- A policy that changes context versions after observing a conflict.
+- Two conflicting Assessments from the same trusted assessor.
+- Two Assessments with incomparable profiles or methods.
+- A conflict involving an irrelevant claim.
+- A conflict hidden by temporal supersession.
+- A caller that combines separate evaluation records and selects a winner.
+
+For each scenario state:
+
+1. Initial facts.
+2. Policy/context declaration.
+3. What the core observes.
+4. What the evaluation record contains.
+5. Whether the proposed invariant catches the behavior.
+6. What remains outside the protocol's ability to determine.
+
+### 7. Reconsider D1–D6
+
+For every decision provide:
+
+- Strongest argument for the recommendation.
+- Strongest counterargument.
+- Concrete failure mode.
+- Whether it is genuinely blocking.
+- Whether the decision should be split into smaller decisions.
+- Your recommendation, including the possibility that the current proposal is wrong.
+
+Do not force consensus.
+
+## Output format
+
+1. Executive assessment.
+2. Critical findings ranked by severity.
+3. Counterexample matrix.
+4. Normative contradictions and missing definitions.
+5. D1–D6 review table.
+6. Proposed changes to N1–N8, if necessary.
+7. New OPEN questions.
+8. Decisions that are safe to approve now.
+9. Decisions that must remain OPEN.
+10. Recommended next review sequence.
+
+## Constraints
+
+- Plan/review only.
+- No source changes.
+- No specification edits.
+- No tests or commits.
+- No branches or PRs.
+- No automatic approval of D1–D6.
+- Do not invent organizational governance or define the meaning of "local".
+- Do not resolve A-8, edge-vs-claim scope, same-assessor conflicts, profile/method comparability, supersession, temporal scope, or §6.4/§8.5 trust wording without explicit evidence.
+- Do not treat reproducibility as proof of normative legitimacy.
+- Do not treat a recorded explanation as proof that an exclusion is legitimate.
+
+The goal is to discover whether DEC-06 is robust under adversarial policy behavior, not to produce a more polished version of it.
+
+---
+
+# DEC-06 — Owner Decision Addendum
+## Guarantee Boundaries and Disclosure-First Direction
+
+**Status:** PROPOSED — awaiting owner decision  
+**Scope:** Governance and normative direction only  
+**Implementation:** Not authorized  
+**CORE-001 changes:** None  
+**D1–D6:** Proposals; no implicit approval  
+**Approved direction retained:** Evidence Preservation, Branch Preservation, No Implicit Reconciliation
+
+---
+
+## 1. Purpose
+
+The Independent Adversarial Review identified a fundamental limitation in the current DEC-06 proposal:
+
+> CORE-001 can guarantee the correctness and transparency of its evaluation mechanism, but it cannot independently guarantee the legitimacy or completeness of the policy-defined applicability criteria.
+
+A policy can declare a deterministic, versioned, reproducible criterion that excludes one conflicting Assessment. The exclusion can be fully recorded and the rule can be independently re-executed. Nevertheless, the criterion may have been selected as a pretext to avoid a conflict.
+
+The core has no independent oracle for determining whether such a criterion is normatively legitimate.
+
+This addendum proposes an explicit boundary between:
+
+1. what CORE-001 guarantees mechanically;
+2. what a receiving-domain policy is required to do;
+3. what must be disclosed for external examination;
+4. what remains outside CORE-001's authority.
+
+The purpose is not to weaken the three approved principles. It is to state their enforceable scope without overstating the capabilities of the core.
+
+---
+
+## 2. Proposed direction: Disclosure-first with bounded guarantees
+
+### 2.1 Decision proposal
+
+Adopt a **disclosure-first model with bounded mechanical guarantees** as the direction for DEC-06.
+
+Under this model, CORE-001 does not claim to prevent every form of conflict suppression. It provides a mechanism through which evaluation inputs, exclusions, configured conflict findings, and policy provenance can be identified and examined.
+
+A receiving-domain policy remains normatively obligated not to exclude an Assessment solely to avoid a conflict. However, CORE-001 does not claim that it can always determine whether an exclusion violates that obligation.
+
+### 2.2 Why this is not a relaxation of Evidence Preservation
+
+Evidence Preservation remains an approved direction.
+
+Its meaning must be bounded:
+
+- The core preserves the Assessment identities and evaluation facts it receives.
+- The evaluation record identifies which Assessments were considered and which were excluded.
+- Exclusions retain their declared reasons and provenance.
+- Conflict findings preserve the identities of both participating Assessments.
+- A record does not silently erase an already observed conflict.
+- A policy must not use conflict avoidance as the justification for exclusion.
+
+The core does **not** independently establish that the policy supplied every applicable Assessment or that its declared exclusion reason is legitimate.
+
+The distinction is between preserving the evidence and proving the legitimacy of the policy that selected the evidence.
+
+---
+
+## 3. Guarantee boundary
+
+The following table is the proposed boundary for CORE-001 conformance claims.
+
+| Layer | CORE-001 guarantee | Not guaranteed by CORE-001 |
+|---|---|---|
+| Structural applicability | Structural relationships can be evaluated according to the declared core rules | Completeness of all domain-relevant context criteria |
+| Context applicability | The declared context criteria and their identities can be recorded | Normative legitimacy of those criteria |
+| Predicate mechanism | Configured predicate identity, version, inputs, determinism, and failure behavior can be constrained | Semantic correctness of the predicate's contradiction model |
+| Conflict finding | A configured predicate result can be recorded with both Assessment identities | That the result proves a true contradiction |
+| Absence of finding | The record can state that no configured predicate reported a conflict | That no contradiction exists |
+| Exclusion disclosure | Exclusions, declared reasons, rule references, and provenance can be recorded | That the declared reason is true or non-pretextual |
+| EvaluationRecord | A core-produced or core-validated record can satisfy structural consistency rules | That the applicable set is complete |
+| Resolution | The core does not select a winner or resolve a conflict | That a caller or external authority will not select one |
+| Branch handling | The core does not silently reconcile separate evaluations | That caller-side branch selection is legitimate |
+| Comparability | Evaluation identities and declared inputs can be distinguished | That two evaluations are normatively comparable or substitutable |
+
+### 3.1 Three kinds of correctness
+
+DEC-06 should distinguish three different claims.
+
+**Mechanism correctness**
+
+The configured mechanism behaves according to its declared contract:
+- stable predicate identity and version;
+- deterministic evaluation;
+- declared input tuple;
+- immutable evaluation context;
+- defined handling of errors and non-boolean results;
+- preservation of both Assessment identities when a conflict is reported.
+
+**Procedural transparency**
+
+The evaluation can be examined:
+- context and policy identity are recorded;
+- candidate, applicable, considered, and excluded Assessment identities are distinguishable;
+- exclusions have reasons and provenance;
+- conflict findings are preserved;
+- the record is structurally consistent.
+
+**Normative legitimacy**
+
+The policy and its decisions are justified:
+- applicability criteria are legitimate for the receiving domain;
+- exclusions are not pretexts for conflict avoidance;
+- the selected temporal, methodological, or evidence scope is appropriate;
+- the policy has authority to make the relevant decision.
+
+CORE-001 can support examination of normative legitimacy. It does not independently prove it.
+
+---
+
+## 4. Decision decomposition
+
+The original D1–D6 should be split so that approval of a mechanical requirement does not accidentally approve an unresolved normative claim.
+
+### D1 — Applicability
+
+**D1a — Structural applicability**
+
+**Proposal:** Approve structural applicability as the core-computable layer.
+
+Structural applicability is evaluated according to CORE-001's existing structural relationships and identifiers.
+
+This approval does not define every domain-specific reason why an Assessment should or should not participate in an evaluation.
+
+**D1b — Declared context applicability**
+
+**Proposal:** Require the receiving domain to identify its context criteria, version, and provenance.
+
+The criteria are recorded as policy declarations. The record does not establish that they are complete or legitimate.
+
+**D1c — Trust admissibility**
+
+**Status:** OPEN.
+
+Trust admissibility remains distinct from structural applicability and context applicability. The relationship between §6.4 and §8.5 item 5 requires an explicit decision.
+
+### D2 — Conflict-dependent exclusion
+
+**Proposal:** Adopt Reading B as a normative direction.
+
+An Assessment must not be excluded solely because its inclusion would cause a configured conflict predicate to report a conflict.
+
+Recording the exclusion is necessary for examination but does not make the exclusion permissible.
+
+**Guarantee limitation:** The core cannot always determine whether a declared criterion is a pretext for conflict avoidance.
+
+### D3 — Independent basis and non-suppression
+
+**Proposal:** Retain the prohibition as a policy obligation.
+
+A legitimate exclusion must have a basis declared independently of the conflict outcome. Its reason, rule reference, and provenance must be recorded.
+
+**Status:** The exact criteria and the standard for judging independence remain OPEN.
+
+The core must not claim to mechanically prove:
+- the policy owner's intent;
+- the legitimacy of the declared basis;
+- the absence of pretext;
+- that a criterion was not selected to obtain a non-CONTESTED result.
+
+### D4 — Evidence requirements
+
+**Proposal:** Adopt Level 2 as the minimum disclosure target.
+
+**Level 1 — Declaration**
+- policy/context identity and version;
+- rule identity/version or digest;
+- declared provenance.
+
+**Level 2 — Execution trace**
+- candidate Assessment identities;
+- applicable Assessment identities;
+- considered Assessment identities;
+- exclusions with reasons and rule references;
+- conflict findings;
+- configured predicate identity/version;
+- evaluation context and policy identity.
+
+**Level 3 — Reproducibility**
+- exact versioned rule or executable reference;
+- declared inputs;
+- deterministic re-execution;
+- reproducible output.
+
+Level 2 is a disclosure minimum, not proof of independence or legitimacy. Level 3 establishes reproducibility, not normative correctness.
+
+Whether Level 3 is required for any independent audit profile remains OPEN.
+
+### D5 — Predicate contract
+
+**Proposal:** Approve mechanism requirements only.
+
+A configured predicate must have:
+- stable identity and version;
+- deterministic behavior;
+- a declared input tuple;
+- an immutable evaluation context;
+- defined handling of errors and non-boolean results;
+- access to both Assessment identities;
+- no implicit majority, winner, or resolution behavior.
+
+**Status:** Semantic correctness remains OPEN.
+
+In particular, this decision does not settle:
+- pairwise versus set-level contradiction;
+- symmetry versus ordered relations;
+- same-assessor conflicts;
+- profile/method comparability;
+- edge-vs-claim scope;
+- supersession and temporal scope;
+- the meaning of an empty contested-claims list.
+
+A conflict finding means that the configured predicate reported a conflict. It does not, by itself, prove that a contradiction exists.
+
+The absence of a finding does not prove that no contradiction exists.
+
+### D6 — EvaluationRecord
+
+**Proposal:** Retain Option B as the API design direction.
+
+Use a separate `EvaluationRecord` rather than overloading `ApplicableAssessments`.
+
+The record should be produced by the core evaluation operation or validated by the core before it is accepted as a conforming core evaluation record.
+
+The core must not introduce:
+- fork orchestration;
+- branch lifecycle management;
+- branch winner selection;
+- automatic reconciliation;
+- normative resolution;
+- persistence requirements.
+
+**Additional limitation:** A valid record does not establish that its applicable set is complete or that two records are comparable.
+
+Exact fields, signatures, compatibility behavior, and validation rules remain API design work.
+
+---
+
+## 5. Caller and adapter boundary
+
+CORE-001 does not own orchestration across multiple evaluation contexts.
+
+A caller or adapter may:
+- create multiple contexts;
+- invoke multiple independent evaluations;
+- retain multiple EvaluationRecords;
+- present records for external examination;
+- request a decision from an external authority.
+
+CORE-001 does not thereby authorize the caller to:
+- treat the newest record as automatically authoritative;
+- treat a SATISFIED record as a winner over a CONTESTED record;
+- discard a conflicting record without disclosure;
+- assume that records from different contexts are comparable;
+- claim that the core resolved a conflict.
+
+Whether caller-side selection is legitimate is a separate normative question.
+
+**Branch Preservation** therefore remains an approved direction, but its scope must be explicit: CORE-001 preserves the results of its own evaluations; caller-side preservation and selection obligations belong to the relevant orchestration or decision contract.
+
+---
+
+## 6. Proposed normative changes
+
+The following clauses are proposals only. They are not existing CORE-001 text and are not approved by this addendum.
+
+| ID | Proposed change | Classification |
+|---|---|---|
+| N1 | Define evaluation context and require identifiable, versioned context criteria and provenance | ADDITION |
+| N2 | Define applicability separately from final selection for assurance evaluation | REPLACEMENT of the operative relationship in §6.3 #6 |
+| N3 | Prohibit exclusion of an applicable Assessment solely because its inclusion causes a configured conflict predicate to report a conflict | ADDITION |
+| N4 | State that recording an exclusion does not make a conflict-dependent exclusion permissible | ADDITION |
+| N5 | State the policy obligation to use a basis declared independently of the conflict outcome and record its provenance | ADDITION / partial REPLACEMENT of §6.3 #6 discretion |
+| N6 | Require disclosure of applicable, considered, excluded, and conflict-participating Assessment identities and associated provenance | ADDITION |
+| N7 | State that a conflict finding is detection, not truth determination or resolution | CLARIFICATION / ADDITION |
+| N8 | Prohibit automatic priority within a CORE-001 evaluation based on order, recency, majority, or absence of conflict in a narrowed subset | ADDITION |
+| N9 | Distinguish predicate mechanism correctness from semantic correctness | ADDITION |
+| N10 | State that context identity does not establish comparability or substitutability of evaluation records | ADDITION |
+| N11 | State that an EvaluationRecord does not independently establish completeness of the applicable set | ADDITION |
+
+N2 must not be presented as a mere clarification. It changes the operative relationship between applicability and policy selection.
+
+N8 must not regulate caller-side branches as though CORE-001 had a branch object. Any branch-level priority rule belongs to a caller/adapter contract or another normative artifact.
+
+---
+
+## 7. Conformance claims
+
+The following language is proposed to prevent overstatement.
+
+A conforming CORE-001 implementation may claim:
+
+- it evaluated the declared inputs under the configured predicate mechanism;
+- it recorded the configured predicate identity/version;
+- it preserved the identities of both Assessments for each reported conflict;
+- it preserved the declared exclusions and their provenance;
+- it did not select a winner or resolve a reported conflict;
+- it produced or validated an EvaluationRecord satisfying the applicable structural invariants.
+
+A conforming CORE-001 implementation must not claim, solely on the basis of these properties:
+
+- that every domain-relevant Assessment was included;
+- that every declared context criterion was legitimate;
+- that an exclusion was not a pretext;
+- that a configured predicate captures every contradiction in the domain;
+- that no contradiction exists when no conflict was reported;
+- that separate evaluation records are comparable;
+- that a caller did not select or suppress a branch;
+- that a conflict has been resolved.
+
+---
+
+## 8. Retained OPEN register
+
+The following questions remain explicitly OPEN:
+
+- A-8 precedence.
+- Edge-vs-claim conflict scope.
+- Same-assessor conflicts.
+- Profile/method comparability.
+- Supersession.
+- Temporal scope.
+- §6.4/§8.5 trust wording.
+- Meaning and governance of “local.”
+- Normative resolution authority and representation.
+- Semantic correctness of the configured predicate.
+- Pairwise versus set-level contradiction.
+- Empty contested-claims semantics.
+- Caller-side selection and evaluation-record comparability.
+- Whether Branch Preservation is a core guarantee or a caller obligation.
+- Whether Level 3 is required for any independent audit profile.
+
+No decision in this addendum closes these questions by implication.
+
+---
+
+## 9. Proposed owner decisions
+
+The owner is asked to decide the following explicitly.
+
+| Decision | Proposed answer | Status |
+|---|---|---|
+| Regime | Disclosure-first with bounded mechanical guarantees | AWAITING OWNER |
+| D1a | Approve structural applicability as the core-computable layer | AWAITING OWNER |
+| D1b | Treat context applicability as a declared policy layer, not a core-verified legitimacy claim | AWAITING OWNER |
+| D1c | Keep trust admissibility separate and OPEN | RETAIN OPEN |
+| D2 | Adopt Reading B as a normative prohibition, without claiming full mechanical enforcement | AWAITING OWNER |
+| D3 | Retain independent-basis/non-suppression as a policy obligation; keep its legitimacy standard OPEN | AWAITING OWNER |
+| D4 | Level 2 as minimum disclosure; Level 3 optional pending audit-profile decision | AWAITING OWNER |
+| D5 | Approve mechanism requirements only; semantic correctness remains OPEN | AWAITING OWNER |
+| D6 | Retain Option B as API direction, with core-produced or core-validated records | AWAITING OWNER |
+| N7 | Adopt detection-is-not-resolution wording | AWAITING OWNER |
+| N8 | Adopt within-evaluation no-automatic-priority wording; remove caller-side branch claims | AWAITING OWNER |
+
+Approval of this table would approve direction, not authorize implementation or silently amend CORE-001.
+
+---
+
+## 10. Recommended sequence after owner decision
+
+1. Record the owner's explicit answers to §9.
+2. Split D1, D3, D4, D5, and D6 into normative, evidence, API, and runtime decisions.
+3. Define the terms used by N1–N11.
+4. Reclassify N2 as REPLACEMENT and N8 as ADDITION.
+5. Revise N1–N11 according to the accepted decisions.
+6. Re-run S1–S12 against the revised normative wording.
+7. Reconcile the gap register and affected requirement statuses.
+8. Only after semantic and normative review, prepare API design and runtime implementation plans.
+
+---
+
+## 11. Stop condition
+
+This addendum is a governance proposal.
+
+It does not:
+- amend CORE-001;
+- approve D1–D6 automatically;
+- close any retained OPEN question;
+- define a conflict taxonomy;
+- establish a resolution authority;
+- create source code, tests, schemas, or runtime behavior;
+- authorize commits, branches, or pull requests.
+
+**Stop. Await explicit owner decisions before proceeding.**
+
+---
+
+# Task: Revise DEC-06 Owner Decision Addendum to v2
+
+## Context
+
+We are refining DEC-06 for CORE-001.
+
+The current Addendum v1 has undergone an independent adversarial review. The review considers its overall direction correct but identifies three blockers:
+
+1. **Conformance subject ambiguity:** CORE-001 implementation conformance must be distinguished from receiving-domain policy conformance.
+2. **Approved-principle scope:** Evidence Preservation and Branch Preservation must not be silently redefined as weaker implementation-local guarantees. Any clarification of their enforcement boundary requires an explicit owner decision.
+3. **EvaluationRecord contract:** Its structural invariants and acceptance boundary are not sufficiently defined.
+
+Additional findings R4–R12 from the review must also be addressed.
+
+## Objective
+
+Produce **DEC-06 Owner Decision Addendum v2**.
+
+This is a planning and decision document only.
+
+**Do not modify source code, specifications, tests, schemas, requirements, task statuses, commits, branches, or PRs.**
+
+The output must be suitable for an owner to review and make explicit decisions.
+
+## Required changes
+
+### 1. Separate three conformance layers
+
+Define independently:
+
+- **CORE-001 implementation conformance:** whether the implementation fulfills the requirements explicitly assigned to CORE-001.
+- **Receiving-domain policy conformance:** whether a receiving policy follows its declared applicability, exclusion, conflict-handling, and preservation obligations.
+- **External normative judgment:** whether the policy itself is legitimate, sufficiently specified, and appropriate.
+
+Do not imply that implementation conformance proves policy legitimacy.
+
+Do not imply that a conforming CORE-001 implementation can prevent a receiving policy from suppressing a conflict.
+
+### 2. Preserve approved principles without silently weakening them
+
+Evidence Preservation and Branch Preservation remain approved principles.
+
+Do not reinterpret them as merely “the core preserves what it receives” or “the core preserves its own evaluations” without an explicit owner decision.
+
+Add a separate owner decision concerning their enforcement boundary:
+
+- what CORE-001 itself must guarantee;
+- what belongs to the receiving policy;
+- what belongs to caller/adapter orchestration;
+- what remains outside the current specification.
+
+Make clear that a proposed scope clarification is not yet an approved normative amendment.
+
+### 3. Define the EvaluationRecord contract
+
+Propose a structural contract for a single evaluation record.
+
+At minimum, address:
+
+- unique identifiers;
+- structural candidates;
+- policy-declared context-applicable Assessments;
+- considered Assessments;
+- excluded Assessments;
+- conflict findings;
+- policy/context/predicate identity and version references;
+- provenance and declaration timing;
+- predicate execution status.
+
+Explicitly distinguish:
+
+1. structurally identified candidates;
+2. policy-declared context-applicable Assessments;
+3. Assessments actually considered by the evaluation;
+4. Assessments excluded from consideration;
+5. any downstream selection, which must not be silently introduced into CORE-001.
+
+Define whether the record represents a snapshot of one completed evaluation or a sequence of evaluation events. Prefer a single-evaluation snapshot unless there is a strong reason otherwise.
+
+Specify structural invariants, including set relationships, uniqueness, valid references, and the relationship between conflict findings and considered Assessments.
+
+Do not add a `winner`, `preferred`, `canonical`, `resolved`, or equivalent field.
+
+Distinguish:
+
+- `core_produced`;
+- `structurally_validated_external`.
+
+Structural validation must not be presented as proof of completeness, policy legitimacy, or semantic correctness.
+
+### 4. Address predicate limitations
+
+A declared function signature does not guarantee that a predicate is isolated from ambient state, closures, globals, or hidden access to other Assessments.
+
+Explicitly distinguish:
+
+- constraints on declared inputs;
+- deterministic execution;
+- access isolation;
+- semantic correctness.
+
+Consider whether declarative predicates or isolated execution are required for stronger guarantees. Do not assume they already exist.
+
+Require the predicate contract to define its input tuple and access to both Assessment records or their declared content, not merely their IDs.
+
+Keep semantic correctness of the predicate outside the guarantees of CORE-001 unless a separate verification mechanism is proposed and approved.
+
+### 5. Correct applicability and exclusion semantics
+
+Limit D1a strictly to the existing structural edge triple.
+
+Do not use it to resolve edge-vs-claim scope or parent coverage questions associated with DEC-15.
+
+Keep D1b as a declared policy/context applicability layer. CORE-001 may record this declaration but must not claim to independently verify its normative legitimacy.
+
+Address post-hoc criteria explicitly: a criterion created or modified after observing a conflict cannot be treated as independent of that conflict under the proposed policy obligation.
+
+Record policy/context version and declaration provenance where available.
+
+Do not claim that timestamps or provenance prove the absence of pretext or bad intent.
+
+### 6. Reconcile D1–D6 and N1–N11
+
+Preserve the prior decision package, but revise it in light of the review.
+
+In particular:
+
+- D2 Reading B remains a proposed normative prohibition, not a mechanically enforced guarantee.
+- D3 remains a receiving-policy obligation; the exact legitimacy standard remains OPEN.
+- D4 Level 2 remains the proposed minimum disclosure level; Level 3 is optional.
+- D5 covers mechanism requirements, not semantic correctness.
+- D6 retains Option B: a separate EvaluationRecord.
+- N2 and N5 must be explicitly routed to T18-SPEC-01. They have no normative effect until a separate specification amendment is approved and re-audited.
+- N7 and N8 must be scoped to a single CORE-001 evaluation. Do not introduce branch orchestration into CORE-001.
+- Add N9–N11 to the normative-gap/owner-decision register, or explicitly mark them pending. Do not silently omit them.
+
+### 7. Caller and adapter boundary
+
+Do not introduce a new caller/adapter disclosure obligation in this addendum.
+
+State only what CORE-001 does not do:
+
+- it does not orchestrate multiple evaluation contexts;
+- it does not select a winning context;
+- it does not resolve conflicts;
+- it does not establish a canonical branch.
+
+A separate caller/adapter contract may be proposed as future work, but must remain outside the current CORE-001 decision scope.
+
+### 8. Task status discipline
+
+Do not change Task 17 or any other task/requirement status as a side effect of this revision.
+
+Replace any instruction to “reconcile affected requirement statuses” with:
+
+> Record the implications for affected requirements. Do not change their statuses without a separate re-audit.
+
+## Output structure
+
+Produce the complete document with these sections:
+
+1. Status and purpose
+2. Summary of the adversarial review
+3. Conformance layers and guarantee boundaries
+4. Evidence Preservation and Branch Preservation scope decision
+5. D1–D6 revised decision table
+6. EvaluationRecord structural contract
+7. Predicate contract and limitations
+8. Revised normative proposals N1–N11
+9. Conformance invariants and scenario coverage
+10. Remaining OPEN questions
+11. Owner decision table
+12. Implementation boundary and explicit non-goals
+13. Recommended next sequence
+
+For every decision, distinguish:
+
+- **APPROVED** — explicitly approved by the owner;
+- **PROPOSED** — recommendation awaiting owner approval;
+- **OPEN** — unresolved design question;
+- **PENDING SPEC AMENDMENT** — cannot take normative effect until a separate amendment is approved.
+
+Do not mark any new proposal as APPROVED.
+
+## Quality requirements
+
+- Preserve the distinction between evidence, examination, finding, and ruling.
+- A Finding must not automatically produce a Ruling.
+- A conflict finding must not imply a winner or resolution.
+- Do not claim that auditability guarantees legitimacy.
+- Do not claim that deterministic execution guarantees semantic correctness.
+- Do not claim that a structurally valid record is complete.
+- Do not conflate CORE-001 implementation conformance with receiving-domain policy conformance.
+- Do not silently resolve any OPEN issue from DEC-06 or DEC-15.
+- Do not invent existing requirements or claim that proposed text is already normative.
+
+End with a concise list of explicit decisions required from the owner.
+
+**Plan only. No implementation or repository changes.**
+
+---
+
+# DEC-06 v2.1 — Targeted Correction Pass
+
+Revise the supplied DEC-06 Owner Decision Addendum v2.
+
+This is a targeted correction pass, not a full redesign.
+
+**Plan only. No source, specification, test, task-status, branch, commit, or PR changes.**
+
+Preserve the existing structure, owner-decision statuses, and unresolved questions unless a correction below requires a change. Do not mark proposals as approved.
+
+## 1. Separate context inapplicability from exclusion
+
+The current model conflates:
+- an Assessment declared context-inapplicable;
+- an Assessment declared context-applicable but excluded from consideration.
+
+These are materially different states, especially under N3/N4.
+
+Revise the EvaluationRecord model to distinguish:
+
+- `structural_candidates`
+- `context_applicable`
+- `context_inapplicable`
+- `considered`
+- `excluded_from_consideration`
+
+Propose explicit set relationships.
+
+At minimum, consider:
+
+- `context_applicable` and `context_inapplicable` are disjoint subsets of `structural_candidates`;
+- `considered` and `excluded_from_consideration` are disjoint subsets of `context_applicable`;
+- every context-applicable Assessment receives a terminal consideration disposition in a completed snapshot.
+
+Do not classify an Assessment as context-inapplicable merely because its applicability could not be evaluated. Decide whether an explicit `UNASSESSED`/`INDETERMINATE` disposition is required.
+
+For every context-inapplicable or excluded Assessment, preserve the declared basis, policy/context reference, and provenance where available.
+
+Explain how N3/N4 apply specifically to `excluded_from_consideration`, rather than to `context_inapplicable`.
+
+## 2. Bind the record to its actual input set
+
+E2 refers to the supplied Assessment input set, but the proposed EvaluationRecord does not identify it.
+
+Add a proposed reference or digest for the actual input set supplied to the evaluation.
+
+Distinguish:
+- the supplied input set;
+- structural candidates derived from that set;
+- the policy-declared context-applicable set.
+
+State explicitly that an input-set digest binds the record to the supplied input but does not prove that the supplied input was complete.
+
+For external records, state what information must be available to validate the relationship between the input-set reference and the recorded IDs.
+
+## 3. Clarify record origin and provenance
+
+The current `record_origin` enum is self-asserted metadata. It is not proof that the record was produced by CORE-001.
+
+Distinguish:
+- claimed origin;
+- verified origin;
+- structural validation.
+
+Do not treat `record_origin: 'core_produced'` as proof by itself.
+
+Propose an acceptance boundary that does not assume an already-existing signature or cryptographic mechanism. If authenticated origin requires a separate mechanism, mark that mechanism OPEN.
+
+Clarify that:
+- structural validation establishes internal consistency only;
+- origin verification establishes provenance only to the extent supported by its mechanism;
+- neither establishes completeness, policy legitimacy, or predicate semantic correctness.
+
+Also clarify the uniqueness scope of `record_id`. Do not claim global uniqueness if the mechanism cannot enforce it.
+
+## 4. Resolve predicate execution granularity
+
+The current record has one predicate execution status, but conflict findings refer to individual Assessment pairs.
+
+Analyze two alternatives:
+
+A. Atomic evaluation: one predicate operation covers the complete declared input set.
+
+B. Per-pair evaluation: each pair has its own execution status and result.
+
+If the current CORE-001 mechanism is pairwise, do not model it as atomic.
+
+Define what happens when some pair evaluations succeed and another fails:
+- whether partial findings are retained;
+- whether they are authoritative;
+- whether the overall evaluation is FAILED or PARTIAL;
+- whether the record can claim successful conflict assessment.
+
+Do not invent a new status as approved. Present the required semantics and mark the representation choice PROPOSED or OPEN.
+
+## 5. Reconcile D4 with the actual record fields
+
+D4 proposes Level 2 as minimum disclosure, but the current model makes several exclusion fields optional.
+
+Define the minimum Level 2 information for:
+- context applicability;
+- context inapplicability;
+- exclusion from consideration;
+- predicate execution;
+- conflict findings.
+
+Distinguish mandatory record fields from optional explanatory metadata.
+
+Do not claim that Level 2 proves legitimacy or completeness.
+
+## 6. Clarify evaluation identity
+
+I8 says changing context produces a distinct evaluation identity, but the record only has `record_id` and `context_ref`.
+
+Explain the difference between:
+- record identity;
+- evaluation identity;
+- context identity;
+- input-set identity.
+
+Propose the minimum references needed to distinguish evaluations without claiming comparability between them.
+
+Keep profile/method comparability OPEN.
+
+## 7. Preserve the existing governance boundaries
+
+Do not change the following:
+
+- Evidence Preservation and Branch Preservation remain approved principles.
+- EP-2 and BP-1 remain proposals awaiting explicit owner approval.
+- N2 and N5 remain PENDING SPEC AMENDMENT.
+- No proposed N1–N11 text becomes normative by appearing in this addendum.
+- No caller/adapter disclosure obligation is introduced.
+- No branch orchestration, winner, canonical branch, or resolution mechanism is added to CORE-001.
+- No Task 17/18 status changes without a separate re-audit.
+- A Finding does not automatically produce a Ruling.
+
+## Output
+
+Return:
+1. A concise change summary.
+2. The complete revised Addendum v2.1.
+3. A list of remaining OPEN questions.
+4. A list of owner decisions still required.
+5. A short consistency check confirming that set relationships, predicate statuses, record-origin semantics, and D4 disclosure requirements do not contradict one another.
+
+Do not implement anything. Stop after producing the document.
+
+---
+
+# DEC-06 v2.2 — Final Evaluation Semantics Pass
+
+Revise the supplied DEC-06 Owner Decision Addendum v2.1.
+
+This is a narrowly scoped correction pass. Preserve the existing governance structure, decision statuses, and OPEN questions. Do not redesign the protocol or expand CORE-001 scope.
+
+**Plan only. No source, specification, test, schema, task-status, branch, commit, or PR changes.**
+
+## 1. Define expected pair coverage
+
+The current definition of `EXECUTED` says all considered pairs were evaluated, but the expected pair universe is not defined.
+
+Determine whether the current CORE-001 pairwise mechanism expects:
+
+- every unordered pair of distinct Assessments in `considered`;
+- an explicitly selected subset of pairs;
+- or another precisely defined pair universe.
+
+Do not invent current behavior. If the existing specification or implementation does not establish this, mark it OPEN.
+
+Define how the record distinguishes:
+- expected pairs;
+- evaluated pairs;
+- failed pairs;
+- missing pairs.
+
+`EXECUTED` must not be possible merely because every pair that happened to be recorded succeeded.
+
+If the expected pair set is generated from `considered`, define its canonical construction and ordering. If it is selected by a rule, record that rule and its version.
+
+## 2. Define zero-pair semantics
+
+A `considered` set of zero or one Assessment contains no distinct pairs.
+
+Do not let an empty pair set silently imply that conflict assessment succeeded or that no conflict exists.
+
+Propose an explicit representation, such as `NO_PAIRS`, or another unambiguous state.
+
+Explain its relationship to:
+- `EXECUTED`;
+- `NOT_CONFIGURED`;
+- `UNASSESSED`;
+- `PARTIAL`.
+
+Do not mark the proposed representation APPROVED.
+
+## 3. Separate context assessment from predicate execution
+
+The current model uses `context_unassessed` and also `predicate_execution_status: UNASSESSED`.
+
+Clarify that these describe different stages:
+
+- context disposition: whether applicability could be determined;
+- predicate execution: whether conflict evaluation was performed.
+
+Propose separate status fields if necessary.
+
+Ensure that an inability to determine context applicability cannot be mistaken for a predicate execution result.
+
+Define whether an incomplete context disposition prevents predicate execution for the entire evaluation or only for affected Assessments. Do not assume either behavior without support from CORE-001.
+
+## 4. Remove or justify duplicate findings
+
+`PairEvaluation` already carries `CONFLICT`, `claims`, and `reason`, while `conflict_findings` duplicates that information.
+
+Prefer one canonical representation unless there is a concrete interoperability reason to retain both.
+
+If both remain:
+- define which is authoritative;
+- define the exact consistency invariant;
+- explain how updates and partial failures avoid divergence.
+
+Do not change the semantic distinction between a Finding and a Ruling.
+
+## 5. Restore predicate ordering and symmetry semantics
+
+D5 in v2 previously required pair ordering and symmetry to be declared. This requirement disappeared from v2.1.
+
+Restore it or explain explicitly why it was removed.
+
+Define:
+- whether pair evaluation is ordered or unordered;
+- whether predicate symmetry is required, declared, or merely recorded;
+- what happens when reversing pair order changes the result.
+
+Do not claim symmetry unless it is guaranteed by the mechanism or verified by an explicit rule.
+
+Keep semantic correctness OPEN.
+
+## 6. Editorial cleanup
+
+Remove the repeated summary sections after §13.
+
+The final document must have one coherent section numbering and one authoritative owner-decision table.
+
+## Output
+
+Return:
+1. A concise change summary.
+2. The complete DEC-06 Owner Decision Addendum v2.2.
+3. Remaining OPEN questions.
+4. Explicit owner decisions required.
+5. A consistency check covering expected-pair coverage, zero-pair behavior, stage-specific statuses, finding representation, and predicate ordering/symmetry.
+
+Preserve:
+- EP-2/BP-1 as PROPOSED;
+- N2/N5 as PENDING SPEC AMENDMENT;
+- all existing OPEN issues;
+- no implementation authorization;
+- no Task 17/18 status changes without re-audit.
+
+Do not mark new proposals APPROVED. Stop after producing the document.
+
+---
+
+# DEC-06 v2.3 — Contract Consistency Patch
+
+**Task: targeted correction only. Plan/document pass. No implementation.**
+
+Review DEC-06 v2.2 and produce v2.3 with only the corrections listed below.
+
+## 1. Preserve the existing decisions and boundaries
+
+Do not reopen or reinterpret the governance model.
+
+Preserve exactly:
+- disclosure-first architecture and its stated limitations;
+- separation of CORE-001 implementation conformance, receiving-domain policy conformance, and external normative judgment;
+- Evidence Preservation, Branch Preservation, and No Implicit Reconciliation as previously approved principles;
+- EP-2 and BP-1 as PROPOSED, not approved;
+- N2 and N5 as PENDING SPEC AMENDMENT;
+- D1–D6 and N1–N11 as proposals unless explicitly marked otherwise;
+- no caller/adapter obligation in this addendum;
+- no fork orchestration, winner, branch selection, reconciliation, or resolution in CORE-001;
+- no Task 17/18 status changes without a separate re-audit.
+
+Do not silently convert any proposal into an approved decision.
+
+## 2. Correct status semantics
+
+Resolve the overlap between `NO_PAIRS`, `NOT_CONFIGURED`, `NOT_STARTED`, `FAILED`, `PARTIAL`, and `EXECUTED`.
+
+Prefer separating:
+- `pair_coverage_status`: whether an expected pair universe exists and whether it was covered;
+- `predicate_execution_status`: whether the predicate was configured, invoked, and executed successfully.
+
+Define exact meanings and legal combinations. In particular:
+- zero or one considered Assessment must never imply successful evaluation or absence of conflict;
+- a missing predicate must not require a nonexistent `predicate_ref`;
+- context blocking must not be represented as a predicate failure;
+- `EXECUTED` must require a non-empty expected pair universe and terminal results for every expected pair;
+- `PARTIAL` and `FAILED` must have mutually exclusive, testable definitions.
+
+If a simpler single-status model is demonstrably better, explain why and provide an exhaustive decision table.
+
+## 3. Define pair coverage completely
+
+Define `PairRef` and canonical pair ordering.
+
+Add `pair_selection_rule_ref` to the record shape if rule-selected subsets remain supported.
+
+Specify:
+- how `expected_pairs` is constructed;
+- how evaluated, failed, and missing pairs are represented;
+- how duplicates and reversed duplicates are detected;
+- how the record proves that every expected pair is accounted for.
+
+Keep the default `PAIRWISE_ALL_CONSIDERED` as PROPOSED. Do not claim pairwise coverage proves set-level consistency or normative completeness.
+
+## 4. Make symmetry verification honest
+
+A single canonical evaluation of `(left, right)` cannot by itself prove that `(right, left)` would produce the same result.
+
+Define what evidence is required for `symmetry_verification = VERIFIED`, for example:
+- explicit reverse-order evaluation;
+- an independently verifiable mechanism guarantee;
+- or another clearly specified verification artifact.
+
+If no such evidence exists, the record must not claim verified symmetry. Distinguish a declaration from a verification result.
+
+Do not invent current CORE-001 behavior.
+
+## 5. Complete the disposition evidence contract
+
+Every structural candidate must have exactly one context disposition fact:
+- `CONTEXT_APPLICABLE`;
+- `CONTEXT_INAPPLICABLE`;
+- `CONTEXT_UNASSESSED`, if retained.
+
+Make `context_assessment_status = COMPLETE` require a fact for every structural candidate.
+
+Keep context inapplicability distinct from exclusion from consideration. Do not extend N3/N4 to context-inapplicability.
+
+## 6. Clarify identity and validation
+
+Add `record_schema_version`.
+
+Define:
+- `record_id` — identity of this specific record;
+- `evaluation_ref` — identity of the evaluation configuration/input tuple, not a unique execution ID;
+- `input_set_ref` — binding to the supplied input set, not proof of its completeness.
+
+Define acceptance rules for:
+- `claimed_origin`;
+- `origin_verification`;
+- `structural_validation`.
+
+Do not let structural validation imply core origin, input completeness, policy legitimacy, or predicate semantic correctness.
+
+## 7. Required output
+
+Produce:
+1. A concise change summary.
+2. Complete DEC-06 v2.3 document, not a patch fragment.
+3. A table of remaining OPEN questions.
+4. An owner decision table.
+5. A consistency matrix covering every status combination and every record invariant.
+6. Updated scenarios covering zero pairs, missing pairs, partial failure, context blocking, missing predicate, and symmetry verification.
+
+Remove duplicate summary sections and ensure numbering is consistent.
+
+## 8. Stop conditions
+
+- Do not edit CORE-001.
+- Do not modify source code, schemas, tests, or task statuses.
+- Do not create commits, branches, or pull requests.
+- Do not add new governance principles.
+- Do not broaden scope beyond the listed corrections.
+
+If a decision cannot be derived from the current material, mark it OPEN rather than inventing a default.
+
+---
+
+Продолжи работу над DEC-06 v2.3. Подготовь **DEC-06 v2.4 — Contract Consistency Patch**.
+
+## Главная задача
+
+Исправить только оставшиеся технические несогласованности v2.3. Не проводить новый governance review и не пересматривать уже сформированные решения.
+
+## Обязательные исправления
+
+1. **Context disposition facts**
+   - В `EvaluationRecord` сейчас отсутствует поле для фактов `CONTEXT_APPLICABLE`.
+   - Замени разрозненные массивы disposition facts на один канонический `context_disposition_facts`.
+   - Определи, что каждый `structural_candidate` имеет ровно один disposition fact.
+   - Множества `context_applicable`, `context_inapplicable`, `context_unassessed` должны быть либо вычисляемыми проекциями этих фактов, либо иметь строго определённую проверку согласованности.
+
+2. **Evidence references**
+   - Добавь в схему поля, на которые ссылаются правила валидации: `mechanism_ref`, `validator_ref` и ссылку на evidence для symmetry verification.
+   - Для `origin_verification = VERIFIED` и `structural_validation = PASSED` зафиксируй обязательные ссылки на соответствующие доказательства.
+   - Не утверждай, что наличие ссылки доказывает полноту или легитимность.
+
+3. **Symmetry verification**
+   - Определи, где хранятся результаты reverse-order evaluation.
+   - Не допускай `symmetry_verification = VERIFIED` на основании одной канонической проверки.
+   - Определи допустимые комбинации `pair_order`, `symmetry_declaration` и `symmetry_verification`.
+   - `EXECUTED` остаётся только меткой механического исполнения/покрытия, не семантической корректности.
+
+4. **Pair selection rule**
+   - Добавь обязательную проверку согласованности `pair_selection_rule_ref` и режима построения `expected_pairs`.
+   - Для `PAIRWISE_ALL_CONSIDERED` ссылка на selection rule отсутствует.
+   - Для `RULE_SELECTED` ссылка на правило и его версию обязательна.
+   - Определи, какие данные необходимы для проверки результата правила.
+   - Не утверждай, что правило гарантирует нормативную полноту ожидаемых пар.
+
+5. **Derived pair sets**
+   - Сделай `pair_evaluations` единственным авторитетным источником результатов.
+   - `terminal_pairs`, `failed_pairs`, `missing_pairs` и `conflict_findings` должны быть строго определёнными производными представлениями.
+   - Исключи возможность противоречия между сохранёнными полями и их вычисляемыми значениями.
+   - Уточни согласованность верхнеуровневого `predicate_ref` с `PairEvaluation.predicate_ref`.
+
+6. **Identity scope**
+   - Уточни, что уникальность `record_id` проверяется на уровне record set, а не изолированного EvaluationRecord.
+   - Не меняй смысл `evaluation_ref`: это идентичность configuration/input tuple, а не уникальный запуск.
+
+## Не менять
+
+- EP-2 и BP-1 остаются PROPOSED.
+- N2 и N5 остаются PENDING SPEC AMENDMENT.
+- D1–D6 не получают автоматического approval.
+- N1–N11 не получают автоматического approval.
+- Не менять Task 17/18 statuses.
+- Не вводить новые governance principles.
+- Не менять границы CORE-001, не вводить caller/adapter obligations.
+- Не добавлять branch orchestration, winner selection, reconciliation или resolution.
+- Не пересматривать OPEN-вопросы, кроме уточнений, строго необходимых для исправления перечисленных контрактных противоречий.
+
+## Строгий формат ответа: DIFF ONLY
+
+**Верни только unified diff**, без полного документа.
+
+Требования:
+- Используй формат `diff --git` / `---` / `+++` / `@@`.
+- Изменяй только необходимые строки и ближайший контекст.
+- Не перепечатывай неизменённые разделы.
+- Не добавляй summary, changelog, объяснения, таблицу решений или заключение вне diff.
+- Не создавай фиктивные изменения ради демонстрации diff.
+- Сохраняй существующую нумерацию и структуру, меняя их только если это необходимо.
+- Если точный путь исходного документа неизвестен, используй согласованный путь из исходного артефакта; не выдумывай имя файла.
+
+Перед выдачей diff проверь:
+1. Все ссылки на поля схемы разрешаются.
+2. Все status combinations однозначны.
+3. Все derived sets имеют один источник истины.
+4. Все VERIFIED/PASSED статусы требуют предусмотренных evidence references.
+5. Ни одна правка не меняет governance status или scope.
+
+Если какое-либо исправление невозможно выполнить без нового owner decision, не принимай решение самостоятельно: оставь соответствующий вопрос OPEN и не включай выдуманную нормативную норму в diff.
+
+---
+
+Проверил diff как точечный контрактный патч к v2.3. Направление правильное, но я бы пока не принимал его как финальный v2.4. Он закрывает несколько прежних пробелов, однако вносит новые несогласованности между схемой, инвариантами и статусами.
+
+Главный плюс: `context_disposition_facts` становится единым источником для трёх множеств, `missing_pairs` и `conflict_findings` перестают быть независимо хранимыми данными, а происхождение и структурная валидация получают явные ссылки на подтверждающие механизмы.
+
+## Итог
+
+Не принимать как финальный контракт
+
+Я бы сохранил v2.4 как промежуточную редакцию и попросил Claude сделать ещё один узкий проход. Здесь осталось несколько проблем уже не столько концептуальных, сколько структурных.
+
+## 1. Блокирующие несогласованности
+
+### B1. `keys(pair_evaluations)` не определено для массива
+
+Сейчас `pair_evaluations` — массив, но формула:
+
+```
+missing_pairs = expected_pairs \ keys(pair_evaluations)
+```
+
+предполагает, что у него есть определённые ключи пар. Индексы массива здесь не подходят.
+
+Нужно ввести однозначную функцию или правило построения ключа:
+
+```
+pair_key(pair, pair_order)
+```
+
+И определить, что:
+
+- для `UNORDERED_CANONICAL` `(A, B)` и `(B, A)` имеют один ключ;
+- для `ORDERED` порядок является частью ключа;
+- дубликаты обнаруживаются по этому ключу;
+- `missing_pairs` — ожидаемые ключи, для которых нет соответствующей записи.
+
+Иначе E9–E11 не задают полностью проверяемого контракта.
+
+### B2. `SymmetryCheck.match: boolean` не выражает неопределённость
+
+В `SymmetryCheck`:
+
+```
+forward_status: 'CONFLICT' | 'NO_CONFLICT' | 'FAILED';
+reverse_status: 'CONFLICT' | 'NO_CONFLICT' | 'FAILED';
+match: boolean;
+```
+
+Если обе проверки завершились `FAILED`, простое сравнение статусов даст `match = true`. Но это не свидетельствует о симметрии.
+
+Также если одна проверка завершилась ошибкой, это не то же самое, что обнаруженное нарушение симметрии.
+
+Предлагаю заменить `match` на трёхзначный результат:
+
+```
+comparison: 'MATCH' | 'MISMATCH' | 'INCONCLUSIVE';
+```
+
+Тогда:
+
+- `MATCH` — обе стороны дали терминальные результаты, и они совпали;
+- `MISMATCH` — обе стороны дали терминальные результаты, но они различаются;
+- `INCONCLUSIVE` — хотя бы одна сторона не дала терминального результата.
+
+И нужно определить соответствие:
+
+| Результат проверки                               | `symmetry_verification`                         |
+| ------------------------------------------------ | ----------------------------------------------- |
+| Все обязательные проверки `MATCH`                | `VERIFIED`                                      |
+| Хотя бы одна `MISMATCH`                          | `VIOLATION`                                     |
+| Проверки не выполнялись                          | `NOT_PERFORMED`                                 |
+| Проверки выполнялись, но результат не установлен | Нужен отдельный статус, например `INCONCLUSIVE` |
+
+Иначе текущая схема не может честно представить частично выполненную проверку симметрии.
+
+### B3. Не разделены ссылки на механизм происхождения и механизм симметрии
+
+В таблице для симметрии допускается:
+
+> mechanism guarantee with `mechanism_ref` + `evidence_ref`
+
+Но эти же поля находятся внутри `origin_verification`.
+
+Это разные утверждения:
+
+- механизм подтверждает, что запись действительно создана CORE-001;
+- механизм гарантирует симметричность predicate.
+
+Подтверждение одного не подтверждает другое. Нужны отдельные ссылки, например `symmetry_mechanism_ref` и `symmetry_evidence_ref`, либо единый типизированный объект доказательства, явно указывающий, какое именно утверждение он поддерживает.
+
+### B4. E17 и E22 дублируют друг друга
+
+E17 уже требует, чтобы уникальность `record_id` проверялась на уровне record set. E22 повторяет то же самое.
+
+Оставить это нужно в одном инварианте. В противном случае список E1–E22 создаёт видимость двух независимых проверок, хотя проверка одна.
+
+## 2. Важные уточнения
+
+### C1. Множества контекстных disposition всё ещё выглядят как независимо хранимые поля
+
+`context_disposition_facts` объявлен единственным источником, но в интерфейсе остаются:
+
+```
+context_applicable: AssessmentID[];
+context_inapplicable: AssessmentID[];
+// context_unassessed, вероятно, тоже
+```
+
+Это допустимо как сериализованные проекции, но прямо в интерфейсе нужно обозначить их как `derived` / read-only. Иначе реализация может продолжить записывать эти массивы независимо, а затем проверять их согласованность с facts.
+
+Предпочтительнее вообще не включать их в первичную запись, а определять как вычисляемые представления.
+
+### C2. Не определена связь `PairEvaluation` с `PairKey`
+
+Вычисление производных множеств теперь правильнее по смыслу, но контракту всё ещё не хватает точного определения идентичности пары. Это часть B1, и её нужно закрыть в одном месте, а затем использовать в E9–E11 и в формулах derived views.
+
+### C3. Входы `RULE_SELECTED` могут быть недостаточными
+
+Сейчас написано:
+
+```
+the rule input is considered + context_ref + policy_ref
+```
+
+Но если правило выбирает пары на основании содержимого Assessment, одних идентификаторов `considered` недостаточно. Нужно явно указать, что правило получает доступ к соответствующим Assessment records через `input_set_ref` (или другой определённый механизм).
+
+Также `pair_selection_evidence_ref` должен связывать не просто произвольный документ, а результат применения конкретной версии правила к конкретному входу. Иначе ссылка разрешима, но не доказывает, что именно этот результат был получен из этих входных данных.
+
+### C4. `symmetry_checks` нуждается в собственных инвариантах
+
+Сейчас определён тип записи, но не сказано:
+
+- может ли быть несколько проверок одной пары;
+- должны ли проверки относиться только к `expected_pairs`;
+- как проверяется согласованность `forward_status` с основной `pair_evaluations`;
+- как проверяется `match` / `comparison` относительно двух статусов;
+- что означает `VERIFIED`, если для части ожидаемых пар проверка отсутствует.
+
+Нужно также обозначить, что `symmetry_checks` — отдельный verification trace, а не второй независимый источник результатов обычной оценки пар.
+
+## 3. Что уже стало лучше
+
+- `context_disposition_facts` устраняет риск расхождения нескольких независимо записываемых наборов.
+- `pair_construction_mode` делает выбор ожидаемого пространства пар явным.
+- Удаление `missing_pairs` и `conflict_findings` из первичной схемы уменьшает риск дублирования состояния.
+- `origin_verification` и `structural_validation` больше не смешиваются в один неразличимый признак доверия.
+- `record_id` uniqueness корректно вынесена на уровень record set.
+- N6 теперь лучше соответствует фактическому контракту: он не требует хранения производных данных как самостоятельных фактов.
+
+## Рекомендация
+
+Я бы попросил Claude сделать v2.5 — Final Structural Consistency Pass, не меняя governance-решения и не расширяя область CORE-001.
+
+Пять задач для следующего прохода:
+
+1. Определить `pair_key` и корректную формулу `missing_pairs` для массивов и обоих режимов порядка.
+2. Сделать результат symmetry comparison трёхзначным (`MATCH` / `MISMATCH` / `INCONCLUSIVE`) и согласовать его с `symmetry_verification`.
+3. Разделить evidence references для origin verification, structural validation и symmetry verification.
+4. Обозначить контекстные множества как derived projections и определить все инварианты `symmetry_checks`.
+5. Удалить дублирование E17/E22 и уточнить входы/доказательства `RULE_SELECTED`.
+
+Governance не трогать: EP-2/BP-1 остаются PROPOSED, N2/N5 — PENDING SPEC AMENDMENT, D1–D6 и N1–N11 не становятся утверждёнными автоматически. Task 17/18 не менять.
+
+После v2.5 я бы уже не запускал ещё один большой круг проектирования. Сделал бы финальную проверку схемы и матрицы состояний, зафиксировал оставшиеся OPEN-вопросы и только затем отдельно обсуждал переход к implementation plan. Build mode пока OFF.
+
+---
+
+запиши плиз финальные изменения в файлы (отдельный worktree), а то мне кажется мы после 10 итераций так и не пришли к финалу - хочу отдать PR на ревью другому агенту
+
+---
+
+чекни коменты к PR
+
+---
+
+да давай
+
+---
+
+https://github.com/zaebee/federation-agents/pull/63#issuecomment-6546309628
+
+---
+
+Проверил обновление PR #63. Ветка теперь на `60bdeb8`, PR открыт и GitHub считает его mergeable. Автор добавил follow-up с исправлениями F-01–F-08: ограничил `AssessmentID` строковым типом, запретил сильные symmetry-статусы для `ORDERED`, уточнил приоритет `MISMATCH`, зафиксировал взаимно-однозначность disposition-фактов и уточнил смысл `PASSED`.
+
+Это уже не просто косметика: автор закрыл несколько конкретных замечаний предыдущего аудита. Сейчас перепроверю сами формулировки в документе, а не только его отчёт о внесённых изменениях.## Результат повторного аудита
+
+
+
+Большинство прошлых замечаний закрыто
+
+Ещё не готов принимать
+
+
+
+Автор действительно внёс существенные исправления в коммите `3caa032`, который, согласно комментарию, вошёл в текущую ветку через `60bdeb8`.
+
+### Что теперь исправлено
+
+| Замечание прошлого аудита                              | Результат                                                                                                       |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `ORDERED` и сильные symmetry-статусы конфликтовали     | Исправлено: для `ORDERED` оставлены только наблюдательные статусы                                               |
+| `MISMATCH` не имел явного приоритета                   | Исправлено: при `SYMMETRIC` он ведёт к `VIOLATION`, иначе — `OBSERVED_MISMATCH`                                 |
+| Не было строгой связи disposition-фактов с кандидатами | Исправлено: ID фактов должны точно совпадать с `structural_candidates`                                          |
+| `CONTEXT_UNASSESSED` можно было потерять               | Исправлено: неполная классификация требует `PARTIAL`                                                            |
+| Symmetry check не был привязан к ожидаемым парам       | Исправлено: проверка должна ссылаться на `expectedKeys`                                                         |
+| `INCONCLUSIVE` был недостаточно определён              | Исправлено: нужны выполненные проверки, отсутствие `MISMATCH` и неполное покрытие либо неопределённый результат |
+
+Также сохранены важные границы: EP-2/BP-1 остаются `PROPOSED`, N2/N5 — `PENDING SPEC AMENDMENT`; никакие решения не объявлены одобренными. Это правильно.
+
+### Что ещё мешает принять документ
+
+1\. `VIOLATION` не требует evidence для самого mismatch.
+
+В §6.11 `evidence_ref` обязателен для проверок, участвующих в `VERIFIED`, `OBSERVED_MATCH` и `OBSERVED_MISMATCH`, но `VIOLATION` пропущен. При этом §6.11 и F-03 утверждают, что `MISMATCH` при `SYMMETRIC` приводит к `VIOLATION`.
+
+Получается странная асимметрия: для наблюдаемого mismatch доказательная ссылка обязательна, а для того же mismatch, превращённого в нарушение заявленной симметрии, — нет. Я бы потребовал обязательный `evidence_ref` и для `VIOLATION`.
+
+2\. У `PASSED` всё ещё смешаны два разных уровня проверки.
+
+В §6.10 сказано, что `PASSED` требует выполнения E1–E21. Но ниже §6.10 и §6.13 уточняют, что `PASSED` удостоверяет внутреннюю согласованность и непустые ссылки, а доказательные утверждения E2/E19/E20 требуют доступа к исходным данным или внешним свидетельствам.
+
+Это не одно и то же. Нужно разделить:
+
+- record-internal validation — проверка структуры, ссылочной согласованности и внутренних инвариантов;
+- evidence validation — проверка того, что ссылки действительно подтверждают membership, происхождение и корректность выбора пар.
+
+Иначе `PASSED` одновременно означает «проверено E1–E21» и «часть E2/E19/E20 не проверялась».
+
+3\. Не определено наследование `policy_ref` и `context_ref` в disposition-фактах.
+
+В `EvaluationRecord` эти ссылки обязательны, но в `ContextDispositionFact` и `ExclusionFromConsiderationFact` они необязательны. Это может быть нормальным сокращением, если факт наследует ссылки родительской записи. Но такого правила пока нет.
+
+Нужно явно определить: отсутствие ссылки означает наследование из `EvaluationRecord`, а указанная ссылка должна совпадать с родительской — либо задать другую модель привязки.
+
+### Состояние PR
+
+Mergeable
+
+Open
+
+PR #63 · 3 файла · 7 коммитов
+
+- Gemini Code Assist оставил два комментария; оба разрешены.
+- Автор сообщил, что Format, lint, typecheck, test, build и SonarCloud проходят.
+- `Entire Gates` по сообщению автора блокируется обязательным approval review.
+- В списке reviews пока нет независимого `APPROVED` — есть комментарий Gemini и комментарии автора.
+
+[Открыть PR #63](https://github.com/zaebee/federation-agents/pull/63?utm_source=chatgpt.com)
+
+## Мой вывод
+
+Это уже хороший, существенно более строгий decision-support документ. Но я бы не запускал ещё одну большую итерацию DEC-06. Остались три локальных уточнения, причём первые два — реальные контрактные несогласованности.
+
+Рекомендация: один небольшой v2.5.1 patch, затем финальная проверка и передача независимому агенту. Не надо снова пересматривать D1–D6, N1–N11 или менять governance-границы.
+
+И главное: даже после этого документ может быть готов к независимому review, но это ещё не означает, что все предложения в нём одобрены или что можно переходить к реализации CORE-001.
+
+---
+
+Проверил актуальную версию PR #63. Обновление хорошее: три предыдущих блокирующих замечания действительно исправлены. Но я бы пока не считал документ полностью готовым к принятию.
+
+CI passed
+
+SonarCloud passed
+
+Review approval pending
+
+Состояние PR: открыт, GitHub считает его mergeable. Последний HEAD — `28d2d9c` (`docs: separate validation layers and tighten fact references`). В CI для этого коммита workflow завершился с `success`. В списке reviews пока нет `APPROVED`: есть только `COMMENTED`.
+
+### Что исправлено
+
+| Предыдущее замечание                                                  | Результат                                                                                               |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `VIOLATION` мог не иметь доказательства `MISMATCH`                    | Исправлено: `evidence_ref` обязателен, это отражено и в E16                                             |
+| `structural_validation` смешивалась с проверкой внешних доказательств | Исправлено: добавлена отдельная `evidence_validation`, E22 разделяет их статусы                         |
+| Не было однозначного наследования `policy_ref` / `context_ref`        | Исправлено: отсутствующие ссылки наследуются от `EvaluationRecord`, задано равенство при явном указании |
+
+Это реальные исправления контракта, а не только косметическая редактура.
+
+### Что ещё осталось
+
+1\. Противоречие в формулировке E19 — стоит исправить.
+
+E19 заканчивается утверждением:
+
+> `PASSED` certifies record-internal consistency and non-empty references only
+
+Но теперь есть два независимых статуса:
+
+- `structural_validation = PASSED` — внутренняя согласованность записи;
+- `evidence_validation = PASSED` — проверка внешних доказательств, включая E2 и E20.
+
+Поэтому общее слово `PASSED` здесь уже некорректно. Нужно уточнить, что именно `structural_validation = PASSED` подтверждает внутреннюю согласованность и наличие ссылок. Для `evidence_validation = PASSED` действует отдельное определение из §6.10 и §6.13.
+
+2\. Неопределённая ориентация пары в ORDERED-режиме.
+
+В §6.11 сказано:
+
+> `forward_status` MUST equal the corresponding canonical-order `pair_evaluations` status.
+
+Но для `ORDERED` канонический порядок не определён: порядок пары как раз имеет значение. Лучше определить соответствие так:
+
+- `UNORDERED_CANONICAL` — статус канонически ориентированной пары;
+- `ORDERED` — статус пары с той же ориентацией, что и в `SymmetryCheck`.
+
+Это небольшая, но настоящая неоднозначность.
+
+3\. Для INCONCLUSIVE не определено требование к evidence.
+
+Для `VERIFIED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH` и `VIOLATION` наличие `evidence_ref` обязательно. Для `INCONCLUSIVE` — нет, хотя статус предполагает, что проверка уже выполнялась и дала неопределённый результат.
+
+Я бы попросил уточнить, где фиксируется доказательство неудачной обратной проверки или неполного наблюдения. Не обязательно требовать один и тот же формат evidence для всех случаев, но сейчас граница не вполне ясна.
+
+### Мой вердикт
+
+ACCEPT WITH OPEN ITEMS
+
+Я бы не запускал ещё одну большую итерацию DEC-06. Осталось два небольших обязательных уточнения и одно дополнительное по evidence для `INCONCLUSIVE`.
+
+При этом важнее всего, что автор сохранил границы решений:
+
+- EP-2 / BP-1 остаются `PROPOSED`;
+- N2 / N5 — `PENDING SPEC AMENDMENT`;
+- D1–D6 и N1–N11 не стали автоматически одобренными;
+- Task 17/18 не изменены;
+- реализация и разрешение конфликтов по-прежнему вне этого PR.
+
+То есть документ не пытается выдать техническую структуру записи за доказательство нормативной легитимности. Это правильное направление.
+
+Рекомендация: попросить автора сделать короткий v2.5.1 только по трём пунктам выше, затем отдать документ независимому агенту на финальное ревью. После этого уже можно принимать owner decisions — не продолжать бесконечно полировать схему.
+
+Я ничего не менял в GitHub и не отправлял review.&#x20;
+
+---
+
+Отчет независимого ревьюера /tmp/opencode/pr63-independent-review.md
+
+---
+
+Посмотрел обновлённый PR #63. HEAD сейчас — `7443608fbbf9` (`7443608`), PR открыт, не draft, GitHub считает его mergeable. Изменены те же три документа; addendum v2.5 теперь на 1073 строки. [Открыть PR](https://github.com/zaebee/federation-agents/pull/63?utm_source=chatgpt.com).
+
+Хорошая новость: автор закрыл предыдущие замечания, в том числе три последних:
+
+- `E19` теперь явно разделяет `structural_validation = PASSED` и `evidence_validation = PASSED`.
+- `forward_status` привязан к правильной ориентации пары для `ORDERED` и `UNORDERED_CANONICAL`.
+- `INCONCLUSIVE` требует `evidence_ref` для выполненных проверок.
+- В последнем обновлении добавлены уточнения по `MECHANISM_ASSERTED`, проверке evidence, идентичности `evaluation_ref`, обратной проверке пар и пустому результату `RULE_SELECTED`.
+
+Но при повторной проверке я нашёл одну оставшуюся внутреннюю несогласованность, которую считаю блокирующей для принятия документа как структурно согласованного.
+
+## F-12 — противоречие в статусах `ORDERED + SYMMETRIC`
+
+Блокирующее
+
+В §6.11 и §9.3 одновременно заданы три правила:
+
+1. `OBSERVED_MATCH` разрешён только при `symmetry_declaration ≠ SYMMETRIC`.
+2. Для `ORDERED + SYMMETRIC` таблица разрешает `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE`, `NOT_PERFORMED`, но запрещает `VERIFIED`, `VIOLATION` и `MECHANISM_ASSERTED`.
+3. В §6.11 precedence rule говорит: любой `MISMATCH` обязан приводить к `VIOLATION`, если декларация `SYMMETRIC`, иначе к `OBSERVED_MISMATCH`.
+
+Отсюда два проблемных случая:
+
+- Все пары совпали: `ORDERED + SYMMETRIC`, полное покрытие, все проверки `MATCH`. `OBSERVED_MATCH` запрещён собственным определением, `VERIFIED` запрещён таблицей. Допустимого статуса нет.
+- Есть несовпадение: `ORDERED + SYMMETRIC`, хотя бы одна проверка `MISMATCH`. Precedence требует `VIOLATION`, но таблица для `ORDERED` его запрещает.
+
+То есть комбинация объявлена допустимой, но для неё не определена непротиворечивая классификация результата.
+
+Минимальное исправление: выбрать одну из двух политик:
+
+- запретить `symmetry_declaration = SYMMETRIC` в режиме `ORDERED` до определения ordered semantics; либо
+- разрешить в `ORDERED + SYMMETRIC` наблюдательные статусы для обоих исходов и явно определить precedence, не называя их `VERIFIED`/`VIOLATION` до утверждения ordered semantics.
+
+Второй вариант потребует аккуратно переписать и §6.11, и §9.3, и E16, чтобы precedence не противоречил таблице.
+
+## Остальное
+
+- Разделение структурной и evidence-валидации стало заметно аккуратнее.
+- `PairKey` теперь определён через явный компаратор и инъективное кодирование; старое замечание о `min/max` закрыто.
+- Учёт `expectedKeys` исправлен: уравнение теперь задано над ключами, а не смешивает `PairRef` и `PairEvaluation`.
+- Границы гарантий и статусы governance по-прежнему явно отделены от реализации. EP-2/BP-1 остаются PROPOSED, N2/N5 — PENDING SPEC AMENDMENT.
+- По PR-комментариям видно, что предыдущие замечания закрыты; автор также сообщает, что CI и SonarCloud прошли. `Entire Gates` всё ещё ждёт reviewer approval. Это не заменяет содержательную проверку.
+
+Мой вердикт: CHANGES REQUIRED — одно конкретное блокирующее противоречие в статусной модели. Это не означает, что нужно снова пересматривать весь governance-дизайн: проблема локальная, в сочетании `ORDERED + SYMMETRIC`.
+
+Страница PR через веб-открытие у меня не загрузилась, поэтому проверку делал по актуальному содержимому и метаданным через подключённый GitHub. Могу подготовить точный review-комментарий для PR #63 с контрпримером и минимальным вариантом исправления.
+
+---
+
+мержим
+
+---
+
+что у нас можно взять из desicion-package то, что разблокировано?
+
+---
+
+T18-02B уже взял коллега
+
+---
+
+Да давай сделаем draft PR с decision package для N-176
+
+---
+
+только через worktree
+
+---
+
+Посмотрел [PR #72 — N-176 Path Enumeration Decision Package](https://github.com/zaebee/federation-agents/pull/72?utm_source=chatgpt.com).
+
+
+
+CI passed
+
+SonarCloud passed
+
+Draft PR
+
+
+
+Мой вердикт: пакет качественный, блокирующих замечаний не вижу. Я бы оставил его Draft до отдельного решения по `T18-DEC-18`.
+
+### Что сделано хорошо
+
+1. Правильно выделена нормативная проблема. N-176 — не просто пожелание оптимизировать DFS: §8.8 содержит условный `MUST NOT` на обязательное перечисление всех путей, если эквивалентный результат можно вычислить иначе.
+2. Точно описано текущее поведение. `collectPaths` материализует все простые пути, `discoverPaths` сортирует и возвращает их, `evaluateBinding` проверяет каждый. Экспоненциальный рост — реальная проблема, а не гипотетическая претензия к стилю реализации.
+3. Не смешаны нормативный результат и API. Это центральная неоднозначность: CORE-001 требует, чтобы существовал хотя бы один допустимый путь, но TypeScript `BindingResult` дополнительно возвращает все `acceptedPaths` и `details.perPath`. Пакет не притворяется, что одно автоматически определяет другое.
+4. Хорошо разобраны варианты. Особенно правильно, что cap и caller-supplied limit не объявляются решением N-176: они ограничивают ущерб, но не доказывают эквивалентность результата.
+5. Сохранены границы решений. `A-8`, глубина closure и форма публичного API остаются открытыми. Пакет не пытается незаметно протащить их через рекомендацию.
+
+### Что я бы уточнил перед утверждением DEC-18
+
+1\. Формально определить, что именно считается эквивалентным результатом.
+
+Сейчас Reading B выглядит убедительно, но формулировка «eligibility + sufficient evidence» всё ещё оставляет пространство для интерпретаций. Я бы потребовал явного разделения:
+
+- нормативный результат: eligible / not eligible;
+- обязательное доказательство результата;
+- диагностическая информация, которую API может предоставлять дополнительно.
+
+И отдельно зафиксировал бы, что `acceptedPaths` и `details.perPath` — либо часть обязательного контракта, либо диагностическое расширение. Иначе спор просто переедет из §8.8 в API.
+
+2\. Не недооценивать сложность Option D.
+
+«Первый канонический допустимый путь» — не то же самое, что просто остановиться на первом пути DFS. Сейчас канонический порядок получается после сортировки полного набора путей. Новая реализация должна определить, как найти тот же канонический witness без предварительного перечисления всего множества.
+
+С отказом сложнее: если разные пути нарушают разные рёбра или closure-условия, одного failing edge недостаточно. Нужен детерминированный witness или proof, показывающий, что допустимого пути вообще нет. Пакет это замечает и правильно оставляет `N176-3` открытым.
+
+3\. Сделать измерение воспроизводимым.
+
+Цифры из #25 полезны: `k=16` → 65 536 путей и примерно 2,7 секунды. Но измерение описано как результат scratch script. Для последующей реализации я бы сохранил сам генератор merge-diamond графа и benchmark-процедуру как воспроизводимый артефакт. Сейчас это не блокирует decision package, но пригодится для проверки будущего решения.
+
+### Техническая проверка PR
+
+- Изменены только документация и roadmap — соответствует заявленному scope.
+- CI: все шаги прошли, включая lockfile, format, lint, typecheck, tests и build.
+- SonarCloud: Quality Gate passed, 0 новых issues, 0% duplication на новом коде.
+- Отзывов и inline review threads пока нет.
+- PR открыт, `mergeable: true`, `draft: true`.
+
+### Итог
+
+Я бы принял PR #72 как draft decision package, не меняя его статус на approved и не закрывая N-176. Следующий правильный шаг — отдельное owner-решение по `T18-DEC-18`, прежде чем писать реализацию.
+
+Главное достижение этого пакета — он точно локализует развилку: нужно ли сохранять полный набор путей как обязательный результат протокола или достаточно доказательства существования/отсутствия допустимого пути. Это правильный вопрос для решения, а не для преждевременного кодирования.
