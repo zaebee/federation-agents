@@ -283,6 +283,30 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
 
 ## Tasks
 
+> **Tracker status: historical.** This plan was executed as a continuous implementation session and the `- [ ]` steps below were **not** ticked as they were completed. They record the intended TDD sequence, not current state: an unchecked box does not mean "not done". Read the table. Current status lives in [`STATUS.md`](../../../STATUS.md); the audit trail lives in `docs/audits/`.
+
+| Task | Closed by | Evidence |
+| --- | --- | --- |
+| 1 Project scaffold | #1 | `package.json`, `tsconfig.*`, `eslint.config.mjs` |
+| 2 Error model, primitives, ownership | #3 | `src/core/{errors,primitives,ownership}.ts` and unit suites |
+| 3 RFC 8785 JCS + pure-TS SHA-256 | #6 | `canonical.ts`, `sha256.ts`, RFC vectors and crypto cross-check |
+| 4 Descriptor hash with explicit projection | #10 | `hashing.ts`, known-answer test |
+| 5 Version schemes + selectors | #12 | `version-scheme.ts`, `selector.ts` |
+| 6 Entities + structural validation (§5) | #14 (docs #15) | `entities.ts`, `tests/conformance/a.test.ts` |
+| 7 Lineage graph — delayed parents, cycles | #16 (docs #17) | `lineage.ts`, graph-level C-1/C-2 facts |
+| 8 Assessments — edge binding, unverified semantics | #21 (docs #22) | `assessment.ts`, B-5 |
+| 9 Traversal phases 1+2 | #23 | `traversal.ts`, B-1…B-3 |
+| 10 Immediate merge closure | #26 (docs #27) | B-4…B-7; recursive closure BLOCKED (A-5) |
+| 11 Scope × closure consistency | #28 | `tests/unit/scope-matrix.test.ts` |
+| 12 Property-based tests | #29 (docs #30) | `tests/property/`, brute-force closure oracle |
+| 13 Credentials — temporal trust separation | #31 | `credential.ts`, D-3; D-4 PARTIAL in the audit |
+| 14 RuntimeInstance lifecycle | #32 (docs #33) | `runtime.ts`, D-1 PARTIAL (independent execution not observable) |
+| 15 Local Acceptance | #34 (docs #35) | `acceptance.ts`, `ledger.ts`, D-2 BLOCKED (the Ruling is CORE-004) |
+| 16 Docs | #36 | `docs/implementation.md` |
+| 17 Conformance run + assertion-level verification | **replaced** by the Task 17 audit (#37) | `docs/audits/2026-10-31-core-001-task-17/` — verdict `NOT_READY` |
+
+Task 17's planned Step 5 (tag `uia-core-001-refimpl-0.1.0`) was **not** executed: the audit returned `NOT_READY`, so no conformance tag was created. Remediation continues in Task 18 (`docs/audits/2026-10-31-core-001-task-18/`).
+
 ### Task 1: Project scaffold (compile-run strategy)
 
 **Files:** Create `package.json`, `tsconfig.json`, `tsconfig.core.json`, `eslint.config.mjs`, `.prettierrc.json`, `src/index.ts`, `tests/unit/scaffold.test.ts`.
@@ -554,7 +578,7 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
   8. **Proposed minimal normative clarifications** (the BLOCKED items of the register, formulated as spec-change proposals).
 - [ ] **Step 2: Commit** `docs: implementation reference, phase contracts, blocked semantics and mechanisms`.
 
-### Task 17: Full conformance run + assertion-level verification
+### Task 17: Full conformance run + assertion-level verification *(replaced by the Task 17 audit — historical)*
 
 **Files:** None new.
 
