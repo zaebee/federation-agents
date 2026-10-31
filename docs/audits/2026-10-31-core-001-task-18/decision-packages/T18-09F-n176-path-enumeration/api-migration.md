@@ -102,8 +102,8 @@ interface CycleWitness {
 1. Work with `C = nodes in graph.cycles`. `graph.cycles` is already a deterministically sorted list of sorted SCCs; do not reorder it.
 2. Choose the first `c ∈ C` (in `graph.cycles` order, then node order) with `reach(s,c)` and `reach(c,t)`.
 3. Build `s⇝c` and `c⇝t` with BFS over adjacency whose outgoing edges are sorted by `(parent, relation)` (the order used by `adjacencyFor`), so predecessor choice is storage-order-independent.
-4. Concatenate the two walks and loop-erase by keeping the first occurrence of each node in walk order. The result is the final simple candidate→origin path.
-5. Scan that final path in candidate→origin order and select the **first** node belonging to `C`. Lemma 4 guarantees that at least one such node survives, but the original pivot `c` may have been erased; never assume it survives.
+4. Concatenate the two walks and **chronologically loop-erase** them with a vertex stack: start `[s]`; for each edge `(u,v)`, if `v` already appears at stack index `i`, pop everything after `i`; otherwise push `v`. Do **not** keep only first occurrences: that can invent a non-edge (e.g. `s→a→b→c→a→d→t` must become `s→a→d→t`, not `s→a→b→c→d→t`). Invariant after each edge: the stack is a contiguous directed walk with no repeated vertex, and every adjacent pair is an edge actually traversed.
+5. Scan that final simple path in candidate→origin order and select the **first** node belonging to `C`. Lemma 4 guarantees that at least one such node survives, but the original pivot `c` may have been erased; never assume it survives.
 6. `cycle` is exactly one entry of `graph.cycles` — the SCC containing the selected surviving node — not a union of SCCs.
 7. `verification: 'SIMPLE_PATH_AND_SCC'` states which checks the caller should rerun.
 
@@ -111,7 +111,7 @@ interface CycleWitness {
 
 **Verification requirements (independently checkable):**
 
-1. The implementation starts from the D3 reachability walk, loop-erases it, and only then selects the witness node. The raw concatenated walk is never exposed.
+1. The implementation starts from the D3 reachability walk, chronologically loop-erases it (stack algorithm in the construction rule), and only then selects the witness node. The raw concatenated walk is never exposed.
 2. `path.edges` is contiguous, scope-permitted, candidate→origin, and contains no repeated node (a simple path).
 3. The path's node sequence contains `cyclicNode`.
 4. `cycle` is exactly one entry of `graph.cycles` — the SCC containing the surviving `cyclicNode`.

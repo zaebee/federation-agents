@@ -110,7 +110,7 @@ Reading A may instead keep N-176 as "conditional not triggered" (not PASS-throug
 | Option | Meaning | Consequence |
 | --- | --- | --- |
 | **R1 — Reading A** | Per-path result normative. | No API break; exponential output accepted as availability risk; no compact-rejection work. |
-| **R2 — Reading B, exact** | Compact API; D0–D4/D6a/D6b polynomial; D5 proof obligations first. | Satisfies N-176; needs `T18-SPEC-01`, versioned API, corpus additions. |
+| **R2 — Reading B, exact** | Compact API; D0–D4/D6a/D6b polynomial; D5 proof obligations first. | Potentially satisfies N-176, subject to the conditions in OQ-9; needs `T18-SPEC-01`, versioned API, corpus additions, and a separate audit revision. |
 | **R3 — Reading B, semantic change** | Walk/state-based cycle class. | **Not needed**: D3 is polynomial under current semantics. |
 | **R4 — Defer** | Keep N-176 PARTIAL; clarify §8.8 and D4/§8.6 in `T18-SPEC-01`. | No decision now; honest fallback. |
 

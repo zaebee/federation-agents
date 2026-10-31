@@ -60,7 +60,11 @@ Lemma 4 gives equivalence with a **walk** through a cyclic node. Algorithm:
 2. cyclic set `C` from `graph.cycles`;
 3. answer yes iff `(forward ∩ reverse ∩ C) ≠ ∅`.
 
-The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated and loop-erased; by Lemma 4 the simple result touches `C`. Complexity `O(|V|+|E|)`. **D3 is polynomial**, contrary to revisions 1–2.
+The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated into a directed walk, then **chronologically loop-erased** with a vertex stack: for each edge `(u,v)`, if `v` already appears at stack index `i`, pop everything after `i`; otherwise push `v`. First-occurrence deduplication is **not** loop erasure and can invent non-edges (e.g. `s→a→b→c→a→d→t` must erase to `s→a→d→t`, not `s→a→b→c→d→t`).
+
+Invariant after each edge: the stack is a contiguous directed walk (every adjacent pair is a real traversed edge) with no repeated vertex. By induction, appending via `(u,v)` preserves contiguity; truncating at an earlier `v` keeps a prefix and makes `v` the top, so the next edge continues correctly. By Lemma 4 the simple result touches `C`; the original pivot may be erased, but a surviving vertex of the erased closed subwalk lies on a cycle. Complexity `O(|V|+|E|)`. **D3 is polynomial**, contrary to revisions 1–2.
+
+**Required test (specification only):** walk with a repeated intermediate vertex (`s→a→b→c→a→d→t`, pivot `c`); assert final edges `s→a`, `a→d`, `d→t`, all edges present, no repeated vertex, and a member of `C` on the final path (here `a`, though pivot `c` was erased).
 
 Note: the earlier reductions failed because they asked for a path through a *specific* cyclic node, while D3 asks for **some** cyclic node; Lemma 4 is what makes the difference.
 
@@ -140,7 +144,7 @@ D1 is true (`s→a→b→t` exists), but the only paths are preempted by the cyc
 | Option | Meaning | Consequence |
 | --- | --- | --- |
 | **R1 — Reading A** | Per-path result normative. | No API change; `2^k` output accepted as availability risk. |
-| **R2 — Reading B, exact** | Compact API; all classes polynomial (D5 proof obligations pending). | Satisfies N-176; needs `T18-SPEC-01`, versioned API, corpus additions; D5 proof/tests first. **Preferred direction.** |
+| **R2 — Reading B, exact** | Compact API; all classes polynomial (D5 proof obligations pending). | Potentially satisfies N-176, subject to the OQ-9 conditions and a separate audit revision; needs `T18-SPEC-01`, versioned API, corpus additions; D5 proof/tests first. **Preferred direction.** |
 | **R3 — Reading B, semantic change** | Walk/state-based cycle class. | No longer necessary: D3 is polynomial under the current semantics. |
 | **R4 — Defer** | Keep N-176 PARTIAL; clarify §8.8. | Honest fallback if the owner does not want a decision now. |
 

@@ -51,7 +51,7 @@ Proof: (⇐) concatenate a simple `s⇝u` path and a simple `v⇝t` path; a shar
 
 A simple `s→t` path touching `C` exists iff some `c ∈ C` satisfies `reach(s,c)` and `reach(c,t)`.
 
-Proof: (⇒) take the path. (⇐) concatenate walks `s⇝c⇝t`; loop-erase the walk to a simple `s→t` path `P`. If `c` survives, `P` touches `C`. If `c` is erased, the erased closed subwalk has a first vertex `y` that survives in `P`, and that subwalk is a closed walk through `y`, so `y` lies on a cycle; hence `y ∈ C` and `P` touches `C`.
+Proof: (⇒) take the path. (⇐) concatenate walks `s⇝c⇝t`; chronologically loop-erase the walk (stack algorithm, §7.1) to a simple `s→t` path `P`. If `c` survives, `P` touches `C`. If `c` is erased, the erased closed subwalk has a first vertex `y` that survives in `P`, and that subwalk is a closed walk through `y`, so `y` lies on a cycle; hence `y ∈ C` and `P` touches `C`.
 
 This makes D3 polynomial: forward and reverse reachability in the full graph `G`, intersect with `C`.
 
@@ -83,9 +83,33 @@ Proof (⇐): take a simple `s⇝u` path in `E_valid` and a simple `v⇝t` path i
 
 **Match with `validatePathWithIndex`.** Shape/membership, then cycle check, then edges in path order; the first edge whose `evaluateEdgeAssurance` is not `SATISFIED` produces the outcome. Lemma 1 removes the cycle case. The claim's prefix/suffix conditions are exactly "all earlier edges satisfied, `e*` not". D2 is polynomial: two reachability computations plus one scan of `E_X`.
 
-## 7. D3 — cycle class
+## 7. D3 — cycle class and chronological loop erasure
 
-Lemma 4 gives the polynomial decision. The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated and loop-erased. Complexity `O(|V|+|E|)`. D3 is separate from D2: a cycle-preempted path never reaches assurance, so it cannot be classified by the first non-satisfied edge.
+Lemma 4 gives the polynomial decision. The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated into a directed walk, then **chronologically loop-erased**. Complexity `O(|V|+|E|)`. D3 is separate from D2: a cycle-preempted path never reaches assurance, so it cannot be classified by the first non-satisfied edge.
+
+### 7.1 Chronological loop erasure (not first-occurrence deduplication)
+
+First-occurrence deduplication is **wrong**: it can invent edges. For walk `s→a→b→c→a→d→t`, keeping the first occurrence gives `s→a→b→c→d→t`, but edge `c→d` may not exist.
+
+The correct operation maintains a stack of vertices and processes the walk edge by edge:
+
+```text
+stack = [s]
+for each edge (u, v) in the walk:
+    assert stack.top() == u
+    if v already appears in stack at index i:
+        pop every vertex after index i      // remove the cycle, keep v
+    else:
+        push v
+```
+
+**Invariant after each processed edge:** the stack is a contiguous directed walk in the original graph (every adjacent pair is an edge actually traversed) with no repeated vertex. Appending a new `v` preserves contiguity via edge `(u,v)`; truncating at a previous `v` keeps a prefix of the previous stack and makes `v` the new top, so the next edge continues from `v`.
+
+For `s→a→b→c→a→d→t`, the stack evolves to `s→a→d→t`: the cycle `a→b→c→a` is removed, `c` is erased, and `a` survives as the cyclic node. The result is the simple path required by Lemma 4; it still touches `C` because either the pivot survives or a surviving vertex of the erased closed subwalk lies on a cycle (Lemma 4).
+
+**Required test (specification only, not executed):** walk with a repeated intermediate vertex, e.g. `s→a→b→c→a→d→t` with pivot `c`. Assert the final witness edges are exactly `s→a`, `a→d`, `d→t`; every edge exists in the graph; no vertex repeats; the witness contains a member of `C` (here `a`, even though pivot `c` was erased). This tests chronological erasure, not first-occurrence deduplication.
+
+**Determinism:** the stack result is determined by the walk order. The walk order must itself be deterministic (see `api-migration.md` §3.2.1: sorted adjacency, BFS predecessor choice). If that cannot be guaranteed, determinism is an open proof obligation, not a claim.
 
 ## 8. D4 — closure failure
 

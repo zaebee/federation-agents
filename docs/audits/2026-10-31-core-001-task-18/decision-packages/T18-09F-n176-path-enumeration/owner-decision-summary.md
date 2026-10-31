@@ -22,7 +22,7 @@
 ## Consequences of each alternative (Reading A vs B)
 
 - **Reading A (R1):** `acceptedPaths` and `perPath` are normative. N-176's conditional does not apply; no API change; exponential output remains an explicit availability risk accepted by the owner. Conformance corpus unchanged.
-- **Reading B (R2):** validity is normative; enumeration is diagnostic. Requires versioned compact API, corpus additions, and closure of D5 or a `DETERMINISTIC_NON_MINIMUM` witness with an explicit storage-order-independent rule. Satisfies N-176 if an equivalent computation is shown.
+- **Reading B (R2):** validity is normative; enumeration is diagnostic. Requires versioned compact API, corpus additions, and closure of D5 or a `DETERMINISTIC_NON_MINIMUM` witness with an explicit storage-order-independent rule. Potentially satisfies N-176, subject to the OQ-9 conditions and a separate audit revision, if an equivalent computation is shown.
 - **Reading R3:** not recommended. Current analysis (Lemmas 1–6) shows validity can be computed without enumerating all paths; R3 is only needed if that analysis is shown to be wrong.
 - **Reading R4:** leaves N-176 PARTIAL; no implementation; exponential risk unaddressed.
 
