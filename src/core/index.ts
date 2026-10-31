@@ -66,6 +66,9 @@ export type {
   TemporalTrustFailureFields,
 } from './credential.js';
 
+export { createRuntimeLifecycleEvent, createRuntimeRegistry, recordRuntimeEvent } from './runtime.js';
+export type { RuntimeLifecycleEvent, RuntimeLifecycleState, RuntimeRegistry } from './runtime.js';
+
 export { validateVersionLabel } from './version-scheme.js';
 export type { SemVer, VersionLabel } from './version-scheme.js';
 
