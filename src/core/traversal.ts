@@ -178,8 +178,9 @@ function reachableToOrigin(
 
   const reachable = new Set<IdentityVersionID>([originID]);
   const queue: IdentityVersionID[] = [originID];
-  for (let index = 0; index < queue.length; index += 1) {
-    const node = queue[index];
+  // A for...of array iterator observes elements appended during iteration,
+  // which is what this BFS relies on.
+  for (const node of queue) {
     for (const child of reverse.get(node) ?? []) {
       if (!reachable.has(child)) {
         reachable.add(child);
