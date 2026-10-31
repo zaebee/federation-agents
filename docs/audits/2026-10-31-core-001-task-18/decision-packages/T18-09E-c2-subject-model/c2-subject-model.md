@@ -240,6 +240,16 @@ Rationale: it adopts the T18-01 recommendation rather than replacing it; no sche
 - `N-168` (§16 readiness) is unaffected.
 - A-14/#65 remains a separate open decision (cycle breadth in path validation); it is not resolved by this model.
 
+### 7.7 Publication and retention ownership (`T18-DEC-17`)
+
+`T18-DEC-02`'s canonical scope already states: adapter constructs, Core validates and admits, the registered representation is immutable, persistent storage is caller-managed, and publication/retention remain OPEN. `T18-DEC-17` decides the remaining half — who publishes and who retains.
+
+- **What the implementation can and cannot do.** Core returns a frozen admitted array and holds no store; the core has no I/O imports and no record lifecycle. Making Core publish or retain would turn it into a storage service, which is outside the approved `T18-DEC-02` boundary and outside CORE-001's scope.
+- **Options.** (a) the caller boundary (domain/adapter caller) owns persistence, publication and retention, and the Core contract ends at the immutable admitted representation; (b) Core gains a publication API and retention policy — a `T18-SPEC-01` boundary change; (c) publication is out of scope and only the returned representation exists — acceptable only if no document claims the evidence is published or retained.
+- **Recommended:** (a). It is the only option implementable without changing the approved `T18-DEC-02` scope; the caller records what it is willing to publish and for how long, and the AEBE states what was persisted.
+- **What this does not settle:** whether any boundary MUST retain (no such CORE-001 obligation was found), for how long, or whether a publication registry exists. Those remain OPEN under `T18-DEC-17` and cannot be inferred from a `T18-DEC-16` approval.
+- **Why it does not block recording:** the §11.2 recording obligation attaches to producing the Assessment; publication and retention concern the evidence trail around it.
+
 ---
 
 ## 8. Why `T18-02B` is blocked, and what unblocks it

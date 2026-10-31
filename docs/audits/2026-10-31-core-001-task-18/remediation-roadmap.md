@@ -189,7 +189,7 @@ A task that bundles requirements of different urgency is split rather than silen
 
 | Task priority | Tasks |
 | --- | --- |
-| P1 | T18-01 (complete), T18-02A, T18-09A, T18-13 |
+| P1 | T18-01 (complete), T18-02A, T18-09A, T18-09E, T18-13 |
 | P2 | T18-03, T18-04, T18-06, T18-09C, T18-09D, T18-SPEC-01 |
 | P3 | T18-05, T18-07, T18-08, T18-09B, T18-10, T18-11, T18-12 |
 

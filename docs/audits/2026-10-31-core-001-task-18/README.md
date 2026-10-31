@@ -103,7 +103,7 @@ Still OPEN: `T18-DEC-16` (C-2 subject model and exact Assessment shape/provenanc
 | T18-09B CONTENT_HASH decision | specification decision | P3 | `CORE-001_RUNTIME` |
 | T18-09C Trusted-time decision | specification decision | P2 | `EXTERNAL_READINESS` |
 | T18-09D N-172 readiness evidence decision | specification decision | P2 | `CORE-001_RUNTIME` |
-| T18-09E C-2 subject model decision package (`T18-DEC-16`) | specification/design | P1 | `CORE-001_RUNTIME` |
+| T18-09E C-2 subject model decision package (`T18-DEC-16`/`T18-DEC-17`) | specification/design | P1 | `CORE-001_RUNTIME` |
 | T18-10 Cross-spec packages | cross-spec integration | P3 | `CROSS_SPEC` |
 | T18-11 External readiness | external dependency | P3 | `EXTERNAL_READINESS` |
 | T18-12 Documentation reconciliation | documentation-only | P3 | `CORE-001_RUNTIME` |
