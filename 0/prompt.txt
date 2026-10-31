@@ -1,0 +1,29 @@
+### Medium finding
+
+**Location:** `src/core/credential.ts:590-591`
+
+When a revocation is supplied without `subject_binding`, this branch drops `revocation_reason` from the policy input—a supported path exercised at `tests/unit/credential.test.ts:285`. The callback invoked at `src/core/credential.ts:670–672` consequently receives `undefined`, so a policy branching on that field can treat the revoked credential as unrevoked. Populate `revocation_reason` whenever a revocation exists. 
+---
+### Medium finding
+
+**Location:** `src/core/credential.ts:318`
+
+Credential/runtime pairs `('a/runtime-instance:b', 'c')` and `('a', 'b/runtime-instance:c')` produce the same subject reference. Both pass the string-only validators (`src/core/entities.ts:258` and `:495`), so `resolveSignedAtTrust` (`src/core/credential.ts:519–523`) can reuse one subject's trusted assessment for the other, incorrectly producing historical `VALID`. Encode the components unambiguously in both branches. 
+---
+### Medium finding
+
+**Location:** `src/core/credential.ts:641-650`
+
+`evaluateHistoricalSignature` never checks `signed_at` against the credential's `not_before`/`not_after` window. The verifier only receives the descriptor and is not required to check it either. A signature made with an expired key (signed_at > not_after, where usually no revocation is issued) or before the key was valid gets `historical: VALID`. Reject signatures whose `signed_at` falls outside the credential's validity window. 
+---
+### Medium finding
+
+**Location:** `src/core/credential.ts:452-485`
+
+For `ROTATION` and `ADMINISTRATIVE` revocations, `historicalForSimpleReason` returns `VALID` whenever `signed_at` is trusted. It never compares `signed_at` to `revocation.revoked_at`. §4.4.1 keeps historical validity only for signatures made *before* revocation. As written, anyone who still holds a rotated-out or administratively revoked key can make new signatures (signed_at > revoked_at) that are reported as historically VALID. Return a non-VALID outcome when `signed_at >= revoked_at`. 
+---
+### Low finding
+
+**Location:** `src/core/credential.ts:590-591`
+
+`buildFutureInput` sets `revocation_reason` only when both `subject_binding` and `revocation` are present. If the caller leaves out `subject_binding`, a CONFIRMED_COMPROMISE revocation reaches `evaluateFutureAuthorization` with `revocation_reason: undefined`. A policy that branches on that documented field would treat the compromised credential as unrevoked and could return `AUTHORIZABLE`. Set `revocation_reason` whenever `revocation` is present.
