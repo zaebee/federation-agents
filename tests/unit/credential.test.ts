@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type {
+  FutureAuthorizationInput,
   HistoricalSignatureInput,
   SignatureTemporalPolicy,
   SignatureVerificationOutcome,
@@ -12,7 +13,7 @@ import {
   signedAtSubjectRef,
   validateCredentialRevocationRecord,
 } from '../../src/core/credential.js';
-import { credentialId, timestamp } from '../../src/core/primitives.js';
+import { credentialId, runtimeInstanceId, timestamp } from '../../src/core/primitives.js';
 import { trustOutcome } from '../../src/core/temporal.js';
 import { credential } from '../support/fixtures.js';
 import {
@@ -281,6 +282,30 @@ describe('§10 temporal trust outcomes and subject binding', () => {
     });
   });
 
+  test('subject references encode credential and binding components unambiguously', () => {
+    const first = credential('a/runtime-instance:b', { usage: ['SIGNING'], not_before: timestamp(0) });
+    const second = credential('a', { usage: ['SIGNING'], not_before: timestamp(0) });
+    const firstRef = signedAtSubjectRef(first, {
+      kind: 'RUNTIME_INSTANCE',
+      runtime_instance_id: runtimeInstanceId('c'),
+    });
+    const secondRef = signedAtSubjectRef(second, {
+      kind: 'RUNTIME_INSTANCE',
+      runtime_instance_id: runtimeInstanceId('b/runtime-instance:c'),
+    });
+
+    expect(firstRef).not.toBe(secondRef);
+    const ctx = trustContext({
+      [firstRef]: {
+        SIGNED_AT: trustInput({ field: 'SIGNED_AT', subject: firstRef, value: SIGNED_AT, trusted: true }),
+      },
+    });
+    expect(trustOutcome(ctx, 'SIGNED_AT', secondRef, timestamp(SIGNED_AT))).toEqual({
+      ok: true,
+      value: 'UNASSESSED',
+    });
+  });
+
   test('a missing subject binding makes signed_at trust unavailable without inventing a subject', () => {
     const result = expectOk(evaluate({ subject_binding: undefined }));
 
@@ -447,6 +472,32 @@ describe('§4.4.1 revocation reason matrix', () => {
     expect(result.claim_status).toBeUndefined();
   });
 
+  test('ROTATION and ADMINISTRATIVE reject signatures at or after revoked_at', () => {
+    for (const reason of ['ROTATION', 'ADMINISTRATIVE'] as const) {
+      const atRevocation = expectOk(
+        evaluate({
+          revocation: revocationFixture({
+            reason,
+            revoked_at: timestamp(SIGNED_AT),
+            compromise_effective_at: undefined,
+          }),
+        }),
+      );
+      expect(atRevocation.historical).toEqual({ status: 'SIGNED_AFTER_REVOCATION' });
+
+      const afterRevocation = expectOk(
+        evaluate({
+          revocation: revocationFixture({
+            reason,
+            revoked_at: timestamp(90),
+            compromise_effective_at: undefined,
+          }),
+        }),
+      );
+      expect(afterRevocation.historical).toEqual({ status: 'SIGNED_AFTER_REVOCATION' });
+    }
+  });
+
   test('a trusted signature before the accepted compromise time remains historically valid', () => {
     const result = expectOk(
       evaluate({
@@ -575,6 +626,72 @@ describe('policy boundaries', () => {
     expect(result.verification).toEqual({ status: 'CRYPTO_UNAVAILABLE', reason: 'hsm down' });
     expect(result.revocation_reason).toBe('SUSPECTED_COMPROMISE');
     expect(result.reassessment_required).toBe(true);
+  });
+
+  test('future policy receives revocation_reason even without a subject binding', () => {
+    let observed: FutureAuthorizationInput | undefined;
+    const result = evaluate({
+      subject_binding: undefined,
+      revocation: revocationFixture({ reason: 'SUSPECTED_COMPROMISE' }),
+      policy: signaturePolicy({
+        evaluateFutureAuthorization: (input) => {
+          observed = input;
+          return 'REQUIRES_ASSESSMENT';
+        },
+      }),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(observed?.revocation_reason).toBe('SUSPECTED_COMPROMISE');
+    expect(observed?.revocation?.credential_id).toBe(credentialValue.credential_id);
+  });
+});
+
+describe('credential validity window', () => {
+  function windowContext(credentialValue: ReturnType<typeof credential>) {
+    const subject = signedAtSubjectRef(credentialValue, binding);
+    return trustContext(
+      {
+        [subject]: {
+          SIGNED_AT: trustInput({ field: 'SIGNED_AT', subject, value: SIGNED_AT, trusted: true }),
+        },
+      },
+      { SIGNED_AT },
+    );
+  }
+
+  test('signatures before not_before or after not_after are rejected', () => {
+    const futureCredential = credential('cred-future', {
+      usage: ['SIGNING'],
+      not_before: timestamp(200),
+      not_after: timestamp(300),
+    });
+    const futureResult = expectOk(
+      evaluate({ credential: futureCredential, revocation: undefined, ctx: windowContext(futureCredential) }),
+    );
+    expect(futureResult.historical).toEqual({ status: 'OUTSIDE_CREDENTIAL_VALIDITY_WINDOW' });
+
+    const expiredCredential = credential('cred-expired', {
+      usage: ['SIGNING'],
+      not_before: timestamp(0),
+      not_after: timestamp(50),
+    });
+    const expiredResult = expectOk(
+      evaluate({ credential: expiredCredential, revocation: undefined, ctx: windowContext(expiredCredential) }),
+    );
+    expect(expiredResult.historical).toEqual({ status: 'OUTSIDE_CREDENTIAL_VALIDITY_WINDOW' });
+  });
+
+  test('inclusive validity-window boundaries remain valid', () => {
+    const boundaryCredential = credential('cred-boundary', {
+      usage: ['SIGNING'],
+      not_before: timestamp(SIGNED_AT),
+      not_after: timestamp(SIGNED_AT),
+    });
+    const result = expectOk(
+      evaluate({ credential: boundaryCredential, revocation: undefined, ctx: windowContext(boundaryCredential) }),
+    );
+    expect(result.historical).toEqual({ status: 'VALID' });
   });
 });
 

@@ -49,7 +49,7 @@ export function revocationFixture(
 }
 
 export function signingCredential(id = 'cred-1') {
-  return credential(id, { usage: ['SIGNING'] });
+  return credential(id, { usage: ['SIGNING'], not_before: timestamp(0) });
 }
 
 export function identityBinding(id = 'iv-a'): CredentialSubjectBinding {

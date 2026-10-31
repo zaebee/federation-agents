@@ -101,6 +101,8 @@ export type HistoricalValidity =
   | { readonly status: 'VALID' }
   | { readonly status: 'INVALID' }
   | { readonly status: 'CONTESTED_COMPROMISED' }
+  | { readonly status: 'OUTSIDE_CREDENTIAL_VALIDITY_WINDOW' }
+  | { readonly status: 'SIGNED_AFTER_REVOCATION' }
   | { readonly status: 'KEY_LOST_POLICY_REQUIRED' }
   | { readonly status: 'SUSPECTED_COMPROMISE_FLAGGED' }
   | { readonly status: 'TEMPORAL_TRUST_UNTRUSTED'; readonly fields: TemporalTrustFailureFields }
@@ -312,10 +314,9 @@ export function signedAtSubjectRef(
   credential: DeepReadonly<CredentialDescriptor>,
   binding: CredentialSubjectBinding,
 ): string {
-  if (binding.kind === 'IDENTITY_VERSION') {
-    return `credential:${String(credential.credential_id)}/identity-version:${String(binding.identity_version_id)}`;
-  }
-  return `credential:${String(credential.credential_id)}/runtime-instance:${String(binding.runtime_instance_id)}`;
+  const kind = binding.kind === 'IDENTITY_VERSION' ? 'identity-version' : 'runtime-instance';
+  const subject = binding.kind === 'IDENTITY_VERSION' ? binding.identity_version_id : binding.runtime_instance_id;
+  return `credential:${JSON.stringify([String(credential.credential_id), kind, String(subject)])}`;
 }
 
 /** Content-derived revocation subject; no normative revocation_id field is introduced. */
@@ -449,8 +450,22 @@ function historicalForConfirmed(input: {
   return input.signedAt >= input.compromiseEffectiveAt ? { status: 'INVALID' } : { status: 'VALID' };
 }
 
-function historicalForSimpleReason(signedAtTrust: TemporalTrustOutcome): HistoricalValidity {
+function historicalForSimpleReason(
+  signedAt: Timestamp,
+  revokedAt: Timestamp | undefined,
+  signedAtTrust: TemporalTrustOutcome,
+): HistoricalValidity {
+  if (revokedAt !== undefined && signedAt >= revokedAt) {
+    return { status: 'SIGNED_AFTER_REVOCATION' };
+  }
   return signedAtTrust === 'TRUSTED' ? { status: 'VALID' } : temporalFailure(signedAtTrust);
+}
+
+function isWithinCredentialWindow(credential: DeepReadonly<CredentialDescriptor>, signedAt: Timestamp): boolean {
+  if (signedAt < credential.not_before) {
+    return false;
+  }
+  return credential.not_after === undefined || signedAt <= credential.not_after;
 }
 
 function selectHistorical(input: {
@@ -458,6 +473,8 @@ function selectHistorical(input: {
   readonly verification: SignatureVerificationOutcome;
   readonly revocationReason?: RevocationReason;
   readonly signedAt: Timestamp;
+  readonly revokedAt?: Timestamp;
+  readonly withinValidityWindow: boolean;
   readonly signedAtTrust: TemporalTrustOutcome;
   readonly compromiseTrust?: TemporalTrustOutcome;
   readonly compromiseEffectiveAt?: Timestamp;
@@ -468,6 +485,9 @@ function selectHistorical(input: {
   }
   if (input.usage.status === 'USAGE_UNSUPPORTED') {
     return { status: 'USAGE_UNSUPPORTED', usage: input.usage.usage };
+  }
+  if (!input.withinValidityWindow) {
+    return { status: 'OUTSIDE_CREDENTIAL_VALIDITY_WINDOW' };
   }
   const crypto = cryptographicHistorical(input.verification);
   if (crypto !== undefined) {
@@ -482,7 +502,7 @@ function selectHistorical(input: {
   if (input.revocationReason === 'CONFIRMED_COMPROMISE') {
     return historicalForConfirmed(input);
   }
-  return historicalForSimpleReason(input.signedAtTrust);
+  return historicalForSimpleReason(input.signedAt, input.revokedAt, input.signedAtTrust);
 }
 
 function cryptographicHistorical(verification: SignatureVerificationOutcome): HistoricalValidity | undefined {
@@ -584,18 +604,12 @@ function buildFutureInput(
     temporal: values.temporal,
     reassessment_required: values.reassessmentRequired,
   };
-  if (input.subject_binding === undefined && input.revocation === undefined) {
-    return base;
-  }
-  if (input.subject_binding === undefined) {
-    return { ...base, revocation: input.revocation };
-  }
+  const withBinding = input.subject_binding === undefined ? base : { ...base, subject_binding: input.subject_binding };
   if (input.revocation === undefined) {
-    return { ...base, subject_binding: input.subject_binding };
+    return withBinding;
   }
   return {
-    ...base,
-    subject_binding: input.subject_binding,
+    ...withBinding,
     revocation: input.revocation,
     revocation_reason: input.revocation.reason,
   };
@@ -680,6 +694,8 @@ export function evaluateHistoricalSignature(
     verification: verification.value,
     ...(input.revocation === undefined ? {} : { revocationReason: input.revocation.reason }),
     signedAt: input.signed_at,
+    ...(input.revocation === undefined ? {} : { revokedAt: input.revocation.revoked_at }),
+    withinValidityWindow: isWithinCredentialWindow(input.credential, input.signed_at),
     signedAtTrust: signedAtTrust.value,
     ...(compromise.value.kind === 'PRESENT'
       ? { compromiseTrust: compromise.value.trust, compromiseEffectiveAt: compromise.value.effectiveAt }
