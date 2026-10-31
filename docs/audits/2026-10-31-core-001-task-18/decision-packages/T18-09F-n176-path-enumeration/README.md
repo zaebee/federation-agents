@@ -1,6 +1,6 @@
 # T18-09F — N-176 Path Enumeration Decision Package
 
-**Status:** DRAFT — decision-support only. **Not approved.** Decision-ready revision added (`decision-ready-revision.md`), and its polynomiality claim was later withdrawn by the complexity pass (`oq4-complexity-adversarial-pass.md`); `T18-DEC-18` remains PROPOSED / OPEN.
+**Status:** DRAFT — decision-support only. **Not approved.** Decision-ready revision added (`decision-ready-revision.md`); the complexity pass (`oq4-complexity-adversarial-pass.md`, revision 2) corrects its earlier NP-hardness claim: D0/D2/D4/D5 are polynomial under the cycle-preemption lemma, D6 does not exist, and only D3 (cycle-class existence) is open. `T18-DEC-18` remains PROPOSED / OPEN.
 **Proposed decision:** `T18-DEC-18` — path-enumeration and equivalent-result semantics.
 **Repository revision:** `e01d77c` (`main`; Task 17 audit revision 1 and T18-09E merged).
 **Related:** issue #25, issue #53 / audit revision 1, `AMBIG-A-8`, `T18-SPEC-01`.
@@ -49,7 +49,7 @@ This package does not edit `decision-register.md`. A proposed register row is in
 | `adversarial-review.md` | Review of the draft against §8.4/§8.7/§8.8, the code and B-3/B-4/B-6; nine findings |
 | `decision-ready-revision.md` | The six required outcomes (contract equivalence, canonical witness, rejection proof, A-8 preservation, compatibility/migration, resource behaviour), each with statement, anchor, counterexample, resolution, compatibility impact and closure evidence |
 | `remaining-owner-questions.md` | The owner questions (OQ-1…OQ-10), with recommendations and consequences where one is defensible |
-| `oq4-complexity-adversarial-pass.md` | Class-by-class decision problems, NP-hardness reductions for D2–D4, the expanded-state walk gap, and owner options R1–R4; withdraws the polynomiality claim |
+| `oq4-complexity-adversarial-pass.md` | Revision 2: class-by-class decision problems, the cycle-preemption lemma, polynomial arguments for D0/D2/D4/D5, D3 left open, D6 withdrawn, and owner options R1–R4; explicitly corrects the earlier NP-hardness claims |
 
 ## 5. Pre-decision clarification checklist
 
@@ -81,5 +81,5 @@ These three points are developed in `decision-ready-revision.md` §1–§4. The 
 - **Current implementation.** `discoverPaths` materialises every simple candidate→origin path; `evaluateBinding` validates every discovered path; the public `BindingResult` exposes `acceptedPaths` and `details.perPath` for every path. The enumeration is therefore an output lower bound, not only an internal implementation detail.
 - **Measured risk.** A chain of `k` merge diamonds yields `2^k` paths. Issue #25 records `k=16` → 65 536 paths / ~2.7 s; roughly 61 nodes can reach ~1 M paths. Input size is linear; output is exponential.
 - **Core ambiguity.** Whether `acceptedPaths` and `details.perPath` are part of the required normative result. If they are, N-176's conditional may not bite. If a compact validity result is equivalent, the current implementation violates N-176.
-- **Preferred direction (not approved; specified in `decision-ready-revision.md`; this is a preference, not a claim that it is the only complete contract).** Adopt Reading B with a compact binding result: one canonical accepted path plus closure evidence for acceptance; an exact class-existence rejection proof that reproduces the current top-level code (NP-hard in general — see `oq4-complexity-adversarial-pass.md`); diagnostics outside the required validity path. A versioned API is recommended over silently changing `BindingResult`. No new normative error code; A-8 precedence and A-14 remain OPEN. The remaining choices are in `remaining-owner-questions.md`.
+- **Preferred direction (not approved; specified in `decision-ready-revision.md`; not a claim that it is the only complete contract).** Adopt Reading B with a compact binding result: one canonical accepted path plus closure evidence for acceptance; a class-existence rejection proof that reproduces the current top-level code — polynomial for D0/D2/D4/D5 after the cycle-preemption lemma, with D3 (cycle-class existence) explicitly left open (`oq4-complexity-adversarial-pass.md`); diagnostics outside the required validity path. A versioned API is recommended over silently changing `BindingResult`. No new normative error code; A-8 precedence and A-14 remain OPEN. The remaining choices are in `remaining-owner-questions.md`.
 - **What this package does not do.** It does not approve `T18-DEC-18`, change Task 17 statuses, resolve A-8, change closure depth, or authorise implementation.

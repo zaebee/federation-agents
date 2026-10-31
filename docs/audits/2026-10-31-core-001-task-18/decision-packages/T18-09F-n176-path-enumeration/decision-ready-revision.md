@@ -70,7 +70,7 @@ DFS order is not `pathKey` order. In a graph where the first DFS branch is longe
 
 ### 2.4 Proposed resolution
 
-Define the canonical witness by `pathKey` minimum, use the best-first search above, and add an oracle property test: for small random graphs, the compact witness must equal the first element of the full enumeration's accepted list.
+Define the canonical witness by `pathKey` minimum. The correct algorithm is **greedy lexicographic minimisation on the acyclic induced subgraph** (cycle-preemption lemma, `oq4` §2) with DAG-reachability as the feasibility oracle; the best-first prefix search above is a mental model, not the complexity argument. Add an oracle property test: for small random graphs, the compact witness must equal the first element of the full enumeration's accepted list.
 
 ### 2.5 Compatibility impact
 
@@ -86,26 +86,26 @@ Unit tests for the ordering (two valid branches, different lengths); property te
 
 ### 3.1 Exact statement
 
-A rejection witness is sufficient when it establishes **that every simple candidate→origin path contains a failing condition**, and it reproduces the same top-level code the current enumeration produces. The proposed proof object is compact, but it is **not polynomial in general**. The complexity pass (`oq4-complexity-adversarial-pass.md`) withdraws the polynomiality claim: D2–D4 below are NP-hard under the current simple-path semantics.
+A rejection witness is sufficient when it establishes **that every simple candidate→origin path contains a failing condition**, and it reproduces the same top-level code the current enumeration produces. After the **cycle-preemption lemma** (`oq4` §2) the proof is compact, and **polynomial for D0/D2/D4/D5**; only **D3** (cycle-class existence) is open, and D6 does not exist as a path-scoped class.
 
-- **per-edge classification** (path-independent): each edge's assurance result (`VALID`, `INVALID` + missing/disallowed, `CONTESTED`) and whether an endpoint is in a cyclic SCC;
-- **reachability facts** rather than path lists: forward/reverse reachability within the scope; reachability in the subgraph of `VALID` edges; reachability through cyclic nodes; reachability with "all edges valid so far" state;
-- **closure state**: merge closure is checked only when all path edges are `VALID`; the existence of a closure failure is computed over states `(node, incoming path edge)` — polynomial, because closure depends only on the node and which parent is the path edge.
+- **per-edge classification** (path-independent): each edge's assurance result (`VALID`, `INVALID` + missing/disallowed, `CONTESTED`);
+- **reachability in the acyclic induced subgraph**: cycle-containing routes are preempted to `CYCLE_DETECTED` before assurance/closure, so every path that reaches this classification contains no node of a cyclic SCC (Lemma 1) and lies in a DAG (Lemma 2); in a DAG, reachability decides "through edge `u→v`" (Lemma 3);
+- **closure state**: `(merge node, outgoing path edge)`; closure is checked only for a non-origin merge node, and the path edge is excluded from the branch check — a **code fact** in `collectBranchFailure`, not a §8.6 literal statement.
 
 Rejection witnesses per class:
 
 | Class | Witness | Computation |
 | --- | --- | --- |
 | `ERR_NO_TRAVERSAL_PATH` | no path exists | reverse reachability from origin |
-| `ERR_ASSURANCE_PREDICATE_UNSATISFIED` | a cut of `INVALID` edges separating candidate from origin, plus the first-failing-edge reason for the canonical failing path | reachability decides this only when the class asks for *some* failing edge; with a specified edge it is NP-hard (D2, `oq4` §2) |
-| `CYCLE_DETECTED` | one witness path that touches a cyclic node | NP-hard when the question is "a simple path through this node" (D3, `oq4` §2) |
-| `ERR_MERGE_BRANCH_UNSATISFIED` | one path with closure failure + the failing branch | NP-hard when the closure condition is tied to a specified incoming edge (D4, `oq4` §2) |
-| `CONTESTED` | one path whose first failing edge is contested | reachability over edge classes |
-| `MECHANISM` | the mechanism failure itself | see §3.4 |
+| `ERR_ASSURANCE_PREDICATE_UNSATISFIED` | the first-failing edge class witness; reach `s⇝u` on valid edges, then `v⇝t` in the DAG | polynomial (D2) |
+| `CYCLE_DETECTED` | one simple path that touches a cyclic node | **OPEN** — existence of such a simple path (D3); the earlier 2-disjoint-paths reduction was unsound because the hard instances carry cycles that preempt |
+| `ERR_MERGE_BRANCH_UNSATISFIED` | one path with closure failure + the failing branch; state `(merge node, outgoing path edge)` | polynomial (D4) |
+| `CONTESTED` | one path whose first failing edge is contested | polynomial (D2 variant) |
+| `MECHANISM` | input-scoped mechanism failure | polynomial; no path-scoped class exists (§3.4) |
 
 When different paths fail for different reasons, a **single failing edge is not a proof**: the witness must be the class witness in the precedence order of §4, and the proof must show that the higher class does not exist before returning a lower one.
 
-**Withdrawn claim.** The earlier statement in this section that per-class reachability is polynomial is **withdrawn**. D2–D4 reduce from the directed 2-disjoint-paths problem (NP-complete); the expanded-state `(node, incoming edge)` reachability does not prove simple-path existence, because it can project to a walk with repeated nodes. The exact decision problems, the reductions and their current proof gaps are in `oq4-complexity-adversarial-pass.md`.
+**Corrected claim.** Revision 1 of the complexity pass called D2/D4/D6 NP-hard; that is **withdrawn**. The cycle-preemption lemma makes D0/D2/D4/D5 polynomial, D6 non-existent, and leaves only D3 open. See `oq4-complexity-adversarial-pass.md` §2, §3, §8.
 
 ### 3.2 Normative anchor
 
@@ -115,18 +115,13 @@ When different paths fail for different reasons, a **single failing edge is not 
 
 Path 1 fails on edge `e1` (assurance), path 2 fails on a closure branch. Returning either failure alone cannot justify the top-level `ERR_MERGE_BRANCH_UNSATISFIED`: the current code concludes it only because closure failure outranks assurance. A compact algorithm that reports "the first failure found" returns `ERR_ASSURANCE_PREDICATE_UNSATISFIED` on the same input.
 
-### 3.4 Mechanism failures and the hard case
+### 3.4 Mechanism failures — input-scoped only
 
-Current behaviour: `evaluateBinding` returns a `MECHANISM` result if **any** discovered path's evaluation fails, even when another path is accepted. A compact algorithm that stops at the first accepted witness would not observe a later mechanism failure.
+Current behaviour: the only reachable `MECHANISM` results are input-scoped — candidate-array validation inside `assessEdge` and selector/candidate prechecks before discovery. These are decided before or once, so they are polynomial and do not depend on which path is chosen.
 
-Most mechanism failures are input-scoped (malformed assessment array, invalid selector): `assessEdge` validates the candidate array before any edge lookup, so the failure is the same for every reached edge and can be decided once. A **policy hook that throws only for certain edges** is different: deciding whether any simple path reaches such an edge is a path-existence question that can require enumeration (existence of a simple path through a given edge is not polynomial in general).
+A throwing `Policy` hook is **not** caught in `assessEdge`/`evaluateAssurance`; the exception propagates as an uncaught caller error. It is therefore not a mechanism outcome, path-scoped or otherwise.
 
-**Proposed resolution:** the owner must choose one option, and it is coupled to the A-8 compatibility rule (OQ-5):
-
-- **(a) path-faithful mechanism failures** — the compact API is exactly equivalent to the current one, but detecting this class is NP-hard (D6) and must be included in R2's exponential search;
-- **(b) total policy hooks** — only input-scoped failures are covered by the compact API; a throwing hook is a caller/configuration bug diagnosed at the edge level. This is an **observable difference**, not an internal optimisation, and must be recorded in the migration notes.
-
-This is a new sub-decision (`N176-13`), not settled by N-176.
+**Resolution:** no path-scoped mechanism class exists, so `N176-13` and the earlier (a)/(b) choice are **withdrawn**. The A-8 compatibility rule (OQ-5) is unaffected: input-scoped mechanism failures can be decided once, and the current `MECHANISM > …` order is preserved exactly.
 
 ### 3.5 Closure evidence
 
@@ -154,7 +149,7 @@ Compute **existence per class** (reachability, §3) first, then apply the compat
 
 ### 4.5 Compatibility impact
 
-No new normative error code; no change to the current codes. The only change is the computation method, provided the class-existence proof is correct.
+No new normative error code. Observable behaviour is preserved for D0/D2/D4/D5/D6, whose decision procedures are polynomial after the cycle-preemption lemma. D3 is the exception: if the cycle-class decision is implemented by exact search, that class may remain exponential; this is a complexity property of the computation method, not a change to the codes.
 
 ### 4.6 Closure evidence
 
@@ -172,6 +167,8 @@ There are two viable migration shapes; the owner must choose one:
 | --- | --- | --- |
 | **Option 5.A — replace** | Change `BindingResult` to the compact L1/L2 shape; move L3 to a separate diagnostic API. | Corpus must be revised: B-3 asserts one witness, B-4/B-6 read the diagnostic API or the L2 rejection evidence. |
 | **Option 5.B — version (recommended)** | Add `BindingResultV2` / `evaluateBindingCompact`; keep the current `evaluateBinding` and `BindingResult` unchanged as legacy diagnostic behaviour, marked deprecated but not removed. | B-3/B-4/B-6 continue to pass on the legacy API; new conformance cases cover v2; no corpus rewrite is forced. |
+
+**Option schemes used in this package (they must not be conflated):** Reading A/B is the normative reading (OQ-1); Option 5.A/5.B is the API migration; the mechanism (a)/(b) choice is **withdrawn** (no path-scoped class); legacy Options A–D in `n176-path-enumeration.md` §5 mean cap / compact / lazy / hybrid, and "Option D" in `adversarial-review.md` refers to that legacy hybrid, not to a new scheme.
 
 ### 5.2 Normative anchor
 
@@ -195,7 +192,7 @@ An API compatibility test that the legacy function still exists and returns the 
 
 ### 6.1 Exact statement
 
-The **validity API must never fail because of an internal resource cap**. Resource exhaustion on the validity path is a bug, not a normative outcome; no existing error code represents "we gave up". The claim that the correctness classes are polynomial is **withdrawn**: acceptance existence/reachability is polynomial, but rejection classes are NP-hard (`oq4` §2). A cap would therefore silently change a verdict that has no normative "undetermined" outcome; the implementation must either accept exponential worst-case work or the owner must choose a different reading (`oq4` §5). A bound belongs only to the **diagnostics** API, where it is a caller policy with an explicit, documented result (for example "diagnostics truncated at N; validity unaffected").
+The **validity API must never fail because of an internal resource cap**. Resource exhaustion on the validity path is a bug, not a normative outcome; no existing error code represents "we gave up". After the cycle-preemption lemma, D0/D2/D4/D5 are polynomial; only D3 is open, and an exact D3 search may be exponential, so no cap may be placed on it either (a cap would silently change the verdict). A bound belongs only to the **diagnostics** API, where it is a caller policy with an explicit, documented result.
 
 ### 6.2 Normative anchor
 
@@ -220,9 +217,9 @@ A benchmark proving the validity path handles `k=16` (and the documented larger 
 | # | Proposed resolution | Owner decision needed |
 | --- | --- | --- |
 | 1 | L1/L2/L3 split; `acceptedPaths`/`perPath` are L3 diagnostics | Yes — Reading B |
-| 2 | Canonical witness = `pathKey` minimum via best-first search | Implementation detail under Reading B |
-| 3 | Exact class-existence rejection proof + compatible top-level code — **NP-hard in general**, polynomiality not established | Yes — see `oq4` §5 (R1–R4) |
+| 2 | Canonical witness = `pathKey` minimum via greedy minimisation on the acyclic subgraph (proof sketch) | Implementation detail under Reading B |
+| 3 | Class-existence rejection proof + compatible top-level code — polynomial for D0/D2/D4/D5; **D3 open**, D6 non-existent | Yes — see `oq4` §7 (R1–R4) |
 | 4 | Keep current precedence as a compatibility rule; A-8 stays OPEN | Yes — confirm A-8 untouched |
 | 5 | Versioned new API (Option 5.B), legacy kept for a deprecation window | Yes — API strategy |
 | 6 | Validity uncapped; diagnostics bounded by caller policy | Yes — diagnostics policy |
-| 7 | Mechanism-failure assumption (N176-13) — coupled with OQ-5: exact A-8 equivalence requires option (a), which is NP-hard | Yes — new sub-decision |
+| 7 | Mechanism failures are input-scoped; `N176-13` withdrawn; no owner choice | No — analysis resolved |

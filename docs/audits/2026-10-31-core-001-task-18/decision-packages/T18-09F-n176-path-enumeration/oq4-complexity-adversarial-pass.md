@@ -1,83 +1,91 @@
-# T18-09F — OQ-4 Complexity Adversarial Pass
+# T18-09F — OQ-4 Complexity Adversarial Pass (revision 2)
 
-**Status:** analysis only. **This pass withdraws the polynomiality claim in `decision-ready-revision.md` §3 and §6.** `T18-DEC-18` remains PROPOSED / OPEN.
-**Question:** for each rejection/failure class, is the decision problem the compact algorithm must solve polynomial, NP-hard, or not established?
-**Method:** state the exact decision problem, then either give a polynomial argument or a reduction sketch from a known NP-complete problem. Where the reduction is not fully formalised for the exact T18 input language, that is stated.
+**Status:** analysis only; **supersedes revision 1** of this pass. Revision 1 claimed NP-hardness for D2/D4/D6; an independent review showed that classification was wrong. **`T18-DEC-18` remains PROPOSED / OPEN.**
+**Method:** state the exact decision problem, then give a polynomial argument. Where a reduction is attempted and fails, that is stated instead of a theorem.
 
-## 1. Decision problems the compact algorithm must solve
+## 1. Decision problems
 
 | ID | Exact question |
 | --- | --- |
+| **D0** | Does a **fully valid** simple path exist? (primary acceptance / L1) |
 | **D1** | Does any simple candidate→origin path exist within the scope? (`ERR_NO_TRAVERSAL_PATH`) |
 | **D2** | Does a simple path exist whose **first** failing assurance edge has class X (invalid / contested)? |
-| **D3** | Does a simple path exist that touches a node of a cyclic SCC? (`CYCLE_DETECTED`) |
-| **D4** | Does a simple path exist whose edges are all valid and whose merge closure fails at some merge node on it? (`ERR_MERGE_BRANCH_UNSATISFIED`) |
-| **D5** | What is the canonical (minimum `pathKey`) **fully valid** simple path? (acceptance witness) |
-| **D6** | Does any simple path trigger a mechanism failure (path-scoped errors only)? |
+| **D3** | Does a simple path exist that touches a node of a cyclic SCC? (`CYCLE_DETECTED` class) |
+| **D4** | Does a simple path exist whose edges are all valid and whose merge closure fails at some non-origin merge node on it? (`ERR_MERGE_BRANCH_UNSATISFIED`) |
+| **D5** | What is the canonical (minimum `pathKey`) fully valid simple path? (acceptance witness) |
+| **D6** | Is there a path-scoped mechanism failure? |
 
-The current semantics are **simple paths**: `collectPaths` never revisits a node, and `validatePathShape` rejects a repeated node.
+## 2. Cycle-preemption lemma (the correction)
 
-**Status of the claims below.** D2 is the strongest reduction; D3 and D4 are *reduction sketches*. NP-hardness for the exact T18 input language (lineage relation cardinality, participant constraints, assessment fixture, closure semantics) is **not established** until the obligations in §6 are discharged. The tables therefore say "reduction sketch", not "theorem".
+`validatePathWithIndex` runs in this order: shape → membership → **cycle check** (`cycleForPath`) → per-edge assurance → closure. A path containing any node of `graph.cycles` returns `CYCLE_DETECTED` **before** assurance or closure is evaluated.
 
-## 2. Class-by-class result
+**Lemma 1.** Every path that reaches assurance/closure classification contains no node in a cyclic SCC.
 
-| ID | Result | Basis |
+**Lemma 2.** The subgraph induced by nodes that are not in any cyclic SCC is a **DAG**: a directed cycle among them would be reported as an SCC by `buildLineageGraph`.
+
+**Lemma 3.** In a DAG, a simple `s→t` path through an edge `u→v` exists **iff** `s⇝u` and `v⇝t`. Disjointness is automatic: a shared vertex between the two paths would create a directed cycle.
+
+**Corollary.** D0, D2, D4 and D5 are decided on the acyclic induced subgraph and are polynomial; D6 does not exist as a path-scoped class (see §4). The earlier "NP-hard for D2/D4/D6" claim is **withdrawn**: the 2-disjoint-paths hardness requires cycles, and cycle-containing routes are exactly the ones preempted.
+
+## 3. Class-by-class result
+
+| ID | Result | Argument |
 | --- | --- | --- |
-| D1 | **Polynomial** | Reachability in the scoped adjacency graph. Any walk can be reduced to a simple path by removing cycles, so reachability decides existence. |
-| D2 | **NP-hard — reduction sketch** (strongest case; not yet a complete proof for the full T18 input language) | With exactly one INVALID edge `e* = u→v` and all other edges valid, a simple path with the first failure on `e*` exists iff a simple `s→t` path through `e*` exists, which is equivalent to two internally vertex-disjoint directed paths `s→u` and `v→t`. The directed 2-disjoint-paths problem is NP-complete (Fortune–Hopcroft–Wyllie 1980). T18 lineage graphs can encode an arbitrary directed graph: a node with out-degree 1 uses `CONTINUATION`; out-degree ≥ 2 uses `MERGED_FROM` (cardinality ≥ 2); one participant covers the same-participant rule. Other edges are marked valid with assessments. A full formal reduction would still have to pin the relation assignment and the assessment fixture, but no structural obstacle is apparent. |
-| D3 | **NP-hard — reduction sketch** (same reduction; gaps in §6) | "A simple `s→t` path through a specified vertex `v`" is the same 2-disjoint-paths question. Make `v` cyclic with an auxiliary two-cycle `v↔w` off every `s→t` route; then D3 is exactly that question. |
-| D4 | **NP-hard — reduction sketch** (same reduction; gaps in §6) | Directions: paths follow lineage **child→parent**, so a merge node `m` has **outgoing** edges `m→p` to its parents. When a path reaches `m`, it leaves through one of them — the *path edge* `m→p1`; closure checks the remaining `m→p` edges as branches. Mark every edge valid, but make the branch `m→p2` fail assurance; then closure fails iff the path leaves `m` through `m→p1`. D4 asks for a simple path using one specified **outgoing** edge (D2), with the closure state `(m, path edge)` encoded without path history. |
-| D5 | **Open, no polynomial claim** | Naive best-first search revisits exponentially many prefixes when many lexicographically smaller dead ends exist. A greedy strategy with a feasibility oracle ("does a valid completion exist avoiding the visited set?") is plausible: the oracle is reachability in the product graph `(node, incoming edge)` minus the visited set, which is polynomial per query, and lexicographic minimisation needs at most `|V|` queries. That is a **proof sketch, not a proof**: the closure state, the exact `pathKey` order and the prefix-length ordering must be formalised and tested. This pass does not certify polynomiality. |
-| D6 | **Mixed** | Input-scoped failures (malformed assessment array, invalid selector, candidate precheck) are decided once and are polynomial. Path-scoped failures (a policy hook that throws only for some edges) reduce to D2 and are **NP-hard**. |
+| **D0** | **Polynomial** | Filter edges by assurance validity; reachability `candidate⇝origin` in the induced DAG. |
+| **D1** | **Polynomial** | Scoped reachability; a walk reduces to a simple path by loop erasure (and `discoverPaths` returns no path when `candidate === origin`). |
+| **D2** | **Polynomial** | By Lemma 3: reach `s⇝u` using only **valid** edges (so the first failure is on `u→v`), then `v⇝t` in the DAG. Two reachability queries. |
+| **D3** | **OPEN — not established** | Existence of a simple `s→t` path through a node of a cyclic SCC. The earlier reduction from directed 2-disjoint paths **fails as sketched**: the hard 2DP instances carry cycles, and a T18 path touching any of them is preempted into the `CYCLE` class independently, so the reduction does not encode the intended question. Complexity for the exact T18 language is unknown. |
+| **D4** | **Polynomial** | Closure is checked on the DAG. State `(merge node, outgoing path edge)`; a closure failure is observable only for a non-origin merge node with at least two parents (the path edge is excluded; every other parent edge is checked). With exactly two parents `m→p1` (path edge) and `m→p2` (failing branch), closure fails iff the path leaves `m` through `m→p1`. Isolated to the DAG, this is state reachability, polynomial. Note: the exclusion of the path edge is a **code fact** (`collectBranchFailure`), not a §8.6 literal statement. |
+| **D5** | **Polynomial (proof sketch)** | On the DAG, greedy lexicographic minimisation works: pick the smallest next edge such that a valid completion still exists; the feasibility oracle is DAG reachability (the visited set is irrelevant because the DAG has no repeats), and closure state is `(node, outgoing path edge)`. At most `|E|` feasibility queries. A formal proof and tests are still required. |
+| **D6** | **Does not exist** | No path-scoped mechanism failure is reachable in `evaluateBinding`. The only reachable `MECHANISM` results are input-scoped: candidate-array validation inside `assessEdge` and selector/candidate prechecks before discovery. A throwing `Policy` hook is **not** caught in `assessEdge`/`evaluateAssurance`; the exception propagates, so it is a caller bug, not a path-scoped mechanism outcome. `N176-13` is therefore withdrawn. |
 
-## 3. The expanded-state walk problem
+## 4. Mechanism failures — the corrected reading
 
-`(node, incoming edge)` reachability is not by itself a proof about simple paths. A path in the expanded graph can project to a **walk** with repeated nodes:
+- **input-scoped:** malformed assessment array, invalid selector, candidate precheck; decided before or once, polynomial.
+- **path-scoped:** none reachable through `evaluateBinding`. The earlier (a)/(b) choice in OQ-6/N176-13 was based on a failure mode that does not exist in the current code; it is withdrawn.
+- A throwing `Policy` hook propagates as an exception (an uncaught caller error). If the owner wants a mechanism failure there, that is a **separate semantic change**, not part of N-176.
 
-```text
-s → a → m → b → m → t        (expanded state repeats m with a different incoming edge)
-```
+## 5. D5 canonical witness — corrected justification
 
-The projection is not a simple path, and loop-erasure can remove the very state (the incoming edge at `m`) that made closure or the first-failure class observable. Therefore:
+The earlier text said the best-first prefix search is the polynomial strategy and that the visited-set oracle is polynomial. Both were imprecise:
 
-- polynomial **state count** does not imply polynomial **visited-prefix count**;
-- a reachability answer in the expanded graph must be proved to have a simple-path representative, or the algorithm must search prefixes and can be exponential.
+- naive best-first can explore exponentially many dead-end prefixes;
+- "product graph minus visited set" is not polynomial per query in general.
 
-This is the exact gap in `decision-ready-revision.md` §3.1: "reachability facts rather than path lists" was not a proof of polynomiality, and for D2/D3/D4 the underlying question is NP-hard.
+The correct argument is Lemma 2: a **valid** path lies in the acyclic induced subgraph, where the visited set is irrelevant and greedy edge-by-edge minimisation with DAG-reachability feasibility is polynomial. The best-first description remains a useful mental model but is not the complexity argument.
 
-## 4. What this means for N-176
+## 6. What this means for N-176
 
-An exact compact algorithm under the current **simple-path** semantics cannot be polynomial for D2/D3/D4 unless P = NP. Consequently:
+- **Acceptance** (D0/D5) is compact and polynomial (D5 still needs a formal proof/test).
+- **Rejection for assurance and closure** (D2/D4) is compact and polynomial.
+- **The only open complexity question is D3** (cycle-class existence). It matters for rejection only when the top-level code could be `CYCLE_DETECTED`: to return a lower code, the implementation must establish that no cycle-class path exists.
+- Therefore Reading B is largely implementable compactly; the exponential worst case is confined to graphs where the cycle-class question has to be decided, and its exact complexity is unknown.
 
-- the claim "the rejection proof is polynomial" is **withdrawn**;
-- Reading B can still be implemented exactly, but its worst case is exponential (state/prefix search, not path enumeration). Whether that satisfies §8.8's `MUST NOT` is a normative question — the text forbids *requiring explicit enumeration of all paths*, not exponential search;
-- the benchmark (`k=16`) is a **target**, not a complexity proof; it says nothing about other graph families;
-- D5's canonical witness is a separate problem from rejection; a correct canonical witness does not imply a polynomial search for it.
+## 7. Owner options (revised)
 
-## 5. Owner options (replace the previous OQ-4 recommendation)
-
-| Option | What it means | Consequence |
+| Option | Meaning | Consequence |
 | --- | --- | --- |
-| **R1 — Reading A (per-path result normative)** | Declare the full path list required evidence; N-176's conditional is not triggered. | No API break; B-3/B-4 keep their meaning; the `2^k` output remains an explicit availability risk, with any cap outside conformance. |
-| **R2 — Reading B with exact but exponential rejection search** | Compact API; acceptance polynomial (if D5 is proven), rejection exact but worst-case exponential. | Satisfies the letter ("does not require enumerating all paths") only if the owner accepts exponential search as "equivalent"; worst case is not better asymptotically than enumeration and must be documented. |
-| **R3 — Reading B with a semantic change (walk/state-based rejection)** | Redefine the rejection verdict over the expanded state graph. | Would be polynomial, but changes observable results (may report rejection where a simple path exists or vice versa) and requires `T18-SPEC-01` plus corpus revision; not equivalent to current semantics. |
-| **R4 — Defer N-176; record the complexity barrier** | Keep N-176 PARTIAL; do not start implementation; clarify §8.8's intent ("not requiring enumeration" vs complexity) in `T18-SPEC-01`. | No decision now; honest about what is and is not provable. |
+| **R1 — Reading A** | Per-path result normative; N-176 conditional not triggered. | No API break; exponential output accepted as an availability risk; no D3 question. |
+| **R2 — Reading B, exact** | Compact API; D0/D2/D4/D5 polynomial; D3 exact search (complexity open) or current-cycle-enumeration fallback for that class. | Satisfies N-176 except possibly the D3 class; D3's worst case must be stated, not hidden. **Preferred direction (OQ-1).** |
+| **R3 — Reading B, semantic change** | Redefine the cycle-class verdict over expanded state/walks. | Polynomial, but changes observable results; needs `T18-SPEC-01` and corpus revision. |
+| **R4 — Defer** | Keep N-176 PARTIAL; clarify §8.8 and D3 in `T18-SPEC-01`. | No decision now; honest about D3. |
 
-**No recommendation is made between R1–R4 in this pass.** The choice is normative: correctness/availability trade-off, or a deferred clarification. What is withdrawn is only the claim that R2 is polynomial.
+**Recommendation (author preference): R2**, with D3 explicitly documented as the one open class; R1 is the fallback if a fully specified contract is required before any further proof work.
 
-## 6. Formal proof obligations (not yet discharged)
+## 8. Explicit corrections to revision 1
 
-To turn the sketches into a proof for the T18 input language, each of the following must be shown:
+| Revision-1 claim | Corrected statement |
+| --- | --- |
+| D2/D4 are NP-hard | Polynomial (cycle-preemption lemma). |
+| D6 path-scoped mechanism is NP-hard | No path-scoped mechanism class exists; input-scoped only. |
+| D3 reduction is NP-hard sketch | Reduction **unsound**; complexity not established. |
+| Expanded-state walk threatens acceptance/closure | Repeated nodes imply a cycle, so such paths are preempted; the argument applies only to D3. |
+| D5 needs the visited-set oracle | D5 works on the acyclic subgraph; greedy feasibility, proof sketch. |
+| `N176-13` sub-decision needed | Withdrawn. |
 
-- **P1 — graph encoding:** every directed graph used by the reduction is representable as a T18 lineage graph under §5.2: per-relation cardinality (`CONTINUATION` 1, `FORKED_FROM` 1, `MERGED_FROM` ≥ 2), the CONTINUATION same-participant rule, and the participant arrangement. A plausible mapping is: out-degree 1 → `CONTINUATION`; out-degree ≥ 2 → `MERGED_FROM`; one participant for all nodes. This must be written out, including nodes whose parent count changes.
-- **P2 — single invalid edge:** an assessment/requirement fixture must make exactly one edge `INVALID` and every other edge `VALID`, without touching relation validity.
-- **P3 — D3 auxiliary cycle:** adding the auxiliary two-cycle that makes the specified vertex cyclic must not create new `candidate→origin` simple paths or change the class of existing ones.
-- **P4 — D4 closure semantics:** the closure function must be reproduced exactly: which edge is the path edge, which branches are checked, and why a failing branch is observable only for the specified path edge. The definition of "path edge" must use the lineage direction (the outgoing `m→p` edge the path takes).
-- **P5 — reduction direction:** the reduction must go *from* the known NP-complete problem *to* T18 (not merely show that a T18 instance resembles the known problem).
+## 9. Limits
 
-Until P1–P5 are discharged, the correct statement is: **the question is at least as hard as a known NP-complete problem in a closely related graph model; NP-hardness for T18 is not established**.
-
-## 7. Limits of this pass
-
-- D5 has a plausible polynomial strategy but no proof; it must not be called polynomial until proven and tested.
-- Nothing here changes `N-176`, the register, `CORE-001.md`, source, tests or statuses.
+- D5 is a proof sketch, not a theorem; it needs a formal write-up and an oracle test against full enumeration.
+- D3 complexity is open; no claim is made in either direction.
+- The D4 exclusion of the path edge is a code fact; the specification §8.6 text is broader ("all parent edges") and this discrepancy is itself worth a spec clarification.
+- Nothing here changes N-176, the register, `CORE-001.md`, source, tests or statuses.
