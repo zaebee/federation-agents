@@ -669,16 +669,15 @@ When `expected_pairs` is empty, `symmetry_verification.status` MUST be `NOT_PERF
 | `UNORDERED_CANONICAL` | `SYMMETRIC` | `NOT_PERFORMED`, `VERIFIED`, `VIOLATION`, `MECHANISM_ASSERTED`, `INCONCLUSIVE` |
 | `UNORDERED_CANONICAL` | `ASYMMETRIC` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE` |
 | `UNORDERED_CANONICAL` | `UNSPECIFIED` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE` |
-| `ORDERED` | `ASYMMETRIC` or `UNSPECIFIED` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE`; only `RULE_SELECTED`; ordered semantics OPEN |
-| `ORDERED` | `SYMMETRIC` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE`; only `RULE_SELECTED`; `VERIFIED`/`VIOLATION`/`MECHANISM_ASSERTED` not permitted until ordered semantics are approved |
+| `ORDERED` | `ASYMMETRIC` or `UNSPECIFIED` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE`; only `RULE_SELECTED`; `SYMMETRIC` is forbidden until ordered semantics are approved |
 
 A single canonical evaluation of `(left, right)` cannot establish that
 `(right, left)` produces the same result. `VERIFIED` requires full `MATCH` check
 coverage and is permitted only in `UNORDERED_CANONICAL` mode. A mechanism guarantee
 is represented as `MECHANISM_ASSERTED`, not `VERIFIED`; it is an attestation, not
 structural verification, and it requires no `MISMATCH` check. In `ORDERED` mode,
-the contract permits observation statuses only until ordered semantics are
-approved.
+`SYMMETRIC` is forbidden and only observation statuses are permitted until ordered
+semantics are approved.
 
 **Precedence:** if any `symmetry_check` has `comparison = MISMATCH`, the status MUST
 be `VIOLATION` when `symmetry_declaration = SYMMETRIC`, otherwise
@@ -707,7 +706,7 @@ exists.
 | **E13** | `predicate_execution_status` matches the definitions in §6.8 |
 | **E14** | Only the legal status combinations in §9.2 are permitted |
 | **E15** | Derived `conflict_findings` equals the canonical `CONFLICT` projection of `pair_evaluations`; no stored duplicate may conflict with it |
-| **E16** | `VERIFIED` requires non-empty `expected_pairs`, full `MATCH` check coverage with `evidence_ref`, `symmetry_declaration = SYMMETRIC`, and `UNORDERED_CANONICAL`; `MECHANISM_ASSERTED` requires `COVERED` + `INVOKED` + `SYMMETRIC` + evidence binding + no `MISMATCH` and no `INCONCLUSIVE` check; any `MISMATCH` forces `VIOLATION` (with `evidence_ref`) or `OBSERVED_MISMATCH`; any `INCONCLUSIVE` check forces `INCONCLUSIVE` over `MECHANISM_ASSERTED`; `ORDERED` permits observation statuses only; `expected_pairs = ∅` implies `NOT_PERFORMED` |
+| **E16** | `VERIFIED` requires non-empty `expected_pairs`, full `MATCH` check coverage with `evidence_ref`, `symmetry_declaration = SYMMETRIC`, and `UNORDERED_CANONICAL`; `MECHANISM_ASSERTED` requires `COVERED` + `INVOKED` + `SYMMETRIC` + evidence binding + no `MISMATCH` and no `INCONCLUSIVE` check; any `MISMATCH` forces `VIOLATION` (with `evidence_ref`) or `OBSERVED_MISMATCH`; any `INCONCLUSIVE` check forces `INCONCLUSIVE` over `MECHANISM_ASSERTED`; `ORDERED` forbids `SYMMETRIC` and permits observation statuses only; `expected_pairs = ∅` implies `NOT_PERFORMED` |
 | **E17** | `record_schema_version`, `record_id`, `evaluation_ref`, `input_set_ref`, `context_ref`, and `policy_ref` are present; `record_id` uniqueness is validated at record-set level; `evaluation_ref` is distinct whenever `input_set_ref`, `context_ref`, `policy_ref`, `predicate_ref`, or `requirement_ref` differs |
 | **E18** | No winner, preferred, canonical, resolved, selected-branch, or resolution field is present |
 | **E19** | `origin_verification.status = VERIFIED` requires non-empty `mechanism_ref` and `evidence_ref`; `structural_validation.status = PASSED` requires non-empty `validator_ref` and `evidence_ref`; `evidence_validation.status = PASSED` requires non-empty `validator_ref` and `evidence_ref`; origin, structural, evidence, and symmetry references MUST be distinct and MUST NOT be reused across claims unless a combined-evidence type is defined; `structural_validation = PASSED` certifies record-internal consistency and non-empty references only, while `evidence_validation = PASSED` is defined separately in §6.10 and §6.13 |
@@ -768,7 +767,8 @@ the supplied input. Structural validation does not prove:
 - `OBSERVED_MISMATCH`, `VIOLATION`, and `INCONCLUSIVE` prevent a verified-symmetry
   claim and a successful symmetric conflict assessment claim.
 - `ORDERED` semantics remain **OPEN**; `PAIRWISE_ALL_CONSIDERED` is prohibited with
-  `ORDERED`.
+  `ORDERED`, and `SYMMETRIC` is forbidden with `ORDERED` until ordered semantics are
+  approved.
 
 ### 7.4 Partial failure and zero-pair semantics
 
@@ -884,8 +884,7 @@ PARTIAL` with `predicate_execution_status = NOT_INVOKED` and
 | `UNORDERED_CANONICAL` | `SYMMETRIC` | `NOT_PERFORMED`, `VERIFIED`, `VIOLATION`, `MECHANISM_ASSERTED`, `INCONCLUSIVE` |
 | `UNORDERED_CANONICAL` | `ASYMMETRIC` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE` |
 | `UNORDERED_CANONICAL` | `UNSPECIFIED` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE` |
-| `ORDERED` | `ASYMMETRIC` or `UNSPECIFIED` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE`; only `RULE_SELECTED`; ordered semantics OPEN |
-| `ORDERED` | `SYMMETRIC` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE`; only `RULE_SELECTED`; `VERIFIED`/`VIOLATION`/`MECHANISM_ASSERTED` not permitted until ordered semantics are approved |
+| `ORDERED` | `ASYMMETRIC` or `UNSPECIFIED` | `NOT_PERFORMED`, `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `INCONCLUSIVE`; only `RULE_SELECTED`; `SYMMETRIC` is forbidden until ordered semantics are approved |
 
 `VERIFIED` requires full expected-pair coverage by `MATCH` checks with evidence,
 `SYMMETRIC` declaration, and `UNORDERED_CANONICAL` mode. `MECHANISM_ASSERTED` requires
@@ -949,7 +948,7 @@ canonical evaluation is never `VERIFIED`.
 | **S19** | Partial predicate failure | `PARTIAL` + `INVOCATION_FAILED`; terminal pair findings remain authoritative detection results; no complete-coverage success claim |
 | **S20** | Context blocking | `context_assessment_status = PARTIAL`; `NOT_INVOKED`; `NOT_STARTED`/`NO_PAIRS`; not predicate failure |
 | **S21** | Missing predicate | `NOT_CONFIGURED`; no `predicate_ref`; `NO_PAIRS`/`NOT_STARTED`; no success |
-| **S22** | Symmetry verification | One canonical order → `NOT_PERFORMED`; full MATCH + `SYMMETRIC` in `UNORDERED_CANONICAL` → `VERIFIED`; full MATCH without `SYMMETRIC` → `OBSERVED_MATCH`; mismatch under `SYMMETRIC` → `VIOLATION`; mismatch without `SYMMETRIC` → `OBSERVED_MISMATCH`; partial/failed comparison → `INCONCLUSIVE`; mechanism attestation → `MECHANISM_ASSERTED`; `ORDERED` → observation statuses only |
+| **S22** | Symmetry verification | One canonical order → `NOT_PERFORMED`; full MATCH + `SYMMETRIC` in `UNORDERED_CANONICAL` → `VERIFIED`; full MATCH without `SYMMETRIC` → `OBSERVED_MATCH`; mismatch under `SYMMETRIC` → `VIOLATION`; mismatch without `SYMMETRIC` → `OBSERVED_MISMATCH`; partial/failed comparison → `INCONCLUSIVE`; mechanism attestation → `MECHANISM_ASSERTED`; `ORDERED` forbids `SYMMETRIC` and uses observation statuses only |
 | **S23** | Duplicate or reversed pair key | Structural invalidation for duplicate keys in either mode and reversed duplicates under `UNORDERED_CANONICAL` |
 | **S24** | Rule-selected pair evidence | `RULE_SELECTED` without rule/version/evidence refs is invalid; expected pairs must be pairs of `considered` IDs; evidence must bind rule version, input, and output |
 
@@ -980,7 +979,7 @@ canonical evaluation is never `VERIFIED`.
 | **O-NOPAIRS** | `NO_PAIRS` representation | Proposed coverage status |
 | **O-BLOCK** | Context blocking behaviour | Whole-evaluation block vs partial execution |
 | **O-FIND** | Canonical findings | `pair_evaluations` vs derived `conflict_findings` |
-| **O-SYM** | Symmetry verification requirement | Evidence standard, observed/attested statuses, and `INCONCLUSIVE` semantics |
+| **O-SYM** | Symmetry verification requirement | Evidence standard, observed/attested statuses, `INCONCLUSIVE` semantics, and ordered-mode `SYMMETRIC` prohibition |
 | **O-ORIGIN** | Authenticated origin mechanism | Separate mechanism not assumed |
 | **O-PROV** | Provenance of the three approved principles | No separate signed decision record in this repository; decision-register entry required |
 | **O-INPUT** | Input-set membership validation | Digest vs manifest/proof |
@@ -1024,7 +1023,7 @@ canonical evaluation is never `VERIFIED`.
 | **C-4** | Zero-pair representation | `NO_PAIRS` in coverage status | **PROPOSED** | Record/API | E12 |
 | **C-5** | Context blocking behaviour | `CONTEXT_BLOCKING_BEHAVIOR` OPEN; record supports block or partial execution | **OPEN** | Record/API | E14 |
 | **C-6** | Canonical pair results | `pair_evaluations` authoritative; other sets derived | **PROPOSED** | Record/API | E10/E15 |
-| **C-7** | Symmetry verification | `VERIFIED` only with full `MATCH` checks in `UNORDERED_CANONICAL`; `MECHANISM_ASSERTED` for attestation; `ORDERED` observation-only until approved | **PROPOSED / OPEN** | Record/API | E16 |
+| **C-7** | Symmetry verification | `VERIFIED` only with full `MATCH` checks in `UNORDERED_CANONICAL`; `MECHANISM_ASSERTED` for attestation; `ORDERED` forbids `SYMMETRIC` and is observation-only | **PROPOSED / OPEN** | Record/API | E16 |
 | **C-8** | Origin verification | In-process token for core; structural validation for external; authenticated origin OPEN | **PROPOSED / OPEN** | API/security | E17/E19 |
 | **C-9** | Two-field status model | Adopt `pair_coverage_status` + `predicate_execution_status` | **PROPOSED** | Record/API | E12–E14 |
 | **C-10** | `record_schema_version` | Require it | **PROPOSED** | Record/API | E17 |
