@@ -165,14 +165,12 @@ describe('§12 Category D: credential revocation', () => {
 
     for (const outcome of ['REQUIRES_ASSESSMENT', 'AUTHORIZABLE'] as const) {
       let futureCalls = 0;
-      let observed: FutureAuthorizationInput | undefined;
       const result = expectOk(
         evaluate(
           unknownTime,
           signaturePolicy({
-            evaluateFutureAuthorization: (input) => {
+            evaluateFutureAuthorization: () => {
               futureCalls += 1;
-              observed = input;
               return outcome;
             },
           }),
@@ -186,10 +184,6 @@ describe('§12 Category D: credential revocation', () => {
       expect(result.claim_status).toBeUndefined();
       expect(result.temporal.compromise_effective_at).toBeUndefined();
       expect(result).not.toHaveProperty('grant');
-
-      expect(observed?.revocation_reason).toBe('CONFIRMED_COMPROMISE');
-      expect(observed?.temporal).toEqual({ signed_at: 'TRUSTED' });
-      expect(observed?.reassessment_required).toBe(false);
     }
   });
 });

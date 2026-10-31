@@ -89,9 +89,9 @@ Implemented under the approved `T18-DEC-16` Option D: `emitCycleAssessments` emi
 
 ### T18-03 — D-4 policy input/outcome evidence (covered; test-only)
 
-At the diff base, `D-4 unknown compromise time is contested and never inferred from revoked_at` already asserted the `CONTESTED_COMPROMISED` status, the absence of an inferred compromise time, and the future-authorization policy input context. The existing `REQUIRES_ASSESSMENT` boundary test already asserted that the outcome is not a grant.
+T18-03 parameterizes the D-4 boundary test in `tests/conformance/d.test.ts` over `REQUIRES_ASSESSMENT` and `AUTHORIZABLE`.
 
-This change parameterizes that boundary test over `REQUIRES_ASSESSMENT` and `AUTHORIZABLE`. The only new property is that `AUTHORIZABLE` passes through as a policy outcome while the historical result remains `CONTESTED_COMPROMISED`. It does not add new context assertions and does not resolve §12 D-4's normative sufficiency sentence. N-041 and D-4 therefore remain PARTIAL: whether a particular policy is an adequate "additional normative assessment" is not a library property.
+The surrounding D-4 tests already cover the `CONTESTED_COMPROMISED` status, the absence of an inferred compromise time, and the future-authorization policy input context. The parameterized case adds the `AUTHORIZABLE` pass-through: the historical result remains `CONTESTED_COMPROMISED`, and the outcome is a policy result rather than a grant. It does not resolve §12 D-4's normative sufficiency sentence. N-041 and D-4 remain PARTIAL: whether a particular policy is an adequate "additional normative assessment" is not a library property.
 
 ### T18-02C — Retired / superseded
 
