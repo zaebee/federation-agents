@@ -1,0 +1,502 @@
+Оба предыдущих блокера исправлены. Task 9 — APPROVE по коду. Коммит `c0ec43e` проверен относительно `7b33730`; сравнение GitHub подтверждает один новый коммит и ожидаемые изменения в четырёх файлах.
+
+APPROVE — по коду
+
+### 1. Reverse adjacency — исправлено
+
+В `reachableToOrigin()` теперь каждое допустимое ребро добавляется в reverse adjacency без линейного поиска дубликатов.
+
+```
+const children = reverse.get(edge.parent) ?? [];
+children.push(edge.child);
+reverse.set(edge.parent, children);
+```
+
+Дубликаты безопасны: `reachable` не позволяет повторно добавить вершину в очередь.
+
+- Построение reverse adjacency: O(E).
+- BFS: O(V + E).
+- Весь reachability prepass: O(V + E).
+
+Проверил реализацию. Она соответствует согласованному решению. Тест с 200 детьми подтверждает корректность на графе с высокой входящей степенью origin; сам по себе он не является доказательством асимптотики, но код её подтверждает.
+
+### 2. Cycle index — исправлено
+
+Реализация теперь точно соответствует согласованной архитектуре:
+
+- `buildCycleIndex(graph)` строит `Map<node, SCC>`.
+- `evaluateBinding()` создаёт индекс один раз и использует его для всех путей.
+- Публичный `validatePath()` остаётся независимым и строит индекс для собственного вызова.
+- `cycleForPath()` делает lookup по узлам пути, а не сканирует весь список SCC.
+- При пересечении нескольких SCC результат — детерминированное объединение их узлов.
+
+Проверил и тесты: standalone-вызов `validatePath`, две независимые SCC и путь, пересекающий только одну из них. Проверки соответствуют ожидаемому поведению.
+
+### 3. Что осталось вне блокеров
+
+Есть один соседний performance hotspot, который не относится к двум исправленным замечаниям:
+
+```
+if (!edges.some((item) => item.parent === edge.parent && item.relation === edge.relation)) {
+  edges.push(...)
+}
+```
+
+В `adjacencyFor()` дедупликация через `.some()` может дать O(d²) для вершины с большим количеством исходящих рёбер. Это не ломает исправленный reverse prepass и не является новым регрессом этого коммита. Я бы зафиксировал это как отдельную оптимизацию, а не задерживал Task 9.
+
+### 4. Проверки и CI
+
+| Проверка     | Результат        |
+| ------------ | ---------------- |
+| bun test     | 378 pass, 2 todo |
+| Assertions   | 953              |
+| typecheck    | OK               |
+| lint         | OK               |
+| format:check | OK               |
+| build        | OK               |
+| jscpd        | 0.75%            |
+
+Это результаты, сообщённые тобой. Независимо подтвердить GitHub CI не удалось: для `c0ec43e` API вернул пустые workflow runs и statuses. Это не означает, что CI упал — просто нет доступных результатов.
+
+Итог: оба замечания закрыты, согласованные API и семантика сохранены. Нет оснований продолжать блокировать Task 9. Можно принимать реализацию и переходить к Task 10 — Immediate Merge Closure (B-4…B-7).
+
+Важная граница: это одобрение Task 9, а не утверждение о полной реализации §8.6 или закрытии A-8/A-5. Task 10 и последующие заблокированные вопросы остаются отдельной работой.
+
+[Коммит c0ec43e](https://github.com/zaebee/federation-agents/commit/c0ec43e?utm_source=chatgpt.com) · [Ветка Task 9](https://github.com/zaebee/federation-agents/tree/feat/task-9-traversal-phases?utm_source=chatgpt.com) 
+---
+### Medium finding
+
+**Location:** `src/core/traversal.ts:206`
+
+Under `FULL_ANCESTRY`, a merge with k distinct parents that each reach the origin incurs Θ(k²) comparisons in this deduplication loop. Merge cardinality is unbounded (`src/core/lineage.ts:44`), and discovery builds adjacency for the whole origin-reachable graph (`src/core/traversal.ts:304–309`), so a wide merge can stall even an unrelated one-edge lookup. Use per-child sets keyed by parent and relation for linear deduplication. 
+---
+### Medium finding
+
+**Location:** `src/core/traversal.ts:276-278`
+
+When `evaluateBinding` invokes discovery (`src/core/traversal.ts:543`) on a long linear CONTINUATION chain, every active frame retains a complete edge prefix and visited set, requiring Θ(n²) live storage for one path. A 10,000-edge chain retains roughly 50 million entries in each structure before validation starts, risking heap exhaustion despite linear input and output sizes. Maintain one backtracked path and visited set, copying only when emitting a completed path. 
+---
+### Medium finding
+
+**Location:** `src/core/traversal.ts:199-238`
+
+`discoverPaths` lists every simple candidate→origin path and keeps them all in memory, with no limit on path count or depth. `evaluateBinding` then runs `validatePath` on each one, which deep-copies all assessments for every edge. A participant who publishes descriptors forming a chain of k merge diamonds (`MERGED_FROM` under `FULL_ANCESTRY`, about 3k nodes) produces 2^k paths, so evaluating a binding for their candidate can hang or run out of memory. Fix: cap the number of paths and the work done, returning a mechanism failure when the cap is hit, or answer reachability and validity without listing every path.
+
+---
+
+да мержим. А то что в follow-up - заведем issue?
+
+---
+
+Task 10
+---
+# Task 10 — Immediate Merge Closure
+
+**Project:** UIA-CORE-001  
+**Normative baseline:** UIA-CORE-001 Rev 0.3.3  
+**Implementation plan:** `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md` Rev E  
+**Branch:** `feat/task-10-immediate-merge-closure`  
+**Depends on:** Task 9 — Traversal Phases (merged)
+
+## 1. Objective
+
+Implement the third phase of the traversal model: **immediate merge closure**.
+
+Task 9 implemented:
+1. Path discovery (`discoverPaths`)
+2. Path validation (`validatePath`)
+3. Binding evaluation (`evaluateBinding`)
+
+Task 10 completes the three-phase model by implementing direct-parent merge closure in `src/core/traversal.ts`.
+
+The implementation MUST follow UIA-CORE-001 Rev 0.3.3, especially §8.3–8.8, and preserve Global Constraints GC-12 and GC-18.
+
+This task is limited to **immediate closure**. It MUST NOT introduce recursive merge closure or resolve blocked normative questions.
+
+## 2. Scope
+
+### In scope
+
+- Implement `validateMergeClosure` in `src/core/traversal.ts`.
+- Evaluate direct parent branches of merge nodes.
+- Preserve path-level and closure-level failure distinctions.
+- Preserve all per-path outcomes under GC-18.
+- Add conformance tests B-4, B-5, B-6, B-7.
+- Add phase-separation tests.
+- Add an explicitly blocked experimental test for nested recursive merge closure.
+
+### Out of scope
+
+Do NOT:
+- implement recursive merge closure;
+- resolve A-5, A-8, A-9, A-11, or A-2;
+- introduce EXACT selector mode or origin anchoring;
+- add grants, authorization, execution, or automatic revocation;
+- add persistence, network, registry mutation, or latest-wins behavior;
+- modify `docs/CORE-001.md`;
+- introduce new normative error codes or reinterpret existing ones;
+- change Task 9 discovery or path-validation semantics unless a concrete defect blocks Task 10. If such a defect is found, stop and report it separately.
+
+## 3. Required implementation
+
+### 3.1 `validateMergeClosure`
+
+Implement the closure phase using the existing Task 9 traversal APIs and types.
+
+The function MUST:
+- inspect merge nodes and their **direct declared parent edges**;
+- determine which direct parent branches are already represented by accepted paths;
+- validate closure-only direct parent branches using the existing assessment and assurance machinery;
+- distinguish a path-level assurance failure from a merge-closure failure;
+- preserve all path outcomes in `BindingResult.details.perPath`;
+- be deterministic and non-mutating;
+- return owned, deeply frozen results consistent with existing Core ownership rules.
+
+Do not duplicate assessment-binding or assurance logic. Reuse the existing functions and established Task 8/9 semantics.
+
+The implementation must be based on the current public types and APIs. Do not add public API surface unless the approved plan explicitly requires it. If the planned API is insufficient, stop and explain the minimal required design change before implementing it.
+
+### 3.2 B-4 — closure-only branch failure
+
+Fixture:
+
+- `D` has `MERGED_FROM [B, C]`.
+- `B` has `FORKED_FROM A`.
+- `C` has `CONTINUATION A`.
+- Origin: `A`.
+- Candidate: `D`.
+
+Expected paths:
+- `D → B → A`
+- `D → C → A`
+
+Both direct parent branches are represented by discovered paths. However, for the surviving path `D → C → A`, the `D → B` branch is a closure-only branch relative to that path.
+
+Configure the assessment for `D → B` so that it fails assurance.
+
+Expected behavior:
+- the surviving path’s own validation remains distinguishable from closure validation;
+- closure failure returns normative `ERR_MERGE_BRANCH_UNSATISFIED`;
+- the failed path-level assurance result for `D → B → A` remains available in `details.perPath`;
+- closure failure MUST NOT be rewritten as `ERR_NO_TRAVERSAL_PATH`;
+- do not return a partially eligible success result.
+
+The test must assert the exact result shape and relevant per-path details, not merely the top-level error code.
+
+### 3.3 B-5 — trusted assessor and unverified claim
+
+Construct assessments such that:
+
+- trusted assessor `domain-auditor` does not verify required claim `SPEC_MISMATCH`;
+- untrusted assessor `untrusted.org` supplies a positive assessment for that claim;
+- local policy trusts `domain-auditor`.
+
+Expected behavior:
+- the untrusted positive assessment MUST NOT satisfy the requirement;
+- the unverified claim from the trusted assessor remains an absence of verified support, not a negative finding or refutation;
+- the requirement is UNSATISFIED;
+- no mutation of input assessments, policy, registry, graph, or descriptors;
+- no grant or authority is created;
+- no overwrite or latest-wins behavior is introduced.
+
+Use the existing Task 8 `evaluateAssurance` semantics. Do not invent new trust semantics.
+
+### 3.4 B-6 — closure branch that does not reach origin
+
+Construct a merge candidate `D` with a direct parent branch through `C`, where:
+
+- `D → C` is a declared direct parent edge;
+- `C` does not lead to the requested origin;
+- the assessment for `D → C` is missing or fails assurance.
+
+Expected behavior:
+- this is a merge-closure failure;
+- return `ERR_MERGE_BRANCH_UNSATISFIED`, not `ERR_NO_TRAVERSAL_PATH`;
+- the branch `C` is validated as a direct parent branch even though it does not lead to origin;
+- under immediate closure, deeper edges below `C` (for example `C → X`) are NOT recursively required to close.
+
+The test MUST explicitly demonstrate the distinction between:
+- no candidate-to-origin path during discovery; and
+- a direct merge parent branch that fails closure.
+
+### 3.5 Phase-separation tests
+
+Add tests proving that discovery and closure failures remain mutually distinguishable.
+
+At minimum:
+- discovery cannot find a candidate-to-origin path → `ERR_NO_TRAVERSAL_PATH`;
+- a candidate has a discovered path, but a required direct merge parent branch fails closure → `ERR_MERGE_BRANCH_UNSATISFIED`.
+
+Neither phase may relabel the other phase’s failure.
+
+### 3.6 B-7 — deterministic ingest ordering
+
+Build equivalent registries/inputs using different ingest orders.
+
+At minimum:
+- compare ordering `A, B, C` against `C, A, B`;
+- test all six permutations of a three-element assembly where applicable.
+
+Expected:
+- identical semantic results;
+- identical canonical ordering of paths and closure outcomes;
+- identical `acceptedPaths`;
+- no dependence on registry insertion order.
+
+Do not rely only on comparing counts. Compare complete normalized results.
+
+### 3.7 Experimental nested recursive closure — BLOCKED
+
+Add an experimental test under:
+
+`tests/experimental/nested-merge-recursion.test.ts`
+
+Fixture:
+- Extend B-6 so that `C` is itself a merge with direct parents `[E, F]`.
+
+Purpose:
+- document the boundary between immediate closure and recursive closure;
+- make explicit that the current normative baseline does not define recursive closure depth inside closure branches.
+
+Requirements:
+- mark the test clearly as **BLOCKED / NON-CONFORMANCE**;
+- do not include it in the §12 conformance suite;
+- do not make the implementation recursively inspect `E` and `F`;
+- do not change the expected behavior of immediate closure to satisfy this experimental fixture;
+- document that resolving recursive closure requires a separate normative decision (A-5 / relevant open issue).
+
+The test is documentation of a boundary, not a request to implement the behavior.
+
+## 4. Error semantics
+
+Preserve the existing distinction:
+
+| Situation | Expected result |
+|---|---|
+| No candidate-to-origin path | `ERR_NO_TRAVERSAL_PATH` |
+| Required direct merge parent branch fails closure | `ERR_MERGE_BRANCH_UNSATISFIED` |
+| A path exists but its own assurance fails | Preserve the path-level assurance outcome in `details.perPath` |
+| Mechanism failure | Preserve `MechanismFailure`; never map it to a normative code |
+
+Do not collapse these outcomes into one generic failure.
+
+Do not add a new normative error code.
+
+## 5. Global constraints
+
+The implementation MUST preserve:
+
+- **GC-12:** three independent phases; no implicit phase coupling.
+- **GC-18:** retain per-path detail for every path outcome, including failed paths and closure failures.
+- Evidence ≠ Finding ≠ Ruling ≠ Execution Authorization.
+- Assessment ≠ grant of authority.
+- No automatic trust inheritance.
+- No latest-wins semantics.
+- No mutation or repair of source descriptors, registry, graph, assessments, or policy.
+- No recursive closure.
+- No implementation-driven resolution of blocked normative questions.
+- Deep ownership and recursive freezing of returned public data.
+
+## 6. Tests and validation
+
+Required test locations:
+
+- `tests/conformance/b.test.ts`
+  - B-4
+  - B-5
+  - B-6
+  - B-7
+
+- `tests/unit/traversal-phases.test.ts`
+  - phase-separation tests
+  - immediate-closure-specific unit cases
+
+- `tests/experimental/nested-merge-recursion.test.ts`
+  - blocked experimental boundary test, excluded from conformance
+
+Required checks:
+
+```bash
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+bun run build
+```
+
+Also run the repository’s configured duplication check if available.
+
+Report:
+- test pass/fail/todo counts and assertion count;
+- typecheck/lint/format/build results;
+- conformance tests separately from experimental tests;
+- changed files;
+- any new assumptions;
+- any deviation from the approved plan.
+
+Do not report checks as passing unless they were actually run.
+
+## 7. Implementation workflow
+
+1. Inspect the current Task 9 implementation and approved Task 10 plan.
+2. Confirm the exact existing `BindingResult`, `PathValidation`, `Path`, `Policy`, and `TemporalContext` types.
+3. Write or update tests first (RED).
+4. Implement immediate closure using existing primitives.
+5. Run focused tests.
+6. Run the full validation suite.
+7. Review the diff for:
+   - accidental public API changes;
+   - mutation or aliasing;
+   - lost `perPath` details;
+   - non-deterministic ordering;
+   - recursive traversal beyond direct parent branches;
+   - normative error-code conflation.
+8. Commit the implementation on `feat/task-10-immediate-merge-closure`.
+
+## 8. Stop conditions
+
+Stop and report instead of improvising if:
+
+- the current API cannot express the approved immediate-closure behavior;
+- B-4/B-6 require contradictory interpretations of direct-parent closure;
+- implementation appears to require resolving A-5, A-8, A-9, A-11, or A-2;
+- a new normative error code seems necessary;
+- a test expectation conflicts with UIA-CORE-001 Rev 0.3.3;
+- the implementation would require recursive closure or authority/grant semantics.
+
+For any such case, provide:
+1. the exact conflict;
+2. the relevant spec section;
+3. the smallest proposed design decision;
+4. why implementation should not proceed without approval.
+
+## 9. Completion criteria
+
+Task 10 is ready for review when:
+
+- B-4 through B-7 pass;
+- phase-separation tests pass;
+- experimental recursive-closure test is explicitly blocked and excluded from conformance;
+- all required checks pass;
+- results are deterministic and non-mutating;
+- all per-path details are preserved;
+- no normative scope has expanded;
+- implementation is committed and the commit SHA is reported.
+
+**Expected outcome:** Task 10 completes immediate merge closure only. It does not claim recursive closure, full resolution of §8.6 ambiguities, or completion of the blocked normative questions.
+
+---
+
+Подтверждаю все пять пунктов. Дизайн минимальный и сохраняет границы Task 8/9. Есть только одно уточнение к пункту 4: порядок агрегации принимаю именно как ты предложил — closure выше cycle, потому что B-4 явно требует, чтобы closure failure перекрывал assurance failure выжившего пути. При этом это локальное aggregation rule Task 10, а не разрешение A-8.
+
+Ниже фиксирую решения, чтобы Claude мог реализовать без дополнительных интерпретаций.
+
+## Решения по дизайну Task 10
+
+
+
+APPROVED
+
+&#x20;1\. Явный вход Assessments
+
+
+
+Принимаем:
+
+```
+validateMergeClosure(
+  path: Path,
+  graph: LineageGraph,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<MergeClosureResult>;
+```
+
+`evaluateBinding` передаёт `state.assessments`. Никакого глобального состояния. Task 8 остаётся единственным владельцем applicability и assurance semantics.
+
+2\. `MergeClosureResult` и причины отказа
+
+Принимаем предложенные discriminated unions без новых normative error codes:
+
+```
+type MergeClosureBranchFailure =
+  | {
+      readonly branch: EdgeRef;
+      readonly reason: 'NO_APPLICABLE_ASSESSMENT';
+    }
+  | {
+      readonly branch: EdgeRef;
+      readonly reason: 'ASSURANCE_UNSATISFIED';
+      readonly missing: readonly string[];
+      readonly disallowed: readonly string[];
+    }
+  | {
+      readonly branch: EdgeRef;
+      readonly reason: 'CONTESTED';
+      readonly contestedClaims: readonly string[];
+    };
+
+type MergeClosureResult =
+  | { readonly status: 'SATISFIED' }
+  | {
+      readonly status: 'UNSATISFIED';
+      readonly code: 'ERR_MERGE_BRANCH_UNSATISFIED';
+      readonly failures: readonly MergeClosureBranchFailure[];
+    };
+```
+
+Собирать все неудачные closure-only ветви, сортировать по `(child, parent)`. `MechanismFailure` не превращать в branch failure: он должен оставаться отдельным результатом `Result`.
+
+3\. `PathOutcome.closure` и GC-18
+
+Принимаем:
+
+```
+interface PathOutcome {
+  readonly path: Path;
+  readonly outcome: PathValidation;
+  readonly closure?: MergeClosureResult;
+}
+```
+
+`details.perPath` — `readonly PathOutcome[]` и в success-, и в failure-вариантах `BindingResult`.
+
+`FailedPath` можно оставить экспортированным для совместимости, но не использовать как тип `details.perPath`: closure failure может относиться к пути с `outcome: VALID`.
+
+Это необходимое расширение публичного типа, а не изменение семантики `PathValidation`. Не переписывать `VALID` в `INVALID` только ради того, чтобы представить closure failure.
+
+4\. Порядок агрегации
+
+Принимаем ровно этот порядок:
+
+1. Есть путь с `VALID` + `closure: SATISFIED` → `eligible: true`.
+2. Иначе есть `closure: UNSATISFIED` → `ERR_MERGE_BRANCH_UNSATISFIED`.
+3. Иначе есть `CYCLE_DETECTED` → `CYCLE_DETECTED`.
+4. Иначе есть `CONTESTED` → `kind: 'CONTESTED'`.
+5. Иначе — обычный assurance failure.
+
+Это локальный порядок агрегации Task 10. A-8 остаётся OPEN. Успешный путь без вычисленной closure не должен случайно считаться eligible там, где closure требуется.
+
+5\. Branch failure semantics
+
+Принимаем:
+
+- `NO_APPLICABLE_ASSESSMENT` — `assessEdge` не дал применимого Assessment для closure-only ребра.
+- `ASSURANCE_UNSATISFIED` — применимый Assessment есть, но `evaluateAssurance` вернул `UNSATISFIED`; сохраняются `missing` и `disallowed`.
+- `CONTESTED` — assurance вернул `CONTESTED`; сохраняются `contestedClaims`.
+- Ошибки механизма остаются `MechanismFailure`, не маскируются под эти три причины.
+
+B-5 — отдельный conformance case для `assessEdge`/`evaluateAssurance`, не closure failure. Ожидаемый результат — `ERR_ASSURANCE_PREDICATE_UNSATISFIED`; untrusted positive Assessment не может компенсировать отсутствие подтверждения от trusted assessor.
+
+## Уточнения к реализации
+
+- Closure проверяет только прямые parent edges узлов с `MERGED_FROM`, встречающихся на конкретном пути.
+- Ребро, уже присутствующее в пути, повторно в closure не проверяется.
+- Остальные прямые parent edges проверяются через `assessEdge` → `evaluateAssurance`.
+- Никакого рекурсивного обхода closure-only ветвей.
+- В B-4 неудачный path-level результат `D→B→A` и closure failure для `D→B` должны одновременно сохраниться в `perPath`. Для `D→C→A` сохраняется `outcome: VALID` и `closure: UNSATISFIED`.
+- В B-6 проверяется `D→C`, но не `C→X`.
+- В B-7 сравниваются полные нормализованные результаты, включая closure branches и `acceptedPaths`.
+- Experimental nested-merge test остаётся BLOCKED / NON-CONFORMANCE и не попадает в §12 conformance suite.
