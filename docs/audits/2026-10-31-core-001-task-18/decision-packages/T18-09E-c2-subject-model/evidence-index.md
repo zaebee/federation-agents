@@ -20,7 +20,7 @@
 | Location | Decision | Used for |
 | --- | --- | --- |
 | §3 `T18-DEC-01` | `REQ-LOCAL` — local Assessment recording `PARENT_UNRESOLVED` and `CYCLE_DETECTED` is required | Establishes the obligation this decision shapes |
-| §3 `T18-DEC-02` | `OWN-ADAPTER` + `VAL-CORE` — adapter constructs, Core validates and admits, storage caller-managed, publication/retention OPEN | Provenance and 16.c framing |
+| §3 `T18-DEC-02` | `OWN-ADAPTER` + `VAL-CORE` — adapter constructs, Core validates and admits, storage caller-managed, publication/retention OPEN | Provenance and `T18-DEC-17` framing |
 | §3 `T18-DEC-15` | OPEN — parent coverage (complete declared set vs covered subset) | §7.3 sub-decision |
 | `T18-DEC-13` | OPEN — grant suppression observability (CORE-003) | C-2 case remains blocked after this decision |
 

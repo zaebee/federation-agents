@@ -1,24 +1,23 @@
-# T18-DEC-16 — C-2 Subject Model, Assessment Shape and Publication/Retention
+# T18-DEC-16 / T18-DEC-17 — C-2 Subject Model, Assessment Shape and Publication/Retention
 
 **Status: OPEN. Recommendation only. Not approved.**
 **Related case:** §12 C-2 / N-143 / `CASE-C-2.a2`.
 **Related approved decisions:** `T18-DEC-01` (`REQ-LOCAL`, recording obligation), `T18-DEC-02` (`OWN-ADAPTER` + `VAL-CORE`).
-**Related open decisions:** `T18-DEC-13` (grant suppression observability), `T18-DEC-15` (parent coverage), `A-14` / issue #65 (cycle breadth in path validation).
-**Task 18:** `T18-02B` is blocked only by this decision (see §8).
+**Related open decisions:** `T18-DEC-13` (grant suppression observability), `T18-DEC-15` (parent coverage), `T18-DEC-17` (publication/retention ownership), `A-14` / issue #65 (cycle breadth in path validation).
+**Task 18:** `T18-02B` is blocked only by `T18-DEC-16` (see §8); `T18-DEC-17` is independent and does not block recording.
 
 ---
 
 ## 1. Decision question
 
-Approved `T18-DEC-01` reads CORE-001 as requiring a local Assessment that records `CYCLE_DETECTED` (§11.2, §12 C-2). It does not say **what that Assessment is about**. `T18-DEC-16` has three named sub-parts:
+Approved `T18-DEC-01` reads CORE-001 as requiring a local Assessment that records `CYCLE_DETECTED` (§11.2, §12 C-2). It does not say **what that Assessment is about**. Two decisions give that obligation a shape:
 
-| Sub-part | Question | Why it is one decision |
+| Decision | Question | Sub-parts |
 | --- | --- | --- |
-| **16.a Subject model** | Is the cycle recorded on the closing edge, on a node, or on the whole strongly connected component? | Fixes `subject_version_id`, `parent_version_ids` and `declared_relation` |
-| **16.b Shape and provenance** | Which values fill the §6.2.1 fields, which claim list receives `CYCLE_DETECTED`, and which boundary constructs the record? | Follows from 16.a; must satisfy the §6.2.2 claim split |
-| **16.c Publication and retention** | Who persists, publishes and retains the cycle Assessment? | `T18-DEC-02` leaves persistent storage caller-managed while publication and retention stay OPEN |
+| **`T18-DEC-16`** | Is the cycle recorded on the closing edge, on a node, or on the whole strongly connected component, and which values fill the §6.2.1 fields? | 16.a subject model (fixes `subject_version_id`, `parent_version_ids`, `declared_relation`); 16.b shape and provenance (claim list, method fields, construction boundary) |
+| **`T18-DEC-17`** | Who persists, publishes and retains the Cycle Assessment? | none — a single boundary question under `T18-DEC-02`'s canonical scope |
 
-`T18-02B` (C-2.a2 adapter emission) cannot start until 16.a and 16.b are approved; 16.c does not block recording but does block any claim that the evidence is *published* or *retained*.
+They were drafted as one decision with sub-parts 16.a/16.b/16.c. The register has one status per decision, so a partial approval ("model approved, publication still open") was not representable; the split keeps `T18-DEC-16` as the `T18-02B` blocker and `T18-DEC-17` as the publication/retention decision. `T18-02B` cannot start until `T18-DEC-16` is approved; `T18-DEC-17` does not block recording but does block any claim that the evidence is *published* or *retained*.
 
 ---
 
@@ -61,9 +60,9 @@ Approved `T18-DEC-01` reads CORE-001 as requiring a local Assessment that record
 ### 2.4 Approved boundary (`T18-DEC-01`, `T18-DEC-02`)
 
 - `T18-DEC-01`: the recording obligation exists and does not by itself assign construction or publication to Core.
-- `T18-DEC-02`: adapter **constructs**; Core **validates** semantically; Core owns **admission** with an immutable registered representation; persistent storage is **caller-managed**; publication and retention remain **OPEN**.
+- `T18-DEC-02`: adapter **constructs**; Core **validates** semantically; Core owns **admission** with an immutable registered representation; persistent storage is **caller-managed**; publication and retention remain **OPEN** (`T18-DEC-17`).
 
-**Reading.** Whatever the subject model, the cycle Assessment is constructed by the adapter and admitted by Core, exactly as the C-1 assessment is. The package therefore treats provenance as settled by `T18-DEC-02` and only asks for the model-specific shape.
+**Reading.** Whatever the subject model, the cycle Assessment is constructed by the adapter and admitted by Core, exactly as the C-1 assessment is. The package therefore treats provenance as settled by `T18-DEC-02` and only asks for the model-specific shape. Publication and retention are split into `T18-DEC-17` so that recording does not wait for a storage decision.
 
 ### 2.5 What the specification does not define
 
@@ -193,7 +192,7 @@ One Assessment per SCC, with an anchor subject and all members in `parent_versio
 | Decision | Interaction |
 | --- | --- |
 | `T18-DEC-01` (approved) | Establishes the recording obligation this decision gives shape to |
-| `T18-DEC-02` (approved) | Adapter constructs, Core validates/admits, storage caller-managed; 16.b/16.c must reference the canonical scope statement, not paraphrase it |
+| `T18-DEC-02` (approved) | Adapter constructs, Core validates/admits, storage caller-managed; 16.b (shape) and `T18-DEC-17` (publication/retention) must reference the canonical scope statement, not paraphrase it |
 | `T18-DEC-13` (OPEN) | CORE-003 observes grant suppression; Option D gives it the exact participating edge set. C-2 case remains BLOCKED on `CASE-C-2.a3` regardless of 16.a |
 | `T18-DEC-15` (OPEN) | Determines whether `parent_version_ids` is the complete declared parent set or the covered subset; 16.b must state which reading the cycle model uses as a **local disposition**, and must not claim it is normative |
 | A-14 / #65 | Cycle breadth in **path validation**; graph-level recording here does not resolve it, and vice versa |
@@ -246,17 +245,17 @@ Rationale: it adopts the T18-01 recommendation rather than replacing it; no sche
 
 `T18-02B` (C-2.a2 adapter emission + Core validation) needs:
 
-1. **This decision approved** (16.a/16.b; 16.c may remain OPEN for recording but blocks publication/retention claims).
+1. **`T18-DEC-16` approved** (subject model and shape/provenance). Publication/retention ownership (`T18-DEC-17`) may remain OPEN for recording but blocks publication/retention claims.
 2. **The contextual admission path** for `CYCLE_DETECTED`, mirroring C-1: the generic guard at `src/core/assessment.ts:60` rejects the claim on every path while C-2 is blocked; the approved model turns it into "rejected on the generic path, admitted only through the cycle path".
 3. **AEBE from the adapter boundary** (package root, not a hand-constructed fixture), as `T18-02A` did for C-1, with Core validation and admission evidence.
 
-Closure evidence for `T18-DEC-16`: approval recorded in `decision-register.md`, the chosen sub-part resolutions recorded, `T18-02B` unblocked with the model and shape named in the roadmap, and an AEBE step attached to `T18-13`. Task 17 statuses change only through a re-audit revision, not here.
+Closure evidence for `T18-DEC-16`: approval recorded in `decision-register.md`, the chosen subject model and shape recorded, `T18-02B` unblocked with the model and shape named in the roadmap, and an AEBE step attached to `T18-13`. Closure evidence for `T18-DEC-17`: an explicit boundary statement for storage, publication and retention, with the AEBE saying what is persisted. Task 17 statuses change only through a re-audit revision, not here.
 
 ---
 
 ## 9. Limits of this package
 
 - It recommends; it does not approve. No wording here is normative.
-- It does not change `docs/CORE-001.md`, Task 17 statuses, the disposition matrix, `T18-02A`, `T18-DEC-13` or `T18-DEC-15`.
+- It does not change `docs/CORE-001.md`, Task 17 statuses, the disposition matrix, `T18-02A`, `T18-DEC-13`, `T18-DEC-15` or `T18-DEC-17`.
 - It does not implement `T18-02B` and does not pre-approve an adapter API shape beyond the C-1 precedent.
-- Option B's canonical-DFS mechanism would need its own documentation and tests; the package does not specify its exact ordering rules beyond "sorted nodes, sorted adjacency, DFS from the smallest node", because that mechanism is only relevant if the owner rejects Option A.
+- Option B's canonical-DFS mechanism would need its own documentation and tests; the package does not specify its exact ordering rules beyond "sorted nodes, sorted adjacency, DFS from the smallest node", because that mechanism is only relevant if the owner rejects Option D.
