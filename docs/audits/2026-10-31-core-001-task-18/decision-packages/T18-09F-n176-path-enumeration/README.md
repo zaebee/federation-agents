@@ -49,7 +49,12 @@ This package does not edit `decision-register.md`. A proposed register row is in
 | `adversarial-review.md` | Review of the draft against §8.4/§8.7/§8.8, the code and B-3/B-4/B-6; nine findings |
 | `decision-ready-revision.md` | The six required outcomes (contract equivalence, canonical witness, rejection proof, A-8 preservation, compatibility/migration, resource behaviour), each with statement, anchor, counterexample, resolution, compatibility impact and closure evidence |
 | `remaining-owner-questions.md` | The owner questions (OQ-1…OQ-12), with recommendations and consequences where one is defensible |
-| `oq4-complexity-adversarial-pass.md` | Revision 3: class-by-class decision problems, cycle-preemption lemma, complete polynomial arguments for D0/D2/D3/D4/D6 (D3 via walk + loop erasure), D5 proof sketch with empirical obligations, D6 withdrawn, owner options R1–R4, and an explicit correction history |
+| `oq4-complexity-adversarial-pass.md` | Revision 3: class-by-class decision problems, cycle-preemption lemma, complete polynomial arguments for D0/D2/D3/D4/D6 (D3 via walk + loop erasure), D5 proof sketch with empirical obligations, D6 withdrawn, and an explicit correction history |
+| `complexity-proof.md` | Formal D0–D6 arguments, exact `pathKey` encoding and tie behaviour, D5 proof status (OPEN), proposed oracle and invariance test obligations |
+| `equivalence-matrix.md` | Current vs proposed compact behaviour for adversarial cases A–G, with gaps stated |
+| `api-migration.md` | Versioned compact API, witnesses, diagnostic enumeration, deprecation strategy |
+| `benchmark-record.md` | Executed merge-diamond benchmark record (empirical, not proof) |
+| `owner-decision-summary.md` | Required owner decisions, recommended values, consequences |
 
 ## 5. Pre-decision clarification checklist
 
