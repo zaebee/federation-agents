@@ -17,8 +17,9 @@ The matrix is not a decision table. Each cell describes current behavior or an O
 
 ### Immediate closure
 
-- **Path edges:** `validatePathWithIndex` evaluates each edge on the selected path (`src/core/traversal.ts:471-522`).
+- **Path edges:** `validatePathWithIndex` evaluates each edge on the selected path (`src/core/traversal.ts:471-526`).
 - **Direct closure branches:** for every path edge whose child has a direct `MERGED_FROM` branch, `collectEdgeClosureFailures` evaluates every direct parent branch (`traversal.ts:607-628`), skipping only the exact path edge (`traversal.ts:589-591`).
+- **Trigger semantics (OPEN):** current behavior treats a node with an incoming `MERGED_FROM` edge as a merge node regardless of the path-edge relation; whether this node-property trigger is normative is a separate sub-decision (`DEC-07-TRIGGER`).
 - **Not evaluated:** parents of closure-only branches; nested merge nodes in those branches; cycles inside closure-only branches.
 
 ### Recursive closure
@@ -46,9 +47,9 @@ The matrix is not a decision table. Each cell describes current behavior or an O
 
 ## 4. Closure failure propagation
 
-- Any direct branch failure makes closure `UNSATISFIED` (`traversal.ts:650-666`).
+- Any direct branch failure makes closure `UNSATISFIED` (`traversal.ts:650-667`).
 - `evaluateOnePath` runs closure only after a `VALID` path-level outcome (`traversal.ts:709-731`). A path-level `CONTESTED` does not reach closure.
-- `summarizePaths` lets an accepted path win; otherwise closure failure outranks cycle and contested (`traversal.ts:759-790`).
+- `summarizePaths` lets an accepted path win; otherwise closure failure outranks cycle and contested (`traversal.ts:759-795`).
 - Therefore, under immediate closure, a conflict on a non-path parent edge can still defeat a path through closure, but it is reported as a closure failure.
 - Under recursive closure, a conflict deeper in a closure-only branch can defeat the path only if the recursion reaches that edge and the failure is retained in the result shape.
 
@@ -114,5 +115,5 @@ Choosing one does not determine the other. The matrix marks combinations that ar
 - **A-11 remains separate.** Origin closure is not part of DEC-07; see `docs/implementation.md:1468`, `:1662`, `:1785`.
 - **N-079 / T18-DEC-10 remains separate.** Conflict detection does not implement contested-claim decision gating.
 - **B-5 remains intact.** Untrusted Assessments are excluded before conflict detection.
-- **Missing verified claims remain `UNSATISFIED`** under the default no-conflict path; conflict precedence is OPEN.
+- **Missing verified claims remain `UNSATISFIED`** when conflict detection does not short-circuit assurance evaluation; conflict-vs-missing precedence remains OPEN under `A-8`.
 - **T18-02A remains unchanged.** This matrix does not alter C-1 emission or T18-DEC-15.

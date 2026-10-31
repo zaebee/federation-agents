@@ -48,33 +48,33 @@ Implementation behavior is not normative meaning. A passing test is not proof of
 | Symbol | File:lines | Relevance |
 | --- | --- | --- |
 | `appliesToEdge` | `src/core/assessment.ts:310-316` | Edge applicability: subject, relation, parent membership |
-| `assessEdge` | `src/core/assessment.ts:335-378` | Deep copy, duplicate-ID rejection, applicability filter, sort, policy narrowing, freeze, brand |
+| `assessEdge` | `src/core/assessment.ts:335-373` | Deep copy, duplicate-ID rejection, applicability filter, sort, policy narrowing, freeze, brand |
 | `narrowByPolicy` | `src/core/assessment.ts:380-398` | Policy can only select core IDs; cannot inject altered or untrusted Assessments |
 | `trustedAssessors` | `src/core/assessment.ts:400-402` | `trusted_assessors ?? trustedAssessorDefault ?? []`; empty trusts none |
-| `differingClaims` | `src/core/assessment.ts:404-425` | Symmetric difference of `verified_claims`; ignores `unverified_claims` |
-| `collectContestedClaims` | `src/core/assessment.ts:431-449` | Pairwise predicate over trusted Assessments; union of differing verified claims |
-| `evaluateAssurance` | `src/core/assessment.ts:459-500` | Brand check, trust filter, conflict check, verified union, missing/disallowed |
+| `differingClaims` | `src/core/assessment.ts:404-423` | Symmetric difference of `verified_claims`; ignores `unverified_claims` |
+| `collectContestedClaims` | `src/core/assessment.ts:431-452` | Pairwise predicate over trusted Assessments; union of differing verified claims |
+| `evaluateAssurance` | `src/core/assessment.ts:459-504` | Brand check, trust filter, conflict check, verified union, missing/disallowed |
 | Conflict block | `src/core/assessment.ts:475-480` | Only explicit `Policy.conflictPredicate` can produce `CONTESTED` |
 | Verified union | `src/core/assessment.ts:482-487` | Only `verified_claims` contribute |
 | Missing/disallowed | `src/core/assessment.ts:489-491` | `required_claims` and `disallowed_claims` |
-| `registerAssessment` | `src/core/assessment.ts:721-730` | Copy-on-write, validation, context-required rejection; supersession history preserved |
+| `registerAssessment` | `src/core/assessment.ts:721-734` | Copy-on-write, validation, context-required rejection; supersession history preserved |
 
 ### 3.2 Traversal
 
 | Symbol | File:lines | Relevance |
 | --- | --- | --- |
 | `evaluateEdgeAssurance` | `src/core/traversal.ts:391-427` | Shared Phase 2/3 edge evaluation; maps `CONTESTED` |
-| `validatePath` | `src/core/traversal.ts:460-468` | Public Phase 2 entry |
-| `validatePathWithIndex` | `src/core/traversal.ts:471-522` | Per-edge path validation; returns `CONTESTED` for a contested edge |
-| `directParentBranches` | `src/core/traversal.ts:527-539` | Full adjacency; all relations; dedupe/sort |
+| `validatePath` | `src/core/traversal.ts:460-469` | Public Phase 2 entry |
+| `validatePathWithIndex` | `src/core/traversal.ts:471-526` | Per-edge path validation; returns `CONTESTED` for a contested edge |
+| `directParentBranches` | `src/core/traversal.ts:527-540` | Full adjacency; all relations; dedupe/sort |
 | `evaluateClosureBranch` | `src/core/traversal.ts:541-574` | Branch assurance; missing/unsatisfied/contested reasons |
 | `collectBranchFailure` | `src/core/traversal.ts:580-605` | Skips exact path edge; dedupes failures |
 | `collectEdgeClosureFailures` | `src/core/traversal.ts:607-628` | Triggers closure when a direct `MERGED_FROM` branch exists; checks all direct branches |
 | `collectClosureFailures` | `src/core/traversal.ts:630-648` | Loops path edges only; no recursion |
-| `closureResult` | `src/core/traversal.ts:650-666` | Flat sorted failure list |
+| `closureResult` | `src/core/traversal.ts:650-667` | Flat sorted failure list |
 | `validateMergeClosure` | `src/core/traversal.ts:674-692` | Immediate-only Phase 3 |
 | `evaluateOnePath` | `src/core/traversal.ts:709-731` | Closure only after a VALID path |
-| `summarizePaths` | `src/core/traversal.ts:759-790` | Aggregation: accepted path → closure → cycle → contested → assurance |
+| `summarizePaths` | `src/core/traversal.ts:759-795` | Aggregation: accepted path → closure → cycle → contested → assurance |
 
 ### 3.3 Implementation documentation
 
@@ -131,6 +131,8 @@ Implementation behavior is not normative meaning. A passing test is not proof of
 | `BLOCKED (A-5, non-conformance): immediate closure does not descend into closure-only merge C` | `tests/experimental/nested-merge-recursion.test.ts:12` | Pins immediate-only behavior | Excluded from conformance |
 | `BLOCKED (A-5, non-conformance): recursive closure would also require C→E and C→F` | `tests/experimental/nested-merge-recursion.test.ts:23` | Recursive expectation is todo | Not normative |
 | `BLOCKED (A-11, non-conformance): a MERGED_FROM origin is not closed` | `tests/experimental/origin-merge-closure.test.ts:18` | A-11 separate behavior | Excluded from conformance |
+
+`B-4 a merge node reached through CONTINUATION still closes its merge parents` pins the current **node-property trigger**. It does not settle whether §8.6 requires that trigger; `DEC-07-TRIGGER` remains OPEN.
 
 ### 4.3 Property and scope tests
 

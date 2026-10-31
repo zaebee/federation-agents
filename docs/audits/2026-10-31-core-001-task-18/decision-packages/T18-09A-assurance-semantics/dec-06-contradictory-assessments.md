@@ -126,14 +126,16 @@ The text says “contradict,” not “differ.” That distinction is the core o
 **Current implementation behavior.** `src/core/assessment.ts:310-316`:
 
 ```ts
-function appliesToEdge(assessment, edge): boolean {
-  return assessment.subject_version_id === edge.child &&
+function appliesToEdge(assessment: DeepReadonly<ContinuityAssessment>, edge: EdgeRef): boolean {
+  return (
+    assessment.subject_version_id === edge.child &&
     assessment.declared_relation === edge.relation &&
-    assessment.parent_version_ids.includes(edge.parent);
+    assessment.parent_version_ids.includes(edge.parent)
+  );
 }
 ```
 
-`assessEdge` (`assessment.ts:335-378`) deep-copies candidates, rejects duplicate `assessment_id`s, filters by `appliesToEdge`, sorts by `assessment_id`, applies `Policy.applicableAssessments` narrowing, freezes and brands the result.
+`assessEdge` (`assessment.ts:335-373`) deep-copies candidates, rejects duplicate `assessment_id`s, filters by `appliesToEdge`, sorts by `assessment_id`, applies `Policy.applicableAssessments` narrowing, freezes and brands the result.
 
 **Current implementation behavior.** `assessEdge` does not read `supersedes_assessment_id`, `assessed_at`, or trust. An older and a newer Assessment can both be applicable. This matches `docs/implementation.md:730`: “Supersession does not remove the predecessor from applicability and there is no ‘latest wins’ rule.”
 
@@ -157,7 +159,7 @@ An empty list trusts nothing. `evaluateAssurance` filters to trusted Assessments
 
 ### 3.4 Conflict detection
 
-**Current implementation behavior.** `evaluateAssurance` (`assessment.ts:459-500`) runs conflict detection only when `policy.conflictPredicate` is defined (`:475-480`):
+**Current implementation behavior.** `evaluateAssurance` (`assessment.ts:459-504`) runs conflict detection only when `policy.conflictPredicate` is defined (`:475-480`):
 
 ```ts
 if (policy.conflictPredicate !== undefined) {
@@ -168,9 +170,9 @@ if (policy.conflictPredicate !== undefined) {
 }
 ```
 
-`collectContestedClaims` (`assessment.ts:431-449`) calls the predicate for every pair of trusted applicable Assessments. If any pair fires, it returns the union of `differingClaims`.
+`collectContestedClaims` (`assessment.ts:431-452`) calls the predicate for every pair of trusted applicable Assessments. If any pair fires, it returns the union of `differingClaims`.
 
-`differingClaims` (`assessment.ts:404-425`) compares **only** `verified_claims` sets and returns their symmetric difference. It ignores `unverified_claims`.
+`differingClaims` (`assessment.ts:404-423`) compares **only** `verified_claims` sets and returns their symmetric difference. It ignores `unverified_claims`.
 
 **Current implementation behavior.** The default predicate is `undefined`; the default path never produces `CONTESTED`.
 
@@ -185,7 +187,7 @@ if (policy.conflictPredicate !== undefined) {
 
 **Current implementation behavior.** `evaluateAssurance` (`assessment.ts:482-491`) unions `verified_claims` from trusted Assessments, computes `missing` against `required_claims`, and computes `disallowed` against `disallowed_claims`. `unverified_claims` is not read at all.
 
-**Current implementation behavior.** The generic validator (`assessment.ts:180-217`) does not reject the same claim appearing in both `verified_claims` and `unverified_claims`; `evaluateAssurance` reads only `verified_claims`. Intra-Assessment overlap is therefore a record-consistency question, not a conflict-predicate result.
+**Current implementation behavior.** The generic validator (`assessment.ts:180-218`) does not reject the same claim appearing in both `verified_claims` and `unverified_claims`; `evaluateAssurance` reads only `verified_claims`. Intra-Assessment overlap is therefore a record-consistency question, not a conflict-predicate result.
 
 **Current implementation behavior.** Conflict is checked before missing/disallowed (`:475-491`). A conflict can therefore return `CONTESTED` before a missing required claim would return `UNSATISFIED`. This precedence is `A-8` OPEN.
 
@@ -195,11 +197,11 @@ if (policy.conflictPredicate !== undefined) {
 
 **Current implementation behavior.** `evaluateEdgeAssurance` (`src/core/traversal.ts:391-427`) calls `assessEdge` and `evaluateAssurance`; `CONTESTED` becomes an edge outcome with `contestedClaims`.
 
-`validatePathWithIndex` (`traversal.ts:471-522`) returns `PathValidation` status `CONTESTED` for a contested path edge and stops.
+`validatePathWithIndex` (`traversal.ts:471-526`) returns `PathValidation` status `CONTESTED` for a contested path edge and stops.
 
-`validateMergeClosure` (`traversal.ts:674-692`) evaluates every direct parent branch of merge nodes on a VALID path. A contested branch becomes `MergeClosureBranchFailure` reason `CONTESTED` (`traversal.ts:570-573`); any failure makes closure `UNSATISFIED` (`:650-666`).
+`validateMergeClosure` (`traversal.ts:674-692`) evaluates every direct parent branch of merge nodes on a VALID path. A contested branch becomes `MergeClosureBranchFailure` reason `CONTESTED` (`traversal.ts:570-573`); any failure makes closure `UNSATISFIED` (`:650-667`).
 
-`summarizePaths` (`traversal.ts:759-790`) aggregates:
+`summarizePaths` (`traversal.ts:759-795`) aggregates:
 
 | Condition | Top-level result |
 | --- | --- |
@@ -223,13 +225,13 @@ if (policy.conflictPredicate !== undefined) {
 | Question | Current behavior | Source |
 | --- | --- | --- |
 | Two trusted Assessments with different verified claims | Independent; verified union; no `CONTESTED` by default | `assessment.ts:482-491`; `assessment.test.ts:457` |
-| Explicit predicate | `CONTESTED`; `contestedClaims` is verified-set symmetric difference | `assessment.ts:431-449`; `assessment.test.ts:472` |
+| Explicit predicate | `CONTESTED`; `contestedClaims` is verified-set symmetric difference | `assessment.ts:431-452`; `assessment.test.ts:472` |
 | Same vs different assessor | No distinction; both pass trust filter | `assessment.ts:400-402`, `:472-473` |
 | Verified vs unverified same claim | No conflict by default; unverified ignored | `assessment.ts:482-487`; `docs/implementation.md:724` |
 | Verified vs absent | No conflict by default; absence not confirmation | `docs/CORE-001.md:584` |
 | Supersession | Older remains applicable; no latest-wins; no automatic conflict resolution | `docs/implementation.md:730` |
-| Timestamps / ordering | Not used for conflict; predicate receives `TemporalContext`; sorting deterministic | `assessment.ts:431-449`; B-7 |
-| Conflict scope | Per edge (`assessEdge` triple) | `assessment.ts:310-316`, `:335-378` |
+| Timestamps / ordering | The default implementation does not apply timestamp-based conflict resolution. A custom predicate may inspect assessment timestamps and temporal context; no normative precedence rule is currently defined. Sorting is deterministic. | `assessment.ts:431-452`; B-7 |
+| Conflict scope | Per edge (`assessEdge` triple) | `assessment.ts:310-316`, `:335-373` |
 | Untrusted Assessment | Excluded before conflict | `assessment.test.ts:441` |
 | Conflict in closure | Branch reason `CONTESTED` → `ERR_MERGE_BRANCH_UNSATISFIED` | `traversal.ts:570-573`, `:769-774` |
 | Conflict vs missing claim | Conflict first; can mask `UNSATISFIED` | `assessment.ts:475-491` |
@@ -281,14 +283,17 @@ if (policy.conflictPredicate !== undefined) {
 Architectural separation:
 
 1. **CORE-001 defines the normative obligation.** When a domain establishes that applicable trusted Assessments contradict, the corresponding Claim enters local `CONTESTED`; no majority voting; dependent decisions cannot rely on it until local resolution.
-2. **The domain’s local policy defines contradiction** within its claim vocabulary and evidence model. CORE-001 does not define a universal claim-incompatibility logic.
-3. **The implementation contract ensures an established contradiction cannot be silently lost** through ordering, narrowing, or incorrect diagnostics.
+2. **CORE-001 implementation provides the mechanism.** The implementation must expose a deterministic way to establish contradiction when the domain configures its claim vocabulary. It must not silently lose an established contradiction through ordering, narrowing, or incorrect diagnostics.
+3. **The domain’s local policy defines contradiction** within its claim vocabulary and evidence model. CORE-001 does not define a universal claim-incompatibility logic.
+4. **A conformance claim requires the capability.** A domain cannot claim support for §6.4 contradiction semantics if it cannot execute the corresponding MUST. A domain without a predicate may claim only limited support and must not describe itself as implementing §6.4 contradiction detection.
 
 Proposed clarification content (not approved):
 
-> CORE-001 does not define a universal claim-incompatibility relation. A domain that relies on external assessments MUST define, in local policy, a deterministic predicate identifying when two applicable trusted Assessments contradict. The predicate is evaluated for the same edge and the same claim scope; it MUST NOT use majority voting; `unverified_claims` is not by itself a negative assertion; supersession alone does not resolve a contradiction. If no predicate is defined, no claim is marked `CONTESTED`.
+> CORE-001 does not define a universal claim-incompatibility relation. A domain that relies on external assessments MUST define, in local policy, a deterministic predicate identifying when two applicable trusted Assessments contradict. The predicate is evaluated for the same edge and the same claim scope; it MUST NOT use majority voting; `unverified_claims` is not by itself a negative assertion; supersession alone does not resolve a contradiction. If no predicate is defined, the implementation cannot establish contradiction; a domain that claims §6.4 support MUST treat that as a configuration/conformance gap, not as compliance.
 
 The “same edge” sentence is a proposed default, not an approved scope decision; §7.1 keeps the scope question OPEN.
+
+**Owner question (OPEN).** Is absence of a predicate a configuration error, or a permissible mode with a limited compatibility claim? **Recommended answer (not approved):** for a domain that claims §6.4 support, it is a configuration/conformance gap; a domain may otherwise declare limited support. This package does not decide the question.
 
 **Recommended answer to the conformance question:** no, if the domain claims support for §6.4 contradiction semantics. A general CORE-001 implementation may expose Assessments and assurance evaluation without claiming contradiction detection; that implementation must not claim §6.4 contradiction support. A domain that declares use of external assessments and relies on §6.4 must provide a detection mechanism or record the capability as unsupported.
 
@@ -332,7 +337,7 @@ Do not assume symmetric difference is a valid representation.
 
 ### 7.5 Required capability/conformance declaration
 
-**OPEN.** Does a domain that claims §6.4 support have to declare a contradiction-detection capability? Recommended answer: yes, if it claims that capability; not a universal requirement for every CORE-001 implementation. Pending owner approval.
+**OPEN.** Does a domain that claims §6.4 support have to declare a contradiction-detection capability? **Recommended answer (not approved):** yes. A general CORE-001 implementation need not claim §6.4 contradiction support; a domain that does claim it must provide a predicate or record the capability as unsupported. Absence of a predicate is not compliance with the MUST for such a domain. Owner question: configuration error vs permissible limited mode; pending.
 
 ## 8. Consequences if approved
 

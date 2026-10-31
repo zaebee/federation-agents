@@ -74,7 +74,7 @@ Implementation behavior is never promoted to normative meaning. A passing test i
 - **Normative requirement:** §8.6 requires checking all parent edges of a merge node on the selected path, including branches that do not lead to origin; a failing branch yields `ERR_MERGE_BRANCH_UNSATISFIED`.
 - **What the specification does not define:** whether closure stops at direct parent edges or descends recursively into closure-only branches; whether nested merge nodes in those branches are closed; cycle handling in closure-only branches; scope interaction; failure-evidence shape.
 - **Current implementation behavior:** immediate closure only. It checks every direct parent edge of a merge node on the selected path, all relations, skips only the exact path edge, checks non-origin branches, uses full graph adjacency independently of discovery scope, does not recurse, and returns a flat sorted failure list.
-- **Reviewed recommendation:** Option A — immediate closure, with a one-sentence CORE-001 clarification. This is not an approval.
+- **Reviewed recommendation:** Option A — immediate closure, with a depth clarification; trigger semantics remains a separate OPEN sub-decision (`DEC-07-TRIGGER`). This is not an approval.
 
 ## 6. What this package does not decide
 
@@ -84,6 +84,7 @@ Implementation behavior is never promoted to normative meaning. A passing test i
 - It does not decide conflict vs missing/disallowed precedence (`A-8`).
 - It does not decide the required capability/conformance declaration for local contradiction detection.
 - It does not decide recursive or bounded closure.
+- It does not decide closure trigger semantics (node property vs path-edge relation).
 - It does not decide origin closure (`A-11`).
 - It does not decide contested-claim decision gating (`N-079` / `T18-DEC-10`).
 - It does not change `T18-DEC-15`.
@@ -99,7 +100,7 @@ The package preserves:
 - No automatic revocation semantics.
 - B-5 exclusion of untrusted Assessments.
 - Policy narrowing cannot reintroduce untrusted Assessments.
-- Missing required verified claims remain an actual `UNSATISFIED` condition.
+- Missing required verified claims remain an `UNSATISFIED` condition when conflict detection does not short-circuit assurance evaluation. Conflict-vs-missing precedence remains OPEN under `A-8`.
 - DEC-06 and DEC-07 remain independent.
 - T18-02A remains unchanged.
 - T18-DEC-15 remains OPEN.

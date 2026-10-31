@@ -97,11 +97,13 @@ Absence of an Assessment is not successful validation.
 
 ### 3.1 Direct branches
 
-**Current implementation behavior.** `directParentBranches` (`src/core/traversal.ts:527-539`) reads the **full graph adjacency** for `edge.child`, deduplicates by `(parent, relation)`, and sorts. It includes all relations, not just `MERGED_FROM`.
+**Current implementation behavior.** `directParentBranches` (`src/core/traversal.ts:527-540`) reads the **full graph adjacency** for `edge.child`, deduplicates by `(parent, relation)`, and sorts. It includes all relations, not just `MERGED_FROM`.
 
 ### 3.2 Closure trigger
 
 **Current implementation behavior.** `collectEdgeClosureFailures` (`traversal.ts:607-628`) triggers closure when any direct branch of `edge.child` has relation `MERGED_FROM` (`:617`). The relation of the path edge itself is irrelevant; a merge node reached through `CONTINUATION` or `FORKED_FROM` still triggers closure.
+
+**OPEN sub-decision (trigger semantics).** This is a node-property trigger: a merge node is an IdentityVersion with at least one incoming `MERGED_FROM` parent edge in the lineage graph. The relation of the path edge used to reach it does not matter. Whether §8.6 normatively requires this node-property reading, rather than requiring the path edge itself to be `MERGED_FROM`, is a separate question. It is not resolved by the immediate-vs-recursive depth choice. See §6 and §7.6.
 
 ### 3.3 Exact path edge exclusion
 
@@ -128,23 +130,23 @@ Consequences:
 
 ### 3.7 Evidence retention
 
-**Current implementation behavior.** `closureResult` (`traversal.ts:650-666`) returns `SATISFIED` or `UNSATISFIED` with a **flat, sorted list** of branch failures. It does not retain a tree, so recursive depth would require a shape change.
+**Current implementation behavior.** `closureResult` (`traversal.ts:650-667`) returns `SATISFIED` or `UNSATISFIED` with a **flat, sorted list** of branch failures. It does not retain a tree, so recursive depth would require a shape change.
 
 ### 3.8 Or one path
 
-**Current implementation behavior.** `evaluateOnePath` (`traversal.ts:709-731`) runs closure only after a `VALID` path-level outcome. `summarizePaths` (`traversal.ts:759-790`) lets an accepted path win; otherwise closure failure outranks cycle and contested. A closure conflict therefore surfaces as `ERR_MERGE_BRANCH_UNSATISFIED`, not necessarily as `kind: 'CONTESTED'`.
+**Current implementation behavior.** `evaluateOnePath` (`traversal.ts:709-731`) runs closure only after a `VALID` path-level outcome. `summarizePaths` (`traversal.ts:759-795`) lets an accepted path win; otherwise closure failure outranks cycle and contested. A closure conflict therefore surfaces as `ERR_MERGE_BRANCH_UNSATISFIED`, not necessarily as `kind: 'CONTESTED'`.
 
 ### 3.9 Required behavior checklist
 
 | Requirement | Current behavior | Evidence |
 | --- | --- | --- |
 | Activates closure when a path node has a direct `MERGED_FROM` parent | Yes | `traversal.ts:616-618` |
-| Checks all direct parent edges, including relations other than `MERGED_FROM` | Yes | `traversal.ts:527-539`, `:621-626` |
+| Checks all direct parent edges, including relations other than `MERGED_FROM` | Yes | `traversal.ts:527-540`, `:621-626` |
 | Skips only the exact path edge already checked | Yes | `traversal.ts:589-591` |
-| Checks direct branches that do not lead to origin | Yes | `traversal.ts:527-539`; B-6 |
+| Checks direct branches that do not lead to origin | Yes | `traversal.ts:527-540`; B-6 |
 | Does not recursively expand merge nodes encountered only in closure-only branches | Yes | `traversal.ts:630-648`, `:669-672` |
-| Uses full graph adjacency independently of discovery scope | Yes | `traversal.ts:527-539`; `docs/implementation.md:1440-1447` |
-| Returns flat branch-failure evidence | Yes | `traversal.ts:650-666` |
+| Uses full graph adjacency independently of discovery scope | Yes | `traversal.ts:527-540`; `docs/implementation.md:1440-1447` |
+| Returns flat branch-failure evidence | Yes | `traversal.ts:650-667` |
 
 ### 3.10 Test evidence
 
@@ -207,6 +209,10 @@ Property/scope:
 Proposed normative clarification (not approved):
 
 > Closure is applied to the direct parent edges of every merge node on the selected path. All direct parent edges of that merge node are checked, regardless of their declared relation. Closure is not applied recursively to merge nodes that appear only in closure-only branches.
+>
+> For this rule, a merge node is an IdentityVersion that has at least one incoming `MERGED_FROM` parent edge in the lineage graph. Closure is triggered whenever the selected path passes through such a node, regardless of the relation of the path edge used to reach it.
+
+**Separate OPEN sub-decision (`DEC-07-TRIGGER`).** The trigger sentence is not implied by immediate closure. If the owner does not approve the node-property definition, the clarification must be split and this package must not treat trigger semantics as resolved.
 
 The text preserves the distinction:
 
@@ -223,7 +229,7 @@ Rationale:
 
 **A-11 remains separate.** This recommendation does not decide whether a terminal origin that is `MERGED_FROM` must be closed. `docs/implementation.md:1468`, `:1662`, `:1785` keep A-11 BLOCKED.
 
-**CORE-001 amendment required?** Yes, a one-sentence clarification to §8.6 if N-112 is to close. Without it, N-112 remains BLOCKED and immediate-only remains an interpretation.
+**CORE-001 amendment required?** Yes: a depth clarification for N-112 and, separately, a trigger-semantics clarification if the node-property reading is approved. Without them, N-112 remains BLOCKED and `DEC-07-TRIGGER` remains OPEN.
 
 ## 7. If recursive closure is considered
 
@@ -238,11 +244,24 @@ Rationale:
 
 Do not add a configurable recursion-depth parameter merely because it is convenient to implement.
 
+### 7.6 Trigger semantics (separate OPEN sub-decision)
+
+**OPEN.** Current implementation triggers closure on a node property: `edge.child` has at least one direct `MERGED_FROM` parent edge, regardless of the relation of the path edge used to reach it. `docs/CORE-001.md:808` says the path passes through an IdentityVersion “имеющий отношение `MERGED_FROM`”; it does not explicitly say whether that means the node has a `MERGED_FROM` parent edge or the path edge itself is `MERGED_FROM`.
+
+The depth decision (immediate vs recursive) does not decide this. A separate owner decision must choose:
+
+- **node-property trigger** (current): any path through a node with an incoming `MERGED_FROM` edge triggers closure;
+- **path-edge trigger:** closure triggers only when the path edge itself is `MERGED_FROM`;
+- another explicit rule.
+
+The proposed clarification in §6 uses the node-property reading. That sentence is a separate proposal and must not be treated as approved by choosing immediate closure.
+
 ## 8. Consequences if approved
 
 If Option A is approved:
 
-- add a one-sentence CORE-001 clarification via `T18-SPEC-01`;
+- add a CORE-001 depth clarification via `T18-SPEC-01`;
+- decide `DEC-07-TRIGGER` separately and, if the node-property reading is approved, add its clarification;
 - keep the current `MergeClosureResult` shape;
 - add/confirm tests for direct branches, mixed relations, non-origin branches, nested merge non-expansion, scope independence, cycles on path, and large graphs;
 - N-112 can be re-audited after the clarification and evidence.
@@ -277,4 +296,5 @@ If Option C is approved:
 5. How are cycles in closure-only branches handled?
 6. What is the failure-evidence shape for recursive closure?
 7. Does a direct parent edge with a non-`MERGED_FROM` relation trigger further closure if its parent is a merge node?
-8. Does the terminal origin count as a merge node for closure (A-11)?
+8. Does closure trigger when the path reaches a merge node through a non-`MERGED_FROM` edge, or only when the path edge itself is `MERGED_FROM`?
+9. Does the terminal origin count as a merge node for closure (A-11)?
