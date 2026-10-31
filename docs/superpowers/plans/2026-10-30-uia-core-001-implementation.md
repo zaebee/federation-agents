@@ -495,7 +495,7 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
 - **P6 partial:** `registerAssessment` copy-on-write and supersession-cycle rejection are covered; lifecycle/acceptance supersession is deferred until those mechanisms exist.
 - **P7:** independent brute-force oracle in `tests/property/support/merge-oracle.ts`; it does not call `discoverPaths`, `validatePath`, `validateMergeClosure` or `evaluateBinding`, but reuses Task 8 `assessEdge`/`evaluateAssurance`. DAG only (≤7 nodes); immediate closure only; origin excluded (A-11); aggregation mirrors implementation behavior without resolving A-8.
 - **P8:** targeted cycle cases plus a bounded cycle-placement generator; the claim is limited to the generated model (cycle as a separate component / path intersecting a cycle), not an arbitrary-SCC theorem.
-- **P9:** AST guard traces `export *`/named re-exports from `src/index.ts`; it checks exported names and the public surface, not implementation bodies.
+- **P9:** AST guard traces `export *`, named re-exports, local `export { name }`/aliases and `export * as namespace` members from `src/index.ts`; it checks exported names and the public surface, not implementation bodies.
 - **Distribution:** merge nodes, mixed-relation nodes, closure-only branches, multi-path cases and assessment-state coverage are reported; `numRuns` alone is not treated as completeness.
 - No production changes were required.
 

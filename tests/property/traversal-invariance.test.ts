@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import * as fc from 'fast-check';
-import ts from 'typescript';
 import { registerAssessment } from '../../src/core/assessment.js';
 import { validateIdentityVersionDescriptor } from '../../src/core/entities.js';
 import { buildLineageGraph } from '../../src/core/lineage.js';
@@ -14,6 +14,7 @@ import { CTX, EMPTY_POLICY, assessmentRecord, bindingFor } from '../support/trav
 import type { GeneratedCase } from './support/dag-fixtures.js';
 import { dagSpecArbitrary } from './support/dag-fixtures.js';
 import { buildCase } from './support/dag-fixtures.js';
+import { collectExportedNames } from './support/export-surface.js';
 import { normalizeProduction } from './support/normalize.js';
 
 const SEED_ORDER = 12_101;
@@ -486,72 +487,39 @@ describe('P8: cycles never yield eligibility by themselves', () => {
 
 describe('P9: public core surface exposes no grant-producing API', () => {
   test('no exported identifier from the public entry transitively suggests grants', () => {
-    const entry = resolve(import.meta.dir, '../../src/index.ts');
-    const exported = new Set<string>();
+    const exported = collectExportedNames(resolve(import.meta.dir, '../../src/index.ts'));
 
-    const collect = (filePath: string, visited: Set<string>): void => {
-      if (visited.has(filePath)) {
-        return;
-      }
-      visited.add(filePath);
-      const source = ts.createSourceFile(filePath, readFileSync(filePath, 'utf8'), ts.ScriptTarget.Latest, true);
-
-      for (const statement of source.statements) {
-        const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined;
-        const exportedDecl = modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) === true;
-
-        if (exportedDecl) {
-          if (
-            ts.isFunctionDeclaration(statement) ||
-            ts.isClassDeclaration(statement) ||
-            ts.isInterfaceDeclaration(statement) ||
-            ts.isTypeAliasDeclaration(statement) ||
-            ts.isEnumDeclaration(statement)
-          ) {
-            if (statement.name !== undefined) {
-              exported.add(statement.name.text);
-            }
-          } else if (ts.isVariableStatement(statement)) {
-            for (const declaration of statement.declarationList.declarations) {
-              if (ts.isIdentifier(declaration.name)) {
-                exported.add(declaration.name.text);
-              }
-            }
-          }
-        }
-
-        if (ts.isExportAssignment(statement)) {
-          exported.add('default');
-        }
-
-        if (!ts.isExportDeclaration(statement) || statement.moduleSpecifier === undefined) {
-          continue;
-        }
-        if (!ts.isStringLiteral(statement.moduleSpecifier)) {
-          continue;
-        }
-        const target = resolve(dirname(filePath), statement.moduleSpecifier.text.replace(/\.js$/, '.ts'));
-        if (statement.exportClause === undefined) {
-          collect(target, visited);
-        } else if (ts.isNamedExports(statement.exportClause)) {
-          for (const element of statement.exportClause.elements) {
-            exported.add(element.name.text);
-          }
-        } else if (ts.isNamespaceExport(statement.exportClause)) {
-          exported.add(statement.exportClause.name.text);
-        }
-      }
-    };
-
-    collect(entry, new Set());
     expect(exported.size).toBeGreaterThan(20);
     expect(exported.has('evaluateBinding')).toBe(true);
     expect(exported.has('UIA_CORE_001_REVISION')).toBe(true);
 
-    const forbidden = /grant|capabilit|permission/i;
-    const offenders = [...exported].filter((name) => forbidden.test(name));
+    const offenders = [...exported].filter((name) => /grant|capabilit|permission/i.test(name));
     expect(offenders).toEqual([]);
     // Limitation: this guard inspects the exported surface/names only; it does
     // not prove that no implementation body can mint authority indirectly.
+  });
+
+  test('regression: local named exports and namespace members are detected through barrels', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'uia-p9-'));
+    try {
+      writeFileSync(
+        join(directory, 'danger.ts'),
+        'const grantAuthority = () => {};\nconst harmless = 1;\nexport { grantAuthority, harmless as publicHarmless };\n',
+      );
+      writeFileSync(join(directory, 'barrel.ts'), "export * from './danger.js';\n");
+      writeFileSync(
+        join(directory, 'entry.ts'),
+        "export * from './barrel.js';\nexport * as danger from './danger.js';\n",
+      );
+
+      const exported = collectExportedNames(join(directory, 'entry.ts'));
+
+      expect(exported.has('grantAuthority')).toBe(true);
+      expect(exported.has('publicHarmless')).toBe(true);
+      expect(exported.has('danger')).toBe(true);
+      expect([...exported].filter((name) => /grant/i.test(name))).toEqual(['grantAuthority']);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });
