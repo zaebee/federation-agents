@@ -47,7 +47,7 @@ The malformed object had empty IDs, empty parent list, empty profile/method, emp
 
 ### 2.1 Orphan/unresolved parent (C-1)
 
-- `buildLineageGraph` (`lineage.ts:340`) collects edges (`:160`) and unresolved parents (`:177`).
+- `buildLineageGraph` (`lineage.ts:340`) collects edges (`:162`) and unresolved parents (`:177`).
 - `LineageGraph.unresolvedParents` (`lineage.ts:146`) is a list of `[child, missingParents[]]`, sorted and deduplicated for diagnostics.
 - `discoverPaths` (`traversal.ts:308`) builds reverse reachability only over existing nodes; a missing parent cannot be reached, so the candidate has no path and discovery returns `ERR_NO_TRAVERSAL_PATH` (`traversal.ts:172`).
 - No code creates an Assessment from `unresolvedParents`.
