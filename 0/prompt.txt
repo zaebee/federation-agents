@@ -1,0 +1,422 @@
+Repo: /home/zaebee/projects/federation-agents
+     Branch: main at 9425d3f
+     State: Tasks 1–15 merged. 511 tests: 507 pass, 4 todo.
+     Docs and Entire Brain memories are current.
+
+     Next task: Task 16 — create docs/implementation.md per
+     docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md.
+     Do not change docs/CORE-001.md or production code.
+     Use the plan's Task 16 outline; verify docs against current source,
+     including acceptance/ledger/runtime/credential modules.
+     Run format:check and open a docs-only PR. Do not merge.
+
+     After Task 16, the remaining blockers are C-1/C-2 in
+     tests/conformance/c.test.ts (not a defined implementation task; needs
+     design clarification, especially “records PARENT_UNRESOLVED in an
+     Assessment” and “suppresses dependent grants” with no grant API).
+     Task 17 is the final assertion-level conformance run. 
+---
+# Task 16 — Implementation Reference Documentation
+
+Repository: `zaebee/federation-agents`  
+Plan: `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`  
+Plan revision: Rev E (0.3.3)  
+Normative source: `docs/CORE-001.md` — UIA-CORE-001 Rev 0.3.3
+
+## Objective
+
+Implement Task 16 from the approved Rev E plan.
+
+Create `docs/implementation.md`: a technically accurate reference for the existing UIA-CORE-001 reference implementation.
+
+This is a **documentation-only task**. Document what the code actually does, distinguish normative semantics from implementation mechanisms, and preserve every unresolved ambiguity.
+
+Do not implement new functionality or silently resolve any normative gap.
+
+## 1. Mandatory preflight
+
+Before writing:
+
+1. Read the complete `docs/CORE-001.md`.
+2. Read the complete approved implementation plan.
+3. Inspect the current source tree under `src/core/`, `src/index.ts`, tests, package scripts and existing documentation.
+4. Verify that Tasks 1–15 are present in the current merged code.
+5. Compare actual exported APIs and implementation behavior against the plan.
+6. Identify discrepancies between:
+   - normative CORE-001 text;
+   - approved implementation decisions;
+   - actual source code;
+   - tests and conformance assertions.
+
+Do not assume the plan is perfectly synchronized with the merged implementation.
+
+If a discrepancy exists, document the actual state and report it. Do not modify production code to make documentation easier.
+
+## 2. Required document structure
+
+Create exactly:
+
+`docs/implementation.md`
+
+The document must contain the following sections.
+
+### 2.1 Architecture overview
+
+Describe:
+
+- project purpose and scope;
+- module structure;
+- responsibility of every `src/core/` module;
+- public API boundaries and exports;
+- data flow through the library;
+- immutable ownership model;
+- error/result model;
+- runtime portability and dependency constraints.
+
+Include a Mermaid diagram if it materially clarifies module relationships or data flow.
+
+Distinguish domain entities from implementation infrastructure.
+
+Explicitly state that this is a pure reference implementation of CORE-001, not a complete distributed UIA runtime.
+
+### 2.2 Module and API reference
+
+For every actual module in `src/core/`, document:
+
+- responsibility;
+- important public types;
+- exported functions;
+- function signatures;
+- input and output semantics;
+- relevant invariants;
+- failure modes;
+- normative source sections, where applicable.
+
+At minimum, cover the modules responsible for:
+
+- primitives and identifiers;
+- ownership and immutable records;
+- entities;
+- errors and result types;
+- canonicalization and hashing;
+- version schemes and selectors;
+- credentials and historical signature evaluation;
+- lineage and graph construction;
+- assessments and temporal context;
+- traversal and path discovery;
+- path validation and merge closure;
+- runtime lifecycle;
+- local acceptance;
+- ledger.
+
+Use signatures taken from actual source code. Do not invent APIs or copy stale signatures from the plan.
+
+Explain the distinction between:
+- `Evidence` and `Assessment`;
+- `Finding` and `Ruling`;
+- `LocalAcceptance` and `Authority Grant`;
+- identity/version/runtime descriptors and runtime lifecycle events.
+
+Do not imply that the implementation provides full CORE-002, CORE-003 or CORE-004 functionality.
+
+### 2.3 Three traversal phase contracts
+
+This section is mandatory and must be technically precise.
+
+Document the three independently testable phases:
+
+1. **Discovery** — deterministic, scope-filtered path discovery.
+2. **Validation** — per-edge/path validation and assurance evaluation.
+3. **Immediate merge closure** — checking direct parent edges of merge nodes on a selected path.
+
+For each phase, describe:
+
+- contract and inputs;
+- output/result types;
+- ordering and determinism;
+- failure semantics;
+- immutability guarantees;
+- relevant tests.
+
+Specifically explain:
+
+- memoized DFS and its intended soundness;
+- cycle detection and guards;
+- how the implementation avoids dependence on insertion order;
+- GC-18 per-path outcome retention;
+- why top-level error aggregation is an implementation aggregation, not a normative precedence table;
+- the B-4 derivation of the one pinned aggregation behavior;
+- immediate closure versus recursive closure.
+
+**Critical:** The implementation checks immediate closure only. Recursive closure is BLOCKED and must not be described as implemented or conformant.
+
+Also explain the scope/closure distinction:
+
+- scope governs discovery;
+- closure is scope-independent;
+- a mixed-relation merge node reached through a permitted edge is still recognized as a merge node;
+- all direct parent edges of that node are checked;
+- a candidate reachable only through a hidden relation still fails discovery.
+
+Document the terminal-origin behavior as unresolved A-11, not as a normative conclusion.
+
+### 2.4 Test coverage mapping
+
+Create a complete mapping:
+
+`CORE-001 §12 case → test file → test case → behavior asserted`
+
+Cover all 18 conformance cases, including B-5.
+
+Include:
+- A-1 through A-5;
+- B-1 through B-7;
+- C-1 and C-2;
+- D-1 through D-4.
+
+For each case, identify the relevant spec subsection and the exact test location.
+
+Also map:
+- property tests 1–8;
+- scope × closure tests;
+- traversal phase independence;
+- temporal trust tests;
+- acceptance lifecycle tests;
+- hashing tests.
+
+**Experimental tests must be explicitly excluded from conformance claims.**
+
+Identify `tests/experimental/` separately and explain what unresolved interpretation each test explores.
+
+Do not claim that a test proves more than its assertions establish.
+
+### 2.5 Assumptions register
+
+Document implementation assumptions and choices that are already present in the approved plan and source code.
+
+Use A-number references where applicable.
+
+For each entry include:
+
+- identifier;
+- relevant spec section;
+- implementation choice;
+- rationale;
+- whether it is normative, an implementation mechanism, or an unresolved assumption;
+- relevant tests.
+
+Do not invent new normative rules.
+
+### 2.6 Ambiguities Register v5
+
+Include the complete Ambiguities Register v5 from the approved Rev E plan.
+
+Preserve:
+- identifiers;
+- status;
+- wording;
+- implemented behavior;
+- proposed minimal clarification.
+
+Do not silently change OPEN or BLOCKED statuses.
+
+The following must remain explicitly BLOCKED:
+
+- A-4b — conflict/CONTESTED detection;
+- A-5 — recursive merge closure;
+- A-11 — closure over a MERGED_FROM origin node;
+- A-9 — trusted-time mechanism.
+
+A-4a is resolved by literal reading of the existing spec.
+
+Do not promote an implementation choice into a normative resolution.
+
+If the source or plan has changed since Rev E, report the discrepancy separately rather than silently rewriting the register.
+
+### 2.7 Mechanisms versus semantics
+
+This section is mandatory.
+
+Explicitly distinguish normative protocol semantics from replaceable implementation mechanisms.
+
+Cover at least:
+
+- in-memory ledger;
+- replaceable default policies;
+- versioned selector mechanism `uia-ref-selector@1`;
+- pure TypeScript SHA-256;
+- crypto verifier test doubles;
+- ledger/test fixtures;
+- seeded property generators;
+- external temporal trust assessment.
+
+For each mechanism, explain:
+
+1. What it does.
+2. What it does NOT establish.
+3. Whether it is replaceable.
+4. What versioning or compatibility implications exist.
+5. Which assessments or results must identify the mechanism/version they depend on.
+
+Important boundaries:
+
+- The in-memory ledger is not a CORE-002 event format or distributed ledger.
+- A signature verifier outcome does not establish identity, authority, or trust in a timestamp.
+- SHA-256 implementation is replaceable; canonicalization and hashing semantics are pinned by the relevant standards and CORE-001 projection.
+- Selector grammar is an implementation mechanism and carries its own version label.
+- Temporal trust is externally assessed. The core does not establish timestamp trust itself.
+- The five standard timestamp kinds do not exhaust timestamp-bearing fields. Non-standard fields such as `compromise_effective_at` are keyed by `TemporalFieldRef`.
+
+### 2.8 Proposed minimal normative clarifications
+
+Collect the BLOCKED items from the ambiguities register into a separate section.
+
+For each one, provide:
+
+- exact unresolved question;
+- why current CORE-001 text does not settle it;
+- smallest proposed clarification;
+- possible alternatives, if already present in Rev E;
+- implementation consequences of each alternative.
+
+These are proposals for future specification work, not implemented behavior.
+
+Do not edit `docs/CORE-001.md`.
+
+## 3. Global documentation constraints
+
+These constraints are mandatory:
+
+1. CORE-001 Rev 0.3.3 remains the only normative source for this task.
+2. No CORE-002/003/004 implementation.
+3. No authority inheritance through identity lineage.
+4. No grant-producing API.
+5. No automatic revocation semantics.
+6. No universal Local Acceptance lifecycle policy.
+7. No assumption that Local Acceptance gates all interactions.
+8. No conflation of Evidence, Finding, Ruling, Local Acceptance and Execution Authorization.
+9. No recursive merge closure claim.
+10. No claim that timestamp presence establishes timestamp trust.
+11. No claim that `UNTRUSTED`, `UNASSESSED` and `TRUST_ASSESSMENT_UNAVAILABLE` are interchangeable.
+12. No unvalidated `unknown` in public domain records or semantic results.
+13. No exported `any`.
+14. Do not modify production source or tests.
+15. Do not modify `docs/CORE-001.md`.
+16. Do not resolve OPEN/BLOCKED ambiguities by documentation wording.
+
+Documentation must describe actual code, not aspirational architecture.
+
+## 4. Verification
+
+Run:
+
+- Markdown/documentation checks if available;
+- `npm run format:check`;
+- `npm run lint`;
+- `npm run typecheck`;
+- `npm test`;
+- `npm run build`.
+
+If any command is unavailable, report that explicitly.
+
+Because this is documentation-only, verify that no production source, tests, normative spec or lockfile changed.
+
+Review all links and source paths for correctness.
+
+Check that every public API signature quoted in the document matches the current implementation.
+
+## 5. Commit and PR
+
+Commit:
+
+`docs: implementation reference, phase contracts, blocked semantics and mechanisms`
+
+Open a PR against the default branch.
+
+Do not merge.
+
+PR description must state:
+
+- documentation-only scope;
+- sections added;
+- source/spec files inspected;
+- verification commands and results;
+- any discrepancies between Rev E and current implementation;
+- explicit confirmation that `docs/CORE-001.md`, production source and tests were not modified.
+
+## 6. Final report
+
+Return a concise but complete report:
+
+1. Commit SHA and PR URL.
+2. Files changed.
+3. Document sections completed.
+4. Modules and APIs documented.
+5. Conformance coverage mapping status.
+6. Ambiguities preserved and any discrepancies discovered.
+7. Verification commands and exact results.
+8. Confirmation of no production/spec/test changes.
+9. Deviations from the approved plan.
+10. Remaining risks or missing information.
+
+Do not claim full conformance merely because documentation is complete.
+
+**Task 16 is documentation, not a new implementation milestone. Task 17 remains the separate final conformance and assertion-level verification gate.**
+
+---
+
+p.s. в чате пишем иногда по-русски)
+
+---
+
+Оба решения подтверждаю. План выглядит правильным, и я бы не расширял его scope.
+
+1. Английский язык — APPROVED. Документация на английском, русские цитаты из CORE-001 сохранять дословно там, где важна исходная формулировка. Особенно §8.6: не терять смысл «проходит через» при переводе.
+2. ARCHITECTURE.md не трогать — APPROVED. Зафиксировать устаревшие разделы как отдельный follow-up. Не смешивать актуализацию архитектурного обзора с Task 16.
+
+Есть ещё несколько замечаний к плану, которые я бы передал build-агенту.
+
+### Что важно не потерять
+
+1\. 16/18 — это не полная conformance.
+
+C-1 и C-2 остаются `test.todo`. Graph-level тесты — частичное покрытие, а не замена conformance assertions. В документе нужно явно разделить:
+
+- 16 реализованных и проходящих conformance cases;
+- 2 незакрытых cases;
+- частичные проверки, которые не дают права заявлять полное соответствие §12.
+
+2\. Не привязывать документацию только к номерам строк.
+
+Номера строк в тестах нестабильны. В таблице лучше указывать имя `describe`/`it` или название тестового сценария, а номера строк использовать как дополнительную навигацию.
+
+3\. Разделить Assumptions и Mechanisms.
+
+Не превращать все 15 решений в новые A-идентификаторы. A-1…A-12 — существующий реестр неоднозначностей. Утверждённые implementation decisions лучше маркировать отдельно, например `ID-T08`, `ID-T10`, `ID-T13`. Иначе читатель может принять техническое решение за нормативную неоднозначность спецификации.
+
+4\. Особое внимание API reference.
+
+Сверять сигнатуры не только с экспортами, но и с реализацией и тестами. Особенно:
+
+- `evaluateHistoricalSignature`;
+- `trustOutcome`;
+- `validatePath` / `validateMergeClosure`;
+- `evaluateBinding`;
+- `isAcceptable`;
+- `appendLifecycleEvent`.
+
+5\. `format:check` не проверяет документацию.
+
+Хорошо, что агент это заметил. Необходимо отдельно отметить ограничение `.prettierignore`, чтобы успешный `format:check` не выглядел как проверка нового Markdown-файла.
+
+### Решение
+
+APPROVED — Task 16 plan
+
+Можно переключать агента из Plan Mode в Build Mode и начинать реализацию. Один файл `docs/implementation.md`, один commit, один PR. Не мержить до независимого аудита.
+
+Я бы добавил в начало рабочего задания ещё одну фразу:
+
+> The implementation document is an evidence-backed description of the current repository state, not a restatement of the approved plan. When the plan, specification, source code, and tests disagree, preserve the distinction and explicitly identify which source supports each statement.
+
+Это особенно важно для UIA: мы документируем не только то, что система умеет, но и границы того, что пока нельзя утверждать.
