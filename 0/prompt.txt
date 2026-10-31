@@ -1,0 +1,287 @@
+мержим
+
+---
+
+# Task 11 — Scope × Merge-Closure Internal Consistency
+
+**Repository:** `zaebee/federation-agents`  
+**Normative source:** `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3  
+**Implementation plan:** `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`, Rev E  
+**Depends on:** Tasks 5–10 (merged)  
+**Expected scope:** tests only; no production changes unless a genuine implementation defect is demonstrated.
+
+## Objective
+
+Implement Task 11 exactly as specified in Rev E.
+
+Establish through executable tests that traversal scope and immediate merge closure are internally consistent:
+
+1. A path containing a `MERGED_FROM` edge is possible only under `FULL_ANCESTRY`.
+2. A merge node on a selected path has its immediate direct parent edges checked by Task 10 closure.
+3. A closure failure is structurally unreachable under scopes that exclude merge relations.
+4. Do not introduce recursive closure semantics or resolve any BLOCKED ambiguity.
+
+This task is a consistency/conformance test, not a new interpretation of CORE-001.
+
+## 1. Scope matrix tests
+
+Create `tests/unit/scope-matrix.test.ts`.
+
+Use the actual public API, types, fixture helpers, and scope definitions already implemented. Do not invent parallel abstractions or duplicate traversal logic in tests.
+
+Cover the following relation combinations against all three scopes:
+
+### A. CONTINUATION chain
+
+- `CONTINUATION_ONLY`: path is discoverable.
+- `CONTINUATION_AND_FORK`: path is discoverable.
+- `FULL_ANCESTRY`: path is discoverable.
+
+### B. FORKED_FROM chain
+
+- `CONTINUATION_ONLY`: candidate behind the fork is unreachable; expect `ERR_NO_TRAVERSAL_PATH`.
+- `CONTINUATION_AND_FORK`: path is discoverable.
+- `FULL_ANCESTRY`: path is discoverable.
+
+### C. MERGED_FROM fan
+
+- `CONTINUATION_ONLY`: candidate behind the merge is unreachable; expect `ERR_NO_TRAVERSAL_PATH`.
+- `CONTINUATION_AND_FORK`: candidate behind the merge is unreachable; expect `ERR_NO_TRAVERSAL_PATH`.
+- `FULL_ANCESTRY`: path is discoverable and immediate merge closure applies.
+
+For the FULL_ANCESTRY case, verify the actual Task 10 behavior: closure considers all direct parent edges of merge nodes on the selected path, irrespective of the relation type of an individual parent edge. Do not recurse into closure-only branches.
+
+## 2. Structural impossibility assertions
+
+Explicitly test these invariants:
+
+### CONTINUATION_AND_FORK
+
+- No discovered path can contain a `MERGED_FROM` edge.
+- `ERR_MERGE_BRANCH_UNSATISFIED` is structurally unreachable in this scope.
+- Candidate paths blocked by a merge relation fail at discovery with `ERR_NO_TRAVERSAL_PATH`, not at closure.
+
+Use exhaustive small fixtures and a bounded generator/property-style test if the existing test infrastructure supports it.
+
+The generator must use actual graph and traversal APIs. It must not reimplement scope filtering in the test and then test that reimplementation.
+
+### FULL_ANCESTRY
+
+- Every discovered path containing a merge node is eligible for immediate closure processing.
+- The closure edges considered for such a node are in scope.
+- No closure branch can contain a scope-excluded relation at its first edge.
+
+Assert the internal consistency invariant directly. Do not manufacture an impossible graph state merely to force a closure/scope conflict.
+
+### CONTINUATION_ONLY
+
+Assert that merge- and fork-dependent candidates are rejected during discovery, with the exact expected error code.
+
+## 3. BLOCKED origin-merge behavior
+
+Create `tests/experimental/origin-merge-closure.test.ts`.
+
+This test covers the case where the origin node itself is `MERGED_FROM`.
+
+Important:
+- Whether §8.6 («проходит через») includes the terminal origin node remains BLOCKED under A-11.
+- Pin the existing conservative implementation behavior: immediate closure includes the origin node.
+- Label the test explicitly as BLOCKED / non-conformance.
+- Keep it under `tests/experimental/`.
+- It must not be counted as §12 conformance coverage.
+
+Do not promote this behavior into normative semantics or modify the specification.
+
+## 4. Boundaries — must preserve
+
+- Immediate closure only. No recursive closure.
+- Do not resolve A-5, A-11, A-8, or any other OPEN/BLOCKED ambiguity.
+- Do not modify CORE-001 normative text.
+- Do not change Task 10 aggregation or `PathOutcome` semantics.
+- Do not change public production APIs unless tests expose a concrete defect.
+- Do not weaken or delete existing tests to make the new tests pass.
+- Do not treat an experimental test as a conformance test.
+- Preserve the distinction between discovery failure (`ERR_NO_TRAVERSAL_PATH`) and closure failure (`ERR_MERGE_BRANCH_UNSATISFIED`).
+
+If a production change appears necessary, stop and explain:
+1. the failing invariant;
+2. the exact implementation defect;
+3. why the issue cannot be addressed by a test/fixture correction;
+4. the smallest proposed fix.
+
+Do not silently expand the task.
+
+## 5. Validation
+
+Run:
+
+- full test suite;
+- lint;
+- typecheck;
+- format check;
+- build, if part of the repository's normal validation.
+
+Report separately:
+- independently executed checks and their actual output;
+- any checks not run;
+- experimental tests versus conformance tests.
+
+## 6. Acceptance criteria
+
+- `tests/unit/scope-matrix.test.ts` covers all three scopes and all three relation combinations.
+- Structural impossibility under `CONTINUATION_AND_FORK` is asserted, including the absence of `MERGED_FROM` edges in discovered paths.
+- Discovery and closure failures remain distinct.
+- FULL_ANCESTRY immediate closure behavior is verified against Task 10.
+- `tests/experimental/origin-merge-closure.test.ts` pins the A-11 conservative default and is explicitly non-conformance.
+- No recursive closure or normative ambiguity is resolved.
+- All existing tests remain intact and pass.
+
+## 7. Commit
+
+Expected commit message:
+
+`test: scope × closure consistency; blocked origin-closure pinned in experiments`
+
+Final report must include changed files, test names, validation output, commit SHA, and any deviations from this task.
+
+**Do not claim Task 11 complete until the acceptance criteria are verified.**
+
+---
+
+# Task 11 — Corrected Decisions: Scope × Immediate Merge Closure
+
+Two implementation/plan contradictions have been identified by exercising the actual Task 10 APIs. Apply the following decisions before completing Task 11.
+
+## Decision 1 — Scope applies to discovery, not closure
+
+**Keep Task 10 implementation unchanged. Preserve approved C1 semantics.**
+
+Scope filters which edges can be traversed during path discovery. Once a merge node is present on a discovered path, immediate closure validates all direct parent edges of that node, regardless of relation type or whether those edges are included in the discovery scope.
+
+Consequences:
+
+- Under `CONTINUATION_ONLY` and `CONTINUATION_AND_FORK`, a pure merge-dependent candidate remains unreachable and fails with `ERR_NO_TRAVERSAL_PATH`.
+- Under either restricted scope, a mixed-relation merge node may still be reached through a scope-permitted edge.
+- Such a node is still recognized as a merge node from full graph adjacency.
+- Its closure checks every direct parent edge, including scope-excluded `MERGED_FROM` edges.
+- Therefore `ERR_MERGE_BRANCH_UNSATISFIED` is reachable under restricted scopes for mixed-relation merge nodes.
+
+Update `tests/unit/scope-matrix.test.ts` accordingly:
+
+1. Retain tests proving that discovered paths contain only scope-permitted edges.
+2. Retain pure merge candidate discovery failures under restricted scopes.
+3. Add mixed-relation regression fixtures for both `CONTINUATION_ONLY` and `CONTINUATION_AND_FORK`.
+4. Verify that a path discovered through a permitted `CONTINUATION` edge can fail immediate closure because another direct parent edge of the same merge node lacks an applicable/satisfactory assessment.
+5. Assert the exact top-level result and per-path closure details.
+
+Remove the incorrect invariant that closure failure is structurally unreachable under restricted scopes.
+
+Do not make closure scope-aware. Do not alter Task 10 production code.
+
+## Decision 2 — Terminal origin merge node is excluded from immediate closure
+
+**Preserve current Task 10 behavior. Do not implement origin inclusion.**
+
+`validateMergeClosure` currently checks merge nodes represented as `edge.child` along the selected path. The terminal origin is not processed as a child edge and its parent branches are not closed.
+
+Update `tests/experimental/origin-merge-closure.test.ts` to pin this actual behavior:
+
+- origin is a `MERGED_FROM` node;
+- selected path terminates at origin;
+- origin's parent edges are not checked by immediate closure;
+- if all other path checks pass, binding may remain eligible;
+- test is explicitly BLOCKED / non-conformance under A-11.
+
+Do not move this test into conformance coverage.
+
+Do not change production code to include the origin.
+
+A-11 remains BLOCKED. This test documents implementation behavior; it does not resolve the normative ambiguity.
+
+## Documentation changes
+
+Update the Task 11 section in:
+
+`docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`
+
+Correct all statements that imply:
+
+- closure failure is impossible under restricted scopes;
+- closure only checks parent edges permitted by the discovery scope;
+- the conservative default includes the terminal origin.
+
+Document the two distinct rules explicitly:
+
+1. Scope governs discovery.
+2. Immediate closure checks all direct parent edges of merge nodes encountered as path children, independently of discovery scope; the terminal origin is currently excluded.
+
+Preserve A-11 as BLOCKED and preserve the existing normative specification unchanged.
+
+Review Global Constraint 13 references in the implementation plan. Correct implementation-plan interpretations that conflict with approved C1 semantics, but do not silently rewrite normative CORE-001 text. If the normative text itself appears inconsistent with the approved implementation decision, flag the exact passage as a separate specification issue rather than resolving it in this task.
+
+## Boundaries
+
+- No production changes.
+- No changes to `docs/CORE-001.md`.
+- No recursive closure.
+- No resolution of A-5, A-8, A-11, or other OPEN/BLOCKED ambiguities.
+- No weakening or deletion of existing tests.
+- Keep experimental tests outside conformance coverage.
+
+## Validation and report
+
+Run full tests, lint, typecheck, format check, and build where applicable.
+
+Report:
+- exact changed files;
+- new and modified test cases;
+- independently executed validation output;
+- confirmation that production source and normative CORE-001 are unchanged;
+- commit SHA;
+- any remaining discrepancy between Rev 0.3.3 and approved implementation semantics.
+
+Expected commit:
+
+`test: correct scope-closure matrix and pin blocked origin behavior`
+
+---
+
+План в целом согласуется с двумя принятыми решениями Task 11. Я бы перед передачей build-агенту внёс две небольшие, но важные поправки.
+
+### 1. Уточнить критерий FULL_ANCESTRY
+
+Сейчас написано:
+
+> closure failures для merge-узла равны его прямым parent-рёбрам из graph.edges, минус точное ребро пути.
+
+Это слишком сильное утверждение. Closure failures — не список всех проверенных ветвей, а список ветвей, на которых проверка завершилась неудачей. Если для какой-то ветви есть подходящий assessment и assurance проходит, она не должна попасть в failures.
+
+Лучше разделить два утверждения:
+
+- closure проверяет все прямые parent-рёбра merge-узла, кроме точного ребра, уже проверенного Phase 2;
+- `failures` содержит только те из проверяемых ветвей, которые не прошли closure, с соответствующими причинами.
+
+### 2. Проверить ожидание `closure: SATISFIED` в origin-тесте
+
+В `PathOutcome` поле `closure` опционально. В фикстуре `C → O`, где `C` не merge-узел, а `O` — терминальный origin, closure может вообще не запускаться.
+
+Поэтому ожидание:
+
+> outcome: VALID; closure: SATISFIED
+
+нужно сверить с фактическим контрактом `evaluateBinding` и Task 10. Если closure не запускался, корректное ожидание — `closure` отсутствует. Это не меняет саму проверку A-11: родители `O` не закрываются, а binding остаётся eligible.
+
+Не стоит искусственно создавать `SATISFIED` только ради удобства теста: отсутствие closure и успешно выполненный closure — разные состояния.
+
+### Остальное
+
+- Decision 1 — верно сохраняет Task 10 C1: scope ограничивает discovery, но не фильтрует parent-рёбра closure.
+- 18 графов — корректная мощность комбинаций: \\(2 \times 3 \times 3 = 18\\).
+- Проверки pure merge candidate и mixed-relation merge под обоими restricted scopes — нужные регрессии.
+- Origin-тест правильно остаётся experimental/non-conformance, а A-11 — BLOCKED.
+- `CORE-001.md` не меняется. Это правильно: реализационные решения не должны незаметно превращаться в нормативные.
+- Изменение `ARCHITECTURE.md` допустимо, если оно описывает уже утверждённую реализационную семантику, а не объявляет разрешённой нормативную неоднозначность.
+
+Мой вердикт: APPROVE WITH TWO CLARIFICATIONS. После этих уточнений план можно передавать на реализацию.
+
+Самостоятельно переключить агента в твоём окружении я не могу. Но могу проверить фактический diff и реализацию после того, как build-агент закончит.
