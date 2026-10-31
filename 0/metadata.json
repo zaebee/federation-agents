@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.3-nightly.202610300619.cea1b3cee",
+  "checkpoint_id": "01M67PAM40X6VFE3PWZX9YVYM2",
+  "session_id": "ses_e7105d3e8ffeYfGlU43yND6dyG",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T00:39:15.356683519Z",
+  "branch": "feat/task-6-entities-structural-validation",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/core/lineage.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "83e7f6c7ebb0",
+  "checkpoint_transcript_start": 388,
+  "transcript_lines_at_start": 388,
+  "compact_transcript_start": 388,
+  "token_usage": {
+    "input_tokens": 9822,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 3357440,
+    "output_tokens": 3896,
+    "api_call_count": 8
+  },
+  "redaction": {
+    "replacements": 38,
+    "layers": {
+      "betterleaks": 6,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 32,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 46
+  }
+}

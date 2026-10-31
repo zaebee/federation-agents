@@ -1,0 +1,4 @@
+src/core/lineage.ts
+Line 60
+Check failure
+Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
