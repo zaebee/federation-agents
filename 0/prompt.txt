@@ -1,0 +1,37 @@
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/evidence-index.md:33-34`
+
+The CORE-001 line ranges disagree between files: dec-06 and dec-07 cite §8.5 as `796-804` and §8.6 as `808-824`, while the evidence index cites `794-804` and `806-824`. The package says every line reference was verified, so pick one range and use it everywhere. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/dec-06-contradictory-assessments.md:296-298`
+
+The same "conformance requires the capability / configuration gap vs limited mode" recommendation and owner question appears almost word for word in §1 (line 16), twice in §6 (lines 296 and 298), and again in §7.5 (line 340). Keep it in one place and reference it elsewhere, so later edits can't make the copies disagree. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/evidence-index.md:81-97`
+
+Malformed table: the header declares three columns (`Source | Line | Relevance`) but every row has two cells, so the source path lands under "Source", the description under "Line", and "Relevance" is empty. The §6 table (lines 166–181) has the same problem. Drop the extra header column. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/README.md:151`
+
+Stale summary: the next step asks the owner to review "the proposed one-sentence clarification" for DEC-07. The clarification in dec-07 §6 is now two paragraphs and three sentences, including the trigger sentence the package says must be decided separately (`DEC-07-TRIGGER`). Update the wording so the reviewer isn't misled about the scope. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/dec-07-closure-depth.md:247`
+
+Leftover heading numbering: `### 7.6 Trigger semantics` sits under a §7 that has no 7.1–7.5 subsections (only a numbered list). Line 106 cross-references "§7.6". This looks copied from a different structure; renumber it or make it its own section. The heading `### 3.8 Or one path` (line 135) is also garbled; it probably meant something like "One accepted path / aggregation". 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/dec-06-contradictory-assessments.md:18`
+
+Broken cross-references: this line says the conformance distinction "is developed in §8", but §8 is "Consequences if approved". The content is in §6 and §7.5. Line 146 also points to "§9.2" for the pre/post-narrowing sub-decision, but §9 is "Downstream tasks" and the sub-decision is §7.2. Fix both section numbers. 
+---
+PTAL
