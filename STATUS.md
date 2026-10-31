@@ -22,7 +22,7 @@ What remains is not a backlog of missing code paths. It is two kinds of work:
 | Decisions          | 4 APPROVED (incl. `T18-DEC-16`/`T18-DEC-17`), 13 OPEN                                                                                                                 | Task 18 decision register              |
 | Non-PASS items     | 23 in revision 1 (also 23 at the Task 17 baseline): N-138 closed, N-176 new and not yet dispositioned by Task 18; remediation implemented: 2 tasks (T18-02A, T18-02B) | Task 18 disposition + audit revision 1 |
 | Readiness          | `NOT_READY`                                                                                                                                                           | Task 18 §7                             |
-| Local check matrix | green — 597 tests, 594 pass, 3 todo, 0 fail, 3700 expectations                                                                                                        | `bun test` at the commit above         |
+| Local check matrix | green — 593 tests, 590 pass, 3 todo, 0 fail, 3700 expectations                                                                                                        | `bun test` at the commit above         |
 
 Three statuses need a caveat:
 
