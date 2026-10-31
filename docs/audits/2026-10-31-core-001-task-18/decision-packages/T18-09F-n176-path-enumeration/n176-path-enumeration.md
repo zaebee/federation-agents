@@ -135,7 +135,19 @@ then an equivalent result can be computed without listing every path. The curren
 
 **Problem:** this reading requires a public API change and a precise definition of “sufficient evidence” and “equivalent result.”
 
-### 4.1 The decision cannot be avoided by a cap
+### 4.1 A three-layer result model
+
+The decision should not leave “equivalent result” as a single undefined phrase. The package proposes this decomposition; it is **PROPOSED**, not approved.
+
+| Layer | Content | Normative? |
+| --- | --- | --- |
+| **Normative result** | eligible / not eligible | Yes |
+| **Mandatory evidence** | acceptance witness (one canonical fully valid path + closure evidence); rejection proof that no fully valid path exists | Yes, if the owner chooses Reading B |
+| **Diagnostics** | `acceptedPaths`, `details.perPath`, full path enumeration, per-edge traces | Optional; must not be required for validity |
+
+The owner must explicitly classify `acceptedPaths` and `details.perPath` into either “mandatory evidence” or “diagnostics.” Without that classification, the dispute moves from §8.8 into the API instead of being resolved.
+
+### 4.2 The decision cannot be avoided by a cap
 
 A cap on discovered paths (option A) preserves the enumeration requirement and merely converts an exponential result into a bounded failure. It does not satisfy N-176 if an equivalent non-enumerating result exists. A cap may be a temporary mitigation, but not the normative answer.
 
@@ -189,6 +201,8 @@ A cap on discovered paths (option A) preserves the enumeration requirement and m
 
 **Status:** recommended implementation shape if the owner wants to preserve diagnostics.
 
+**Do not underestimate the witness problem.** “First canonical valid path” is not “first path returned by DFS.” The current canonical order is obtained by sorting the complete path set; a non-enumerating implementation must define how to find the same canonical witness without materialising that set. Rejection is harder: when different paths fail on different edges or closure branches, one failing edge is not a proof that no path is valid. A deterministic rejection proof or witness set is required; `N176-3` and `N176-12` remain OPEN.
+
 ---
 
 ## 6. Adversarial cases
@@ -241,6 +255,9 @@ This recommendation requires `T18-SPEC-01` to define “equivalent result” and
 | **N176-7** | Does `T18-SPEC-01` need to clarify §8.8, or can the implementation change under the existing text? | **OPEN** |
 | **N176-8** | What resource target is required for the adversarial `2^k` case? | **OPEN** |
 | **N176-9** | Is the diagnostic enumeration API subject to its own cap, and who owns that policy? | **OPEN** |
+| **N176-10** | Are `acceptedPaths` and `details.perPath` mandatory normative evidence or optional diagnostics? | **OPEN** |
+| **N176-11** | How is the canonical acceptance witness defined without materialising the full path set? | **OPEN** |
+| **N176-12** | What deterministic rejection proof/witness set is sufficient when paths fail for different reasons? | **OPEN** |
 
 ---
 
@@ -249,9 +266,11 @@ This recommendation requires `T18-SPEC-01` to define “equivalent result” and
 If the owner chooses Reading B / Option B or D:
 
 - `T18-SPEC-01` clarification of §8.8 “equivalent result” and per-path diagnostics;
+- an explicit classification of `acceptedPaths` and `details.perPath` as mandatory evidence or diagnostics;
 - a new/revised result contract with acceptance and rejection witness shapes;
 - a deterministic non-enumerating algorithm for acceptance and rejection;
 - tests for the `2^k` chain, B-4 closure evidence, B-6 non-origin branch, B-7 determinism, cycles, scope;
+- the reproducible benchmark procedure in `benchmark-procedure.md`;
 - no change to CORE-001 error-code set;
 - a resource-exhaustion regression test;
 - a re-audit of N-176 and §8.8 aggregate.

@@ -42,11 +42,34 @@ This package does not edit `decision-register.md`. A proposed register row is in
 
 | File | Contents |
 | --- | --- |
-| `README.md` | Scope, status, source hierarchy, summary, package map |
+| `README.md` | Scope, status, source hierarchy, summary, pre-decision clarification checklist, package map |
 | `n176-path-enumeration.md` | Normative analysis, current implementation, options, adversarial cases, recommendation, open sub-decisions, proposed register row, closure evidence |
+| `benchmark-procedure.md` | Reproducible merge-diamond generator and measurement procedure for the `2^k` case |
 | `evidence-index.md` | Normative, implementation, test and issue source index |
 
-## 5. Summary
+## 5. Pre-decision clarification checklist
+
+Before `T18-DEC-18` can be approved, the owner should settle three points that this package deliberately leaves OPEN.
+
+1. **Define “equivalent result” in three layers.**
+   - normative result: eligible / not eligible;
+   - mandatory evidence: the acceptance witness and the rejection proof;
+   - diagnostics: optional per-path information.
+   The package proposes this split but does not approve it.
+
+2. **Classify `acceptedPaths` and `details.perPath`.**
+   They are currently part of `BindingResult`. The decision must say whether they are:
+   - part of the mandatory normative result; or
+   - optional diagnostics outside the validity contract.
+   This cannot be inferred from §8.8 alone.
+
+3. **Do not treat “first DFS path” as the canonical witness.**
+   The current canonical order is obtained by sorting the full path set. A non-enumerating implementation must define how it finds the same canonical witness without first materialising every path, and must define a deterministic rejection proof when different paths fail for different reasons.
+
+The benchmark procedure is recorded separately so the `2^k` claim can be reproduced without relying on a scratch script.
+
+
+## 6. Summary
 
 - **Normative requirement.** §8.8 permits memoisation and dynamic programming and forbids requiring explicit enumeration of all possible paths when the result can be computed equivalently.
 - **Current implementation.** `discoverPaths` materialises every simple candidate→origin path; `evaluateBinding` validates every discovered path; the public `BindingResult` exposes `acceptedPaths` and `details.perPath` for every path. The enumeration is therefore an output lower bound, not only an internal implementation detail.

@@ -65,6 +65,7 @@ Implementation behavior is not normative meaning. A passing test is not proof th
 | `docs/audits/2026-10-31-core-001-task-17-revision-1/README.md:20-31` | N-176 row, measurement, effect on §8.8 |
 | `STATUS.md:23` | N-176 new and not yet dispositioned by Task 18 |
 | `docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md:48` | T18-03 is test-only; no N-176 task exists yet |
+| `benchmark-procedure.md` (this package) | Reproducible `G(k)` merge-diamond construction, expected `2^k` counts and measurement procedure |
 
 ## 6. Task 17/18 mapping
 
