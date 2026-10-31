@@ -6,24 +6,19 @@ import { descriptor, link, participant, plainGraph, registry, snapshot } from '.
 
 const alice = participant('participant-a');
 
-function chain(
-  ids: readonly string[],
-  relations: readonly ('CONTINUATION' | 'FORKED_FROM' | 'MERGED_FROM')[],
-): DeepReadonly<IdentityVersionDescriptor>[] {
+function cycleOf(ids: readonly string[]): DeepReadonly<IdentityVersionDescriptor>[] {
   return ids.map((id, index) =>
     descriptor({
       id,
       participant: 'participant-a',
-      lineage: [link(ids[(index + 1) % ids.length], relations[index] ?? 'CONTINUATION')],
+      lineage: [link(ids[(index + 1) % ids.length], 'CONTINUATION')],
     }),
   );
 }
 
 describe('graph construction', () => {
   test('detects a longer cycle as one sorted component', () => {
-    const graph = buildLineageGraph(
-      registry([alice], chain(['iv-v1', 'iv-v2', 'iv-v3'], ['CONTINUATION', 'CONTINUATION', 'CONTINUATION'])),
-    );
+    const graph = buildLineageGraph(registry([alice], cycleOf(['iv-v1', 'iv-v2', 'iv-v3'])));
 
     expect(plainGraph(graph).cycles).toEqual([['iv-v1', 'iv-v2', 'iv-v3']]);
   });
@@ -142,5 +137,59 @@ describe('ownership', () => {
     versions.push(descriptor({ id: 'iv-v3', participant: 'participant-a' }));
     expect(graph.nodes).toHaveLength(2);
     expect(graph).toEqual(buildLineageGraph({ participants: () => [alice], versions: () => [v1, v2] }));
+  });
+});
+
+describe('delayed parents (graph-level C-1)', () => {
+  test('preserves an orphan and resolves it in a newly built graph', () => {
+    const child = descriptor({
+      id: 'iv-child',
+      participant: 'participant-a',
+      lineage: [link('iv-parent', 'CONTINUATION')],
+    });
+    const childBefore = JSON.stringify(child);
+    const reg = registry([alice], [child]);
+    const before = snapshot(reg);
+
+    const graph = buildLineageGraph(reg);
+
+    expect(plainGraph(graph).nodes).toEqual(['iv-child']);
+    expect(plainGraph(graph).edges).toEqual([{ child: 'iv-child', parent: 'iv-parent', relation: 'CONTINUATION' }]);
+    expect(plainGraph(graph).unresolvedParents).toEqual([['iv-child', ['iv-parent']]]);
+    expect(plainGraph(graph).cycles).toEqual([]);
+    expect(snapshot(reg)).toBe(before);
+    expect(JSON.stringify(child)).toBe(childBefore);
+
+    const parent = descriptor({ id: 'iv-parent', participant: 'participant-a' });
+    const resolved = buildLineageGraph(registry([alice], [parent, child]));
+
+    expect(plainGraph(resolved).nodes).toEqual(['iv-child', 'iv-parent']);
+    expect(plainGraph(resolved).unresolvedParents).toEqual([]);
+    expect(JSON.stringify(child)).toBe(childBefore);
+  });
+});
+
+describe('cycles (graph-level C-2)', () => {
+  test('detects V1 <-> V2 and keeps declarations readable', () => {
+    const v1 = descriptor({ id: 'iv-v1', participant: 'participant-a', lineage: [link('iv-v2', 'CONTINUATION')] });
+    const v2 = descriptor({ id: 'iv-v2', participant: 'participant-a', lineage: [link('iv-v1', 'CONTINUATION')] });
+    const v1Before = JSON.stringify(v1);
+    const v2Before = JSON.stringify(v2);
+    const reg = registry([alice], [v1, v2]);
+    const before = snapshot(reg);
+
+    const graph = buildLineageGraph(reg);
+
+    expect(plainGraph(graph).cycles).toEqual([['iv-v1', 'iv-v2']]);
+    expect(plainGraph(graph).edges).toHaveLength(2);
+    expect(plainGraph(graph).unresolvedParents).toEqual([]);
+    expect(snapshot(reg)).toBe(before);
+    expect(JSON.stringify(v1)).toBe(v1Before);
+    expect(JSON.stringify(v2)).toBe(v2Before);
+
+    const acyclic = buildLineageGraph(
+      registry([alice], [v1, descriptor({ id: 'iv-v2', participant: 'participant-a' })]),
+    );
+    expect(plainGraph(acyclic).cycles).toEqual([]);
   });
 });

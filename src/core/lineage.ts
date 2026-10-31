@@ -334,8 +334,8 @@ function isCyclicComponent(
  * parents that are not registered yet. Unresolved parents are grouped by child
  * and deduplicated for diagnostics only. Cycles are reported as sorted strongly
  * connected components (a self-loop is a one-node component); they do not
- * remove nodes or edges. A later `evaluateBinding` propagates `CYCLE_DETECTED`
- * at the assessment boundary.
+ * remove nodes or edges. `CYCLE_DETECTED` belongs to the assessment boundary of
+ * a later traversal task and is not emitted here.
  */
 export function buildLineageGraph(registry: Registry): LineageGraph {
   const versions = registry.versions();
