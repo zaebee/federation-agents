@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { SignatureTemporalPolicy } from '../../src/core/credential.js';
+import type { FutureAuthorizationInput, SignatureTemporalPolicy } from '../../src/core/credential.js';
 import { registerAssessment } from '../../src/core/assessment.js';
 import { evaluateCredentialUsage, evaluateHistoricalSignature } from '../../src/core/credential.js';
 import { appendAcceptance, createAcceptanceLedger } from '../../src/core/ledger.js';
@@ -8,6 +8,7 @@ import { acceptanceId, assessmentId, runtimeInstanceId, timestamp } from '../../
 import { BASE_TIME, credential as credentialFixture, descriptor } from '../support/fixtures.js';
 import { acceptanceRecord } from '../support/acceptance.js';
 import {
+  REVOKED_AT,
   SIGNED_AT,
   compromiseSubject,
   contextFor,
@@ -102,6 +103,8 @@ describe('§12 Category D: credential revocation', () => {
 
   test('D-4 unknown compromise time is contested and never inferred from revoked_at', () => {
     let acceptCalls = 0;
+    let futureCalls = 0;
+    let observed: FutureAuthorizationInput | undefined;
     const unknownTime = revocationFixture({
       reason: 'CONFIRMED_COMPROMISE',
       compromise_effective_at: undefined,
@@ -114,6 +117,11 @@ describe('§12 Category D: credential revocation', () => {
             acceptCalls += 1;
             return true;
           },
+          evaluateFutureAuthorization: (input) => {
+            futureCalls += 1;
+            observed = input;
+            return 'NOT_AUTHORIZABLE';
+          },
         }),
       ),
     );
@@ -122,8 +130,57 @@ describe('§12 Category D: credential revocation', () => {
     expect(result.claim_status).toBeUndefined();
     expect(result.claim_status).not.toBe('CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE');
     expect(result.temporal.compromise_effective_at).toBeUndefined();
+    expect(result.revocation_reason).toBe('CONFIRMED_COMPROMISE');
+    expect(result.reassessment_required).toBe(false);
+    expect(result.usage).toEqual({ status: 'PERMITTED', usage: 'SIGNING' });
+    expect(result.verification).toEqual({ status: 'VERIFIED' });
+    expect(result.future_authorizable).toBe('NOT_AUTHORIZABLE');
     expect(acceptCalls).toBe(0);
+    expect(futureCalls).toBe(1);
+
+    expect(observed).toBeDefined();
+    expect(observed?.credential).toEqual(credential);
+    expect(observed?.signed_at).toBe(timestamp(SIGNED_AT));
+    expect(observed?.subject_binding).toEqual(binding);
+    expect(observed?.revocation_reason).toBe('CONFIRMED_COMPROMISE');
+    expect(observed?.revocation?.revoked_at).toBe(timestamp(REVOKED_AT));
+    expect(observed?.revocation?.compromise_effective_at).toBeUndefined();
+    expect(observed?.temporal).toEqual({ signed_at: 'TRUSTED' });
+    expect(observed?.reassessment_required).toBe(false);
+    expect(observed?.usage).toEqual({ status: 'PERMITTED', usage: 'SIGNING' });
+    expect(observed?.verification).toEqual({ status: 'VERIFIED' });
+
     expect(JSON.stringify(unknownTime)).not.toContain('compromise_effective_at');
+  });
+
+  // This test proves the historical/future separation and policy-context delivery only.
+  // It does not prove that REQUIRES_ASSESSMENT is a sufficient additional normative
+  // assessment, nor that an arbitrary future-authorization policy is correct.
+  test('D-4 contested history does not become an automatic future authorization decision', () => {
+    let futureCalls = 0;
+    const unknownTime = revocationFixture({
+      reason: 'CONFIRMED_COMPROMISE',
+      compromise_effective_at: undefined,
+    });
+    const result = expectOk(
+      evaluate(
+        unknownTime,
+        signaturePolicy({
+          evaluateFutureAuthorization: () => {
+            futureCalls += 1;
+            return 'REQUIRES_ASSESSMENT';
+          },
+        }),
+      ),
+    );
+
+    expect(futureCalls).toBe(1);
+    expect(result.historical).toEqual({ status: 'CONTESTED_COMPROMISED' });
+    // REQUIRES_ASSESSMENT is a policy outcome, not an execution authorization.
+    expect(result.future_authorizable).toBe('REQUIRES_ASSESSMENT');
+    expect(result.claim_status).toBeUndefined();
+    expect(result.temporal.compromise_effective_at).toBeUndefined();
+    expect(result).not.toHaveProperty('grant');
   });
 });
 
