@@ -64,12 +64,9 @@ const BLOCKED_ASSESSMENT_CLAIMS: ReadonlySet<string> = new Set(['CYCLE_DETECTED'
  * and a blocked claim is rejected regardless of the list it appears in.
  */
 function claimListsFailure(verified: readonly string[], unverified: readonly string[]): string | undefined {
+  // A blocked claim is inadmissible in either list and outranks overlap: the
+  // record is rejected before the split is even considered.
   const verifiedSet = new Set(verified);
-  for (const claim of unverified) {
-    if (verifiedSet.has(claim)) {
-      return `Claim ${claim} must not be both verified and unverified`;
-    }
-  }
   for (const claim of verified) {
     if (BLOCKED_ASSESSMENT_CLAIMS.has(claim)) {
       return `Claim ${claim} is not admissible while C-2 is blocked`;
@@ -78,6 +75,9 @@ function claimListsFailure(verified: readonly string[], unverified: readonly str
   for (const claim of unverified) {
     if (BLOCKED_ASSESSMENT_CLAIMS.has(claim)) {
       return `Claim ${claim} is not admissible while C-2 is blocked`;
+    }
+    if (verifiedSet.has(claim)) {
+      return `Claim ${claim} must not be both verified and unverified`;
     }
   }
   return undefined;
