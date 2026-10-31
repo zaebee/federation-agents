@@ -1,0 +1,443 @@
+мержим
+
+---
+
+# Task 9 — Traversal Phases 1+2: Path Discovery and Path Validation (B-1…B-3)
+
+## Context
+
+We are implementing the reference implementation of **UIA-CORE-001 Rev 0.3.3**, following the approved implementation plan:
+
+`docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md` — Rev E.
+
+Tasks 1–8 have been implemented and reviewed. Task 8 provides:
+- `assessEdge()`
+- `evaluateAssurance()`
+- `ApplicableAssessments` with runtime provenance validation
+- `Policy` and `TemporalContext` contracts
+- supersession handling
+
+Read the normative specification and the implementation plan before coding. The normative source is exclusively `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3.
+
+**Do not invent semantics to fill specification gaps.** Preserve the existing ambiguity register and all previously approved decisions.
+
+## Goal
+
+Implement the first two independently testable traversal phases:
+
+1. **Path Discovery** — find paths permitted by the selected traversal scope.
+2. **Path Validation** — evaluate every edge of one concrete path against the assurance requirement.
+
+Expose an orchestration API `evaluateBinding(policy, ctx)` that composes these phases.
+
+The implementation must be deterministic, pure, immutable, and independent of Bun/Node runtime APIs.
+
+**Merge Closure Validation is explicitly out of scope. It belongs to Task 10.**
+
+## Files
+
+Create:
+- `src/core/traversal.ts`
+
+Modify:
+- `src/core/index.ts`
+
+Create or extend:
+- `tests/conformance/b.test.ts` — B-1, B-2, B-3
+- `tests/unit/traversal-phases.test.ts`
+
+Use existing fixtures and helpers where appropriate. Avoid unrelated refactoring.
+
+## 1. Public API and phase boundaries
+
+Follow the approved API shape in the implementation plan. Adapt only where existing repository types require it; do not silently change semantics.
+
+Expected interfaces:
+
+```ts
+function discoverPaths(
+  graph: LineageGraph,
+  scope: LineageTraversalScope,
+  candidateID: IdentityVersionID,
+  originID: IdentityVersionID,
+): Result<PathSet>;
+
+function validatePath(
+  path: Path,
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<PathValidation>;
+
+function evaluateBinding(
+  state: {
+    graph: LineageGraph;
+    descriptors: readonly IdentityVersionDescriptor[];
+  },
+  binding: ConditionalVersionBinding,
+  candidateID: IdentityVersionID,
+  policy: Policy,
+  ctx: TemporalContext,
+): BindingResult;
+```
+
+The exact exported types must be strongly typed, immutable, and consistent with the existing project conventions.
+
+### Phase 1 — `discoverPaths`
+
+Input:
+- an existing `LineageGraph`;
+- a `LineageTraversalScope`;
+- candidate version ID;
+- origin version ID.
+
+Responsibilities:
+
+1. Traverse only edges permitted by the selected `traversal_scope`.
+2. Follow the direction of lineage: candidate → parent → … → origin.
+3. Discover all relevant candidate-to-origin paths.
+4. Treat cycles as dead ends / structural conflicts, not as a reason to crash.
+5. Do not treat unresolved parent references as registered graph nodes.
+6. Return `ERR_NO_TRAVERSAL_PATH` if no permitted path exists.
+7. If multiple paths exist, preserve them as independent paths. Multiple paths are not themselves an error.
+8. Ensure deterministic ordering independent of graph storage order.
+
+The implementation plan calls for memoized, sorted DFS. Use an equivalent approach only if it preserves the required behavior and does not introduce unnecessary complexity.
+
+**Critical phase boundary:** Path Discovery must not inspect assessments, invoke `assessEdge`, invoke `evaluateAssurance`, or make assurance decisions.
+
+It answers reachability under the selected scope, nothing more.
+
+### Phase 2 — `validatePath`
+
+Input:
+- one concrete `Path`;
+- `ContinuityAssuranceRequirement`;
+- required `Policy`;
+- required `TemporalContext`.
+
+For every edge in this particular path:
+
+1. Verify that the edge is permitted by the applicable traversal scope / path contract.
+2. Call `assessEdge()` with the exact edge binding.
+3. Pass the resulting `ApplicableAssessments` to `evaluateAssurance()`.
+4. Preserve the exact assurance outcome and relevant details.
+5. Fail if an edge has no applicable assessment or does not satisfy the requirement.
+
+Follow §8.5 literally:
+
+- every path edge must have an applicable `ContinuityAssessment`;
+- every edge must satisfy the assurance requirement;
+- applicable disqualifying Claims must not be ignored;
+- unresolved applicable conflicts must not be treated as success;
+- absence of an Assessment is never success.
+
+Use Task 8 APIs. Do not reimplement assessment applicability, trust filtering, policy narrowing, or assurance semantics inside traversal.
+
+**Important:** `validatePath()` validates only the supplied path. It must not silently inspect sibling branches or perform merge closure.
+
+### Orchestration — `evaluateBinding`
+
+Compose the phases:
+
+1. Perform the required §8.3 preliminary checks.
+2. Discover permitted paths.
+3. Validate each discovered path independently.
+4. Return an eligible result if at least one path passes the phases implemented in this task.
+5. Preserve failures and their per-path context in the result.
+
+`Policy` and `TemporalContext` are mandatory explicit parameters. No global policy, hidden state, implicit temporal context, or default trust-all behavior.
+
+The `BindingResult` must follow the approved plan's discriminated union. Do not expose partially eligible results or use bare booleans for semantic failures.
+
+**Task 9 limitation:** this orchestration does not yet perform Phase 3 (Merge Closure Validation). Task 10 will complete that part. Do not claim full §8 conformance after Task 9 alone.
+
+## 2. Required conformance tests
+
+Implement the following cases from §12.
+
+### B-1 — Exact anchoring
+
+Fixture: candidate `A@1.1.0` with a verified CONTINUATION relationship.
+
+Expected:
+- `ERR_AUTHORITY_BINDING_MISMATCH` for the specified exact-anchoring fixture.
+- The existing grant double remains unchanged.
+- No new grant or grant-like artifact is created.
+
+This case is associated with Ambiguity A-2.
+
+**Do not generalize the fixture into a new universal selector or binding rule.** A-2 remains open: the relationship between exact selector matching and the origin's version label has not been normatively clarified. Implement only the behavior pinned by the approved fixture and plan. If the existing types or fixture do not make the required behavior implementable without inventing semantics, stop and report the precise ambiguity.
+
+### B-2 — Required claims
+
+Required claims:
+
+```ts
+[
+  'PARENT_SIGNATURE_MATCH',
+  'GOVERNANCE_REVIEWED',
+]
+```
+
+The applicable Assessment verifies only:
+
+```ts
+['PARENT_SIGNATURE_MATCH']
+```
+
+Expected:
+- `ERR_ASSURANCE_PREDICATE_UNSATISFIED`;
+- `missing` contains exactly `GOVERNANCE_REVIEWED`;
+- the version remains registered;
+- the original lineage declaration remains intact;
+- no mutation of historical descriptors or assessments.
+
+Do not reinterpret `unverified_claims` as refutation or negative evidence.
+
+### B-3 — Diamond lineage
+
+Graph:
+
+```text
+        ┌──► B ──► A
+        │
+D ──────┤
+        │
+        └──► C ──► A
+```
+
+Expected:
+- `eligible: true`;
+- accepted paths include exactly the valid paths:
+  - `D → B → A`
+  - `D → C → A`
+- B and C gain no grant artifact or authority state;
+- graph, descriptors, and assessments remain unchanged.
+
+Multiple paths must be evaluated independently. Do not collapse the diamond into a single arbitrary parent chain.
+
+## 3. Phase independence tests
+
+In `tests/unit/traversal-phases.test.ts`, explicitly prove:
+
+1. `discoverPaths()` works without assessments and does not consult them.
+2. `discoverPaths()` can fail independently with `ERR_NO_TRAVERSAL_PATH`.
+3. `validatePath()` accepts a concrete path and can fail independently due to assurance.
+4. `validatePath()` uses the Task 8 edge-bound assessment APIs.
+5. `evaluateBinding()` requires explicit `Policy` and `TemporalContext` at compile time.
+6. No hidden global state or implicit policy is used.
+7. A discovery-level failure and an assurance-level failure remain distinguishable.
+
+Test that graph storage order and edge insertion order do not change the result.
+
+## 4. Determinism and complexity
+
+Follow Global Constraint 6 and §8.8.
+
+The result must not depend on:
+- graph node storage order;
+- edge insertion order;
+- traversal order;
+- assessment arrival order when the final assessment set is identical.
+
+Use sorted iteration and memoization as appropriate.
+
+Do not require explicit enumeration of every possible path if an equivalent computation is possible. At the same time, do not replace the specified path semantics with an approximation.
+
+Add tests for:
+- reordered graph nodes and edges;
+- deterministic path ordering;
+- cycles;
+- unreachable origin;
+- multiple valid paths.
+
+## 5. Strict exclusions
+
+Do NOT implement any of the following in Task 9:
+
+- `validateMergeClosure()` or Phase 3;
+- immediate merge closure;
+- recursive merge closure;
+- B-4, B-5, B-6, B-7;
+- automatic latest-assessment selection;
+- new conflict semantics for A-4b;
+- new selector grammar or changes to `selector.ts`;
+- authority grants or grant-producing APIs;
+- credential or temporal-trust evaluation from Task 13;
+- local acceptance or lifecycle;
+- graph repair, mutation, or implicit parent resolution.
+
+Do not add normative error codes.
+
+Keep the following existing blocked ambiguities blocked:
+- A-2 — exact binding semantics beyond the pinned fixture;
+- A-4b — contradiction / `CONTESTED` semantics;
+- A-5 — recursive merge closure;
+- A-9 — trusted-time mechanism;
+- A-11 — origin merge closure.
+
+Do not silently resolve any of them.
+
+## 6. Ownership and runtime constraints
+
+All public results must follow the existing ownership model:
+
+- caller-owned inputs are not retained by reference;
+- returned records and arrays are deeply immutable;
+- no mutation of `LineageGraph`, descriptors, assessments, or registry state;
+- no unvalidated `unknown` in public domain records or semantic results;
+- no exported API uses `any`.
+
+`src/core/` must remain runtime-independent:
+- no `node:*` imports;
+- no `bun:*` imports;
+- no filesystem, process, network, environment, or runtime-specific APIs.
+
+Use the existing error/result conventions and keep normative errors separate from mechanism failures.
+
+## 7. Implementation workflow
+
+Follow TDD:
+
+1. Inspect the current `main`, Tasks 1–8 implementation, `CORE-001.md`, and the Rev E plan.
+2. Confirm the Task 8 APIs and actual current type definitions before writing code.
+3. Add B-1…B-3 and phase-independence tests first.
+4. Run tests and confirm the expected RED state.
+5. Implement `traversal.ts`.
+6. Export only the intended public API through `src/core/index.ts`.
+7. Run the complete test suite, not just the new tests.
+8. Run:
+   - `bun test`
+   - typecheck (`tsc --noEmit -p tsconfig.json` and `tsc --noEmit -p tsconfig.core.json`)
+   - lint
+   - format check
+   - build
+9. Inspect the final diff for unrelated changes and normative creep.
+
+Do not modify the normative specification to make implementation easier.
+
+## 8. Completion report
+
+Before considering Task 9 complete, provide:
+
+1. Commit SHA and branch name.
+2. Files changed.
+3. Public API signatures and exported types.
+4. A short description of the discovery and validation algorithms.
+5. B-1, B-2, B-3 results and the assertions proving each case.
+6. Phase-independence test results.
+7. Full test count and assertion count.
+8. Typecheck, lint, format, and build results.
+9. Explicit confirmation that no merge closure or Task 10 behavior was implemented.
+10. Any unresolved ambiguities or deviations.
+
+If implementation requires choosing between two plausible normative interpretations, **stop and ask rather than choosing one**.
+
+Commit message:
+
+`feat(core): path discovery and validation as independent phases (B-1..B-3)`
+
+---
+
+I reviewed the seven design decisions. Proceed with Task 9 implementation using the following decisions:
+
+1. **Path scope:** confirmed option (a). `Path` carries its `LineageTraversalScope`; `validatePath()` verifies every edge against that scope. Do not add a scope parameter to the approved function signature.
+
+2. **Mechanism failures:** confirmed. Extend `BindingResult` with a distinct `MECHANISM` variant carrying `MechanismFailure`. Never map selector compilation or scheme incompatibility failures to normative UIA error codes.
+
+3. **B-1 / A-2:** use `selector_expression = '=1.0.0'` and candidate-label matching for the specific B-1 fixture. This is a fixture-level implementation decision only. Do not introduce an `EXACT` mode, a new binding field, or a generalized origin-anchoring rule. A-2 remains OPEN.
+
+4. **Precheck order:** confirmed:
+   - participant mismatch → `ERR_AUTHORITY_BINDING_MISMATCH`;
+   - selector compilation / incompatible scheme → `MechanismFailure`;
+   - candidate selector mismatch → `ERR_AUTHORITY_BINDING_MISMATCH`;
+   - no permitted path → `ERR_NO_TRAVERSAL_PATH`;
+   - path found but assurance unsatisfied → `ERR_ASSURANCE_PREDICATE_UNSATISFIED`.
+
+   Merge closure is out of scope.
+
+5. **PathValidation:** confirmed. `Result<PathValidation>` uses `ok:false` for mechanism failures; semantic path outcomes are represented by typed `PathValidation` values. Preserve `CONTESTED` as a distinct outcome. It is not success and must not be silently mapped to `ERR_ASSURANCE_PREDICATE_UNSATISFIED` or a newly invented error code. If `evaluateBinding()` cannot represent the all-CONTESTED case without inventing aggregation semantics, stop and report the exact issue. A-4b remains BLOCKED.
+
+6. **B-3:** confirmed as Task 9 path-level success only. Do not claim §8.6 merge closure conformance. Task 10 will add immediate merge closure and may change the final eligibility result.
+
+7. **Grant double:** do not create a fake grant subsystem or grant double. Assert input immutability and absence of grant-like artifacts using the existing architecture.
+
+Keep all other approved Task 9 constraints unchanged. Implement with TDD, show RED before implementation, and stop if another normative ambiguity appears.
+
+**Switch from Plan mode to execution mode before proceeding.** Plan mode cannot perform the requested implementation or commit. Do not modify the normative specification to accommodate implementation choices.
+
+---
+
+Both decisions are approved. Record them as explicit Task 9 implementation decisions, not as pre-existing signatures from the approved plan.
+
+### Decision 1 — explicit Assessment input
+
+The original Task 9 signatures have a blocking data-flow gap: `assessEdge()` requires candidate Assessments, but no approved input provides them.
+
+Adopt these signatures:
+
+```ts
+function validatePath(
+  path: Path,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<PathValidation>;
+
+function evaluateBinding(
+  state: {
+    graph: LineageGraph;
+    descriptors: readonly IdentityVersionDescriptor[];
+    assessments: readonly ContinuityAssessment[];
+  },
+  binding: ConditionalVersionBinding,
+  candidateID: IdentityVersionID,
+  policy: Policy,
+  ctx: TemporalContext,
+): BindingResult;
+```
+
+`discoverPaths()` remains unchanged and independent of Assessments.
+
+For every edge, `validatePath()` passes the explicit Assessment set to Task 8's `assessEdge()`. Task 8 remains the sole owner of assessment applicability and edge binding. No global state, hidden registry, implicit data source, or duplicate applicability logic.
+
+Do not mutate or retain caller-owned Assessment arrays. Missing applicable Assessments must never count as success.
+
+### Decision 2 — all-CONTESTED aggregation
+
+Add a distinct implementation-level `BindingResult` variant:
+
+```ts
+{
+  eligible: false;
+  kind: 'CONTESTED';
+  details: {
+    perPath: readonly FailedPath[];
+  };
+}
+```
+
+This is not a new `UiaErrorCode` and must not be represented as `ERR_ASSURANCE_PREDICATE_UNSATISFIED`.
+
+For this Task 9 implementation:
+- At least one VALID path → `eligible: true`.
+- No VALID paths, but at least one CONTESTED path → `kind: 'CONTESTED'`.
+- Ordinary normative failures retain their normative codes.
+- Mechanism failures remain distinct and must not be silently mapped to normative errors.
+
+This is a Task 9 implementation-level aggregation decision only. It does not close A-8 or establish a general normative error-precedence table. Preserve all per-path outcomes. If a combination cannot be represented without inventing additional semantics, stop and report it.
+
+### Continue
+
+Update the Task 9 implementation notes / plan with these two decisions and their rationale. Do not modify `docs/CORE-001.md`.
+
+Now proceed with TDD:
+1. Add tests first and show RED.
+2. Implement `discoverPaths`, `validatePath`, and `evaluateBinding`.
+3. Implement B-1, B-2, B-3 and phase-independence / determinism tests.
+4. Run the full test suite, typecheck, lint, format, and build.
+5. Report exact changed files, test counts, results, and remaining ambiguities.
+
+Keep Task 10 merge closure out of scope. Do not commit until the implementation and full validation results are ready for review.
