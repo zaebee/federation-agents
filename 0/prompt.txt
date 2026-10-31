@@ -1,0 +1,33 @@
+да
+
+---
+
+### Medium finding
+
+**Location:** `src/core/lineage.ts:82`
+
+Two `MERGED_FROM` links referencing the same parent increment this count twice, so a single-parent merge returns `VALID`, as demonstrated by `tests/unit/lineage.test.ts:59–66`. This violates the minimum of two parents in `docs/CORE-001.md:482` and the multiple-parent-lineage semantics at line 502. Count distinct parent IDs for the minimum check, or reject duplicate parent references. 
+---
+### Medium finding
+
+**Location:** `tests/conformance/a.test.ts:25-26`
+
+`reg` is `{ participants: () => …, versions: () => … }`, so `JSON.stringify(reg)` always returns `"{}"`. Every `not.toContain('DEPRECATED')` and `not.toContain('grant')` assertion here (also at lines 71 and 118) passes no matter what the registry holds, so the §12 forbidden-side-effect checks are never tested. Run the check on `snapshot(reg)` or on the actual records instead. 
+---
+### Low finding
+
+**Location:** `tests/unit/lineage.test.ts:108-120`
+
+This test fixes first-match lookup on duplicate registry IDs as tested behavior, but the `Registry` doc says duplicates are a caller error and first-match is not a normative rule. That turns an incidental implementation detail into a contract that later graph work (Task 7) will need to break or work around. 
+---
+### Low finding
+
+**Location:** `src/core/lineage.ts:27-39`
+
+`StructuralResult` exports an `INVALID` variant that no code ever returns, and the comment says it only exists because the plan listed it. This speculative union member forces every consumer to handle a status that can't happen. Remove it until a rule actually produces it. 
+---
+### Low finding
+
+**Location:** `tests/conformance/a.test.ts:45-50`
+
+A-2's "rejected edge absent from graph relations" check is stood in for by `'edges' in result` / `'relations' in result` and identity checks against the arrays the test itself passed in. These can't fail with the current result type and prove nothing about graph state. Either drop them or leave the assertion to Task 7, which actually builds the graph.
