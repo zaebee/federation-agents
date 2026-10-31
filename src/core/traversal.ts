@@ -405,7 +405,9 @@ function evaluateEdgeAssurance(
 
   const assurance = evaluateAssurance(applicable.value, requirement, policy, ctx);
   if (assurance.status === 'MECHANISM') {
-    return { ok: false, error: assurance };
+    // Rebuild the failure without the assurance-only `status` field: the generic
+    // error type carries only kind/code/message/details.
+    return { ok: false, error: mechanismFailure(assurance.code, assurance.message) };
   }
   if (assurance.status === 'SATISFIED') {
     return { ok: true, value: { status: 'SATISFIED' } };

@@ -344,12 +344,21 @@ export function assessEdge(
   ctx: TemporalContext,
 ): Result<ApplicableAssessments> {
   // Candidates arrive through a public boundary that accepts typed but not
-  // necessarily validated values (a caller cast can pass anything), so each one
-  // is validated rather than merely copied: a malformed record is a mechanism
-  // failure, never a TypeError from reading a missing field.
+  // necessarily validated values (a caller cast can pass anything). The array
+  // itself is validated first — an accessor element or a symbol key is rejected
+  // without being invoked — and each candidate is then validated rather than
+  // merely copied, so a malformed record is a mechanism failure, never a
+  // TypeError from reading a missing field.
+  const container = validateJsonValue(candidateAssessments);
+  if (!container.ok) {
+    return { ok: false, error: container.error };
+  }
+  if (!Array.isArray(container.value)) {
+    return mechanismRejection('candidateAssessments must be an array');
+  }
   const validated: DeepReadonly<ContinuityAssessment>[] = [];
   const seenIds = new Set<AssessmentID>();
-  for (const candidate of candidateAssessments) {
+  for (const candidate of container.value) {
     const assessment = validateContinuityAssessment(candidate);
     if (!assessment.ok) {
       return { ok: false, error: assessment.error };

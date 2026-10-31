@@ -677,6 +677,24 @@ describe('public boundary hardening', () => {
     }
   });
 
+  test('assessEdge rejects a candidate array with an accessor element without invoking it', () => {
+    let reads = 0;
+    const candidates: unknown[] = [];
+    Object.defineProperty(candidates, '0', {
+      get() {
+        reads += 1;
+        return assessment();
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    candidates.length = 1;
+
+    const result = assessEdge(EDGE, candidates as unknown as readonly ContinuityAssessment[], policy(), CTX);
+    expect(result.ok).toBe(false);
+    expect(reads).toBe(0);
+  });
+
   test('assessEdge never throws for arbitrary JSON candidate shapes', () => {
     fc.assert(
       fc.property(fc.array(fc.jsonValue(), { maxLength: 3 }), (candidates) => {
