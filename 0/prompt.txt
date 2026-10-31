@@ -1,0 +1,63 @@
+# Task 10 Review Corrections — Immediate Merge Closure
+
+**Base commit:** `1c93bd7`  
+**Branch:** `feat/task-10-immediate-merge-closure`
+
+Two corrections are required before Task 10 approval.
+
+## C1. Validate every direct parent edge of a merge node
+
+In `src/core/traversal.ts`, `validateMergeClosure` currently filters graph edges by:
+
+`candidate.child === edge.child && candidate.relation === 'MERGED_FROM'`
+
+This is narrower than UIA-CORE-001 §8.6 and the approved Task 10 plan, both of which require checking **all parent edges** of a merge node.
+
+Change the implementation to:
+- enumerate every `graph.edges` entry whose `child` equals the merge node;
+- identify an edge by `(child, parent, relation)`, not parent alone;
+- skip only the exact edge already validated by Phase 2;
+- do not collapse different relation types that share the same parent;
+- preserve deterministic ordering and duplicate handling consistently with the graph representation.
+
+Add a regression test for a merge node with mixed direct parent relations, e.g. `MERGED_FROM` and `CONTINUATION`, proving that every direct parent edge is checked and that a missing/failing Assessment on the additional relation causes closure failure.
+
+Do not change Task 6 structural validation or introduce new normative codes.
+
+## C2. Complete B-5 conformance assertions
+
+The current B-5 test proves that an untrusted positive Assessment does not satisfy a requirement when a trusted assessor has not verified the claim.
+
+The approved plan additionally requires an explicit adversarial policy-hook case.
+
+Add a test where `Policy.applicableAssessments` attempts to select the untrusted positive Assessment. Verify that:
+- the untrusted Assessment cannot satisfy the trusted-assessor requirement;
+- the trusted assessor's missing verified claim remains the actual UNSATISFIED reason;
+- the result remains `ERR_ASSURANCE_PREDICATE_UNSATISFIED`;
+- neither Assessment is mutated;
+- no negative finding or refutation is inferred from `unverified_claims`.
+
+Keep the existing B-5 test if useful; do not weaken its assertions.
+
+## Constraints
+
+- No changes to `docs/CORE-001.md`.
+- No new normative error codes.
+- No recursive closure.
+- No changes to A-5, A-8, A-2, A-9, or A-11.
+- No grants, authority, or latest-wins behavior.
+- Preserve the approved aggregation order.
+- Preserve GC-18 per-path details.
+- Do not alter Task 9 discovery or path validation semantics.
+
+## Validation
+
+Run:
+- `bun test`
+- `bun run typecheck`
+- `bun run lint`
+- `bun run format:check`
+- `bun run build`
+- configured duplication check
+
+Report the new commit SHA, changed files, exact test/assertion counts, and all check results. Explain the mixed-relation regression fixture and the adversarial B-5 policy-hook fixture.

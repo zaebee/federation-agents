@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.12.3-nightly.202610300619.cea1b3cee",
+  "checkpoint_id": "01M67YCE79TAW6WJRZYZXAAAK5",
+  "session_id": "ses_e7105d3e8ffeYfGlU43yND6dyG",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T03:00:15.045916334Z",
+  "branch": "feat/task-10-immediate-merge-closure",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/core/traversal.ts",
+    "tests/conformance/b.test.ts",
+    "tests/experimental/nested-merge-recursion.test.ts",
+    "tests/support/traversal.ts",
+    "tests/unit/traversal-phases.test.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "b5450351f540",
+  "checkpoint_transcript_start": 802,
+  "transcript_lines_at_start": 802,
+  "compact_transcript_start": 802,
+  "token_usage": {
+    "input_tokens": 986873,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 20704768,
+    "output_tokens": 21971,
+    "api_call_count": 66
+  },
+  "redaction": {
+    "replacements": 48,
+    "layers": {
+      "betterleaks": 6,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 4,
+      "credentialed_uri": 0,
+      "entropy": 38,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 95
+  }
+}
