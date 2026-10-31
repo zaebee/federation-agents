@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M6910SZDNPEVAQZVXD582D1B",
+  "session_id": "ses_e6f615c5affeXmShrQYs2JOmPQ",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T13:05:33.712249784Z",
+  "branch": "docs/t18-09a-assurance-semantics",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/README.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/dec-06-contradictory-assessments.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/dec-07-closure-depth.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/evidence-index.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/interaction-matrix.md"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "5eeb89849d3b",
+  "checkpoint_transcript_start": 704,
+  "transcript_lines_at_start": 704,
+  "compact_transcript_start": 704,
+  "token_usage": {
+    "input_tokens": 27630,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 23128064,
+    "output_tokens": 10608,
+    "api_call_count": 44
+  },
+  "redaction": {
+    "replacements": 12,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 12,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 53
+  }
+}

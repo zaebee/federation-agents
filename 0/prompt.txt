@@ -1,0 +1,110 @@
+Проверил метаданные PR, состав изменений, содержимое decision package, комментарии, review threads и доступные результаты Sonar.
+
+Первичный вывод: PR действительно выглядит как docs-only: пять новых Markdown-файлов, без изменений CORE-001, исходников и тестов. Обе DEC оставлены OPEN, рекомендации не названы утверждёнными. Это правильно.
+
+Но уже обнаружил один содержательный момент, который стоит проверить внимательнее: пакет одновременно утверждает, что отсутствие обязательного verified claim остаётся UNSATISFIED, и признаёт, что текущая проверка CONTESTED может сработать раньше проверки missing claims. Это не обязательно ошибка реализации — но формулировка инварианта в документации должна учитывать нерешённый A-8.
+Результат аудита
+REQUEST CHANGES
+Мой аудит, не GitHub review
+
+Я бы пока не мержил. Пакет в целом качественный, но есть два содержательных замечания и два менее критичных уточнения.
+1. [P1] Противоречие вокруг UNSATISFIED
+Файл: README.md, §7
+
+README утверждает:
+Missing required verified claims remain an actual UNSATISFIED condition.
+
+Но в evaluateAssurance порядок такой:
+1. Проверяется conflictPredicate.
+2. Если он срабатывает — немедленно возвращается CONTESTED.
+3. Только потом вычисляются missing и disallowed.
+Следовательно, при одновременном наличии конфликта и отсутствующего required claim результатом будет CONTESTED, а не UNSATISFIED.
+
+Сам DEC-06 это правильно описывает в §3.5 и §7.4. README и общий invariant должны быть согласованы с ним.
+
+Предлагаемая формулировка:
+Missing required verified claims remain an UNSATISFIED condition when conflict detection does not short-circuit assurance evaluation. Conflict-vs-missing precedence remains OPEN under A-8.
+
+Это не требует менять код или решать A-8.
+2. [P1] Не до конца определена обязательность conflict predicate
+Файл: DEC-06, §6
+
+В предлагаемом Option C есть фраза:
+If no predicate is defined, no claim is marked CONTESTED.
+
+При этом §6.4 CORE-001 содержит нормативный MUST: если два применимых доверенных Assessment противоречат друг другу, соответствующий Claim переводится в CONTESTED.
+
+Возникает потенциальная лазейка: реализация не задаёт predicate и поэтому никогда не обнаруживает противоречий. Но нормативная обязанность при этом никуда не исчезает.
+
+В документе есть попытка разрешить это через capability declaration: домен должен заявить, что поддерживает contradiction detection. Однако пока не определено, как именно такая декларация влияет на соответствие CORE-001.
+
+Я бы потребовал явно развести три вещи:
+- CORE-001 implementation: предоставляет механизм, необходимый для исполнения нормативной семантики.
+- Domain policy: задаёт, какие Assessment действительно противоречат друг другу.
+- Conformance claim: домен не может заявлять поддержку §6.4, если не способен выполнить соответствующий MUST.
+И отдельно поставить на решение владельца проекта вопрос: является ли отсутствие predicate ошибкой конфигурации или допустимым режимом с ограниченным заявлением о совместимости?
+
+Это важнее, чем просто выбрать Option C. Иначе можно получить формально красивую спецификацию, в которой обязательное поведение фактически опционально.
+3. [P2] DEC-07 затрагивает ещё одну семантику — trigger closure
+Файл: DEC-07, §3 и §6
+
+Здесь есть тонкость.
+
+Текущая реализация активирует closure, если у edge.child в графе есть хотя бы одно родительское ребро MERGED_FROM.
+
+То есть closure срабатывает даже если выбранный путь пришёл в этот узел через CONTINUATION.
+
+Это подтверждается тестом:
+
+B-4 a merge node reached through CONTINUATION still closes its merge parents.
+
+Но §8.6 CORE-001 формулирует условие как прохождение выбранного пути через IdentityVersion, имеющий отношение MERGED_FROM. Не вполне очевидно, что речь именно о свойстве узла, а не о типе ребра выбранного пути.
+
+Предложенная формулировка DEC-07 говорит «every merge node on the selected path», но не определяет merge node достаточно строго.
+
+Предлагаю добавить явное определение:
+For this rule, a merge node is an IdentityVersion that has at least one incoming MERGED_FROM parent edge in the lineage graph. Closure is triggered whenever the selected path passes through such a node, regardless of the relation of the path edge used to reach it.
+
+Или, если это отдельный нормативный вопрос, вынести его из DEC-07 и не считать автоматически решённым рекомендацией об immediate closure.
+
+Иначе решение A-5 (глубина) незаметно захватывает ещё и семантику запуска closure.
+4. [P2] Уточнить роль времени в conflict predicate
+В DEC-06 есть утверждение, что timestamps не используются для conflict detection, но пользовательский conflictPredicate получает TemporalContext и сами Assessment.
+
+Поэтому точнее написать:
+The default implementation does not apply timestamp-based conflict resolution. A custom predicate may inspect assessment timestamps and temporal context; no normative precedence rule is currently defined.
+
+Это не большая проблема, но важно не смешивать отсутствие встроенной логики с невозможностью использовать время в локальной политике.
+
+Что проверено и выглядит хорошо
+Область	Результат
+Состав PR	PASS  5 новых Markdown-файлов
+Изменения CORE-001	Нет
+Изменения source/tests	Нет
+Task 17	Исторические статусы сохранены
+DEC-06 / DEC-07	Обе OPEN
+T18-DEC-15	OPEN, не затронута
+A-8 / A-11	Не смешаны с основными решениями
+Ссылки на тесты	Есть точные имена и ограничения доказательности
+Property-test oracle	Ограничения указаны корректно
+Форматирование	PASS
+Sonar	Quality Gate PASS, 0 новых issues, 0 hotspots
+
+CI PASS
+Я отдельно проверил GitHub Actions: run 41203080294, job Format, lint, typecheck, test, build завершился успешно. Все перечисленные этапы прошли. Локальные тесты Claude не запускал, но CI запускал их. Sonar также сообщил успешный Quality Gate.
+
+GitHub review submissions и inline review threads пока отсутствуют. PR остаётся открытым и mergeable.
+
+Моя оценка
+Архитектурно пакет хороший. Особенно удачно:
+- Не приравнивает различие claim arrays к противоречию.
+- Не трактует unverified как отрицательное свидетельство.
+- Не пытается автоматически разрешать конфликт через supersession или timestamps.
+- Не выдаёт текущую immediate-only реализацию за уже установленную нормативную истину.
+- Не смешивает CONTESTED с UNSATISFIED на уровне closure evidence.
+- Сохраняет независимость DEC-06 и DEC-07.
+Но я бы попросил Claude внести четыре уточнения выше до merge. Первые два важны для корректности самого decision package, третий — для чистоты границ решений, четвёртый — для точности формулировок.
+
+GitHub review я не отправлял и ничего в PR не менял.
+
+Могу подготовить короткий corrective prompt для Claude Build Mode, чтобы он исправил только эти замечания, не переписывая весь пакет и не меняя статусы решений.
