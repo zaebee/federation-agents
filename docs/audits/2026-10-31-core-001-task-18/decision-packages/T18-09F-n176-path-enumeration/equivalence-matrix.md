@@ -150,7 +150,7 @@ This order is a code fact. A-8 is OPEN; the order is an implementation compatibi
 
 **Current result:** `eligible: false`, code `CYCLE_DETECTED`. For each cyclic path, `cycleForPath()` unions every SCC whose node set intersects that path and sorts the result; `details.perPath` contains those per-path unions.
 
-**Proposed result:** `eligible: false`, code `CYCLE_DETECTED`, with a **minimal existence witness** in the `CycleWitness` shape: a concrete **simple** candidate→origin path (the loop-erased D3 walk) whose node sequence contains a cyclic node selected from that final path, plus the exact SCC entry from `graph.cycles` containing the surviving node. The original reachability pivot may be erased; the raw concatenated walk is never exposed.
+**Proposed result:** `eligible: false`, code `CYCLE_DETECTED`, with a **minimal existence witness** in the `CycleWitness` shape: a concrete **simple** candidate→origin path (the loop-erased D3 walk) whose node sequence contains the first `C` node on that final path, plus the exact SCC entry from `graph.cycles` containing the surviving node. The construction and first-node selection are deterministic per `api-migration.md` §3.2.1; the original reachability pivot may be erased and the raw concatenated walk is never exposed.
 
 **Equivalence argument:** L1 (code) is identical. The v2 witness does **not** promise the per-path `cycleForPath()` union, a global union over all cyclic paths, or a minimum-cardinality cycle. If legacy diagnostic equivalence is required, it comes from v1 `details.perPath`; v2 must not claim it.
 

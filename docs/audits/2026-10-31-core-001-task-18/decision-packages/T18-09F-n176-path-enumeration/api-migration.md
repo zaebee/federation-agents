@@ -97,14 +97,25 @@ interface CycleWitness {
 }
 ```
 
-**Construction and verification rule (independently checkable):**
+**Deterministic construction and selection rule (contract):**
 
-1. The implementation starts from the D3 reachability walk `s⇝c⇝t`, loop-erases it, and only then selects the witness node. The raw concatenated walk is never exposed.
+1. Work with `C = nodes in graph.cycles`. `graph.cycles` is already a deterministically sorted list of sorted SCCs; do not reorder it.
+2. Choose the first `c ∈ C` (in `graph.cycles` order, then node order) with `reach(s,c)` and `reach(c,t)`.
+3. Build `s⇝c` and `c⇝t` with BFS over adjacency whose outgoing edges are sorted by `(parent, relation)` (the order used by `adjacencyFor`), so predecessor choice is storage-order-independent.
+4. Concatenate the two walks and loop-erase by keeping the first occurrence of each node in walk order. The result is the final simple candidate→origin path.
+5. Scan that final path in candidate→origin order and select the **first** node belonging to `C`. Lemma 4 guarantees that at least one such node survives, but the original pivot `c` may have been erased; never assume it survives.
+6. `cycle` is exactly one entry of `graph.cycles` — the SCC containing the selected surviving node — not a union of SCCs.
+7. `verification: 'SIMPLE_PATH_AND_SCC'` states which checks the caller should rerun.
+
+**Determinism status:** the rule above is deterministic if steps 2–4 use the stated canonical order. If an implementation cannot guarantee that adjacency order or predecessor choice is storage-independent, it must record a missing determinism proof obligation; it must not claim §8.8 determinism. This rule concerns the `CycleWitness` only and does not close D5.
+
+**Verification requirements (independently checkable):**
+
+1. The implementation starts from the D3 reachability walk, loop-erases it, and only then selects the witness node. The raw concatenated walk is never exposed.
 2. `path.edges` is contiguous, scope-permitted, candidate→origin, and contains no repeated node (a simple path).
-3. `cyclicNode` is selected **from the final loop-erased path**, not from the original reachability pivot. The original pivot `c` may itself be erased by loop erasure; the witness must not assume it survives.
-4. The path's node sequence contains `cyclicNode`.
-5. `cycle` is exactly one entry of `graph.cycles` — the SCC containing the surviving `cyclicNode` — not a union of SCCs.
-6. `verification: 'SIMPLE_PATH_AND_SCC'` states which checks the caller should rerun.
+3. The path's node sequence contains `cyclicNode`.
+4. `cycle` is exactly one entry of `graph.cycles` — the SCC containing the surviving `cyclicNode`.
+5. `verification: 'SIMPLE_PATH_AND_SCC'` states which checks the caller should rerun.
 
 This is an existence witness: it proves that some simple path touches `C`. It does not claim to be the `cycleForPath()` per-path union or a global union.
 
@@ -120,7 +131,7 @@ This is an existence witness: it proves that some simple path touches `C`. It do
 
 `cycleForPath()` in the current code computes a **per-path union**: for one path, it unions every SCC whose node set intersects that path and sorts the nodes. It does not compute a global union over every discovered path.
 
-The v2 witness is deliberately narrower: a **minimal existence witness** in the shape defined in §3.2.1 — one concrete, simple candidate→origin path containing a cyclic node selected from the **final loop-erased path**, plus the SCC entry containing that surviving node. The path is the loop-erased result required by the D3 proof, not the raw concatenated reachability walk; the original reachability pivot may be erased. It does **not** promise:
+The v2 witness is deliberately narrower: a **minimal existence witness** in the shape defined in §3.2.1, with deterministic cyclic-node selection — one concrete, simple candidate→origin path containing the first `C` node on the **final loop-erased path**, plus the SCC entry containing that surviving node. The path is the loop-erased result required by the D3 proof, not the raw concatenated reachability walk; the original reachability pivot may be erased. It does **not** promise:
 
 - the per-path union produced by `cycleForPath()` for any particular legacy path;
 - a global union over all cyclic paths;

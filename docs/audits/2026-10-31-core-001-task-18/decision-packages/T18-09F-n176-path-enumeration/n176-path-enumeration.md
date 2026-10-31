@@ -76,7 +76,7 @@ Path validation is per edge (`§8.5`), and merge closure is per direct branch (`
 - N-176 status **PARTIAL**;
 - §8.8 aggregate **PASS → PARTIAL**;
 - current evidence: `collectPaths`/`discoverPaths` materialise every simple path and `evaluateBinding` validates each;
-- measurement: a chain of `k` merge diamonds yields `2^k` paths (`k=16` → 65 536 paths / ~2.7 s);
+- measurement: a chain of `k` merge diamonds yields `2^k` paths (`k=16` → 65 536 paths / ~2.7 s, historical scratch measurement; the executed record is `benchmark-record.md`, median 2 305 ms);
 - no test asserts N-176.
 
 The revision explicitly leaves open whether the public per-path result makes enumeration part of the required result. That is the decision this package addresses.

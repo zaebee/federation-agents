@@ -1,6 +1,6 @@
 # T18-09F — Complexity Proof (D0–D6b)
 
-**Status:** proof document for the decision package. **D5 remains OPEN** as a proof sketch with named empirical obligations. No implementation is authorised by this document.
+**Status:** proof document for the decision package. **D5 remains OPEN** as a proof sketch with named proof and test obligations. No implementation is authorised by this document.
 
 **Source of truth for D0–D6b:** `oq4-complexity-adversarial-pass.md` revision 3.1 §1. This document uses exactly those definitions; it does not introduce a second taxonomy.
 

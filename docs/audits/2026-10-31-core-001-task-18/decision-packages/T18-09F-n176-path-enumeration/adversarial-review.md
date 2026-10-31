@@ -4,7 +4,7 @@
 **Reviewed revision:** `f1d52e1` (`main`, Task 17 audit revision 2 merged).
 **Method:** every claim in `README.md`, `n176-path-enumeration.md` and `benchmark-procedure.md` was checked against `docs/CORE-001.md` §8.4/§8.7/§8.8, `src/core/traversal.ts`, the §12 conformance corpus and the Task 17 audit. No source or test was changed.
 
-**Post-review correction (revision 3):** the NP-hardness expectations in §2–§3 were corrected by `oq4-complexity-adversarial-pass.md`. Cycle preemption makes D2/D4 polynomial and splits mechanism into D6a (pre-discovery, reachability-independent) and D6b (edge-evaluation, path-sensitive); D3 is polynomial too, via a walk-through-cyclic-node reachability lemma (Lemma 4). Only D5 retains a proof obligation. "Option D" in this review means the legacy hybrid option in `n176-path-enumeration.md` §5, not a new scheme.
+**Post-review correction (revision 3.1):** the NP-hardness expectations in §2–§3 were corrected by `oq4-complexity-adversarial-pass.md`. Cycle preemption makes D2/D4 polynomial and splits mechanism into D6a (pre-discovery, reachability-independent) and D6b (edge-evaluation, path-sensitive); D3 is polynomial too, via a walk-through-cyclic-node reachability lemma (Lemma 4). Only D5 retains a proof obligation. "Option D" in this review means the legacy hybrid option in `n176-path-enumeration.md` §5, not a new scheme.
 
 ## 1. What holds up
 
@@ -36,7 +36,7 @@ A compact result that returns one canonical accepted path cannot pass B-3 as wri
 
 ### F2 (high) — A rejection witness must reproduce the top-level code
 
-**Status: witness contract resolved; A-8 (normative precedence) still open.** `decision-ready-revision.md` §3 now specifies the class-existence predicates (D0/D2/D3/D4/D6a/D6b), the required class witness per returned code, and the current precedence preserved as an implementation compatibility rule (`MECHANISM > closure > cycle > contested > assurance`). `N176-12` (witness sufficiency) is answered for these classes; `A-8` — whether that precedence is normative — remains OPEN and is not claimed to be resolved by DEC-18.
+**Status: witness contract resolved; A-8 (normative precedence) still open.** `decision-ready-revision.md` §3 now specifies the class-existence predicates (D0 acceptance, D1 no-path, D2/D3/D4 rejection classes, D6a/D6b mechanisms), the required class witness per returned code, and the current precedence preserved as an implementation compatibility rule (`MECHANISM > closure > cycle > contested > assurance`). `N176-12` (witness sufficiency) is answered for these classes; `A-8` — whether that precedence is normative — remains OPEN and is not claimed to be resolved by DEC-18.
 
 ### F3 (high) — Mechanism-failure precedence (historical finding)
 

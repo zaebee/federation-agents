@@ -83,7 +83,7 @@ Valid paths lie in `A` (Lemma 1) and are all-edge-satisfied. Define `H` on edges
 
 **Greedy.** Maintain a prefix `P` ending at `m`; if `m == t`, stop (the path is complete). Otherwise try outgoing edges of `m` in abstract-triple order; choose the first `e` such that there is an `H`-path from the edge's parent to `t`. Feasibility is plain reachability in `H` (a DAG), so each query is `O(|V|+|E|)`; at most `|E|` queries. The intended claim is that lexicographic induction makes the chosen path the `pathKey`-minimum under the abstract order; this is **not** a proof for the exact `pathKey` string encoding.
 
-**Proof obligations still open (qualified claim):** a written proof of the lexicographic induction for the exact `pathKey` string encoding, oracle tests against exhaustive enumeration on small generated DAGs, and invariance tests under storage/adjacency permutations. Until those tests exist the polynomial claim is a proof sketch, not an empirical certification.
+**Proof obligations still open (qualified claim):** a written proof of the lexicographic induction for the exact `pathKey` string encoding, oracle tests against exhaustive enumeration on small generated DAGs, and invariance tests under storage/adjacency permutations. Until those proof and test obligations are discharged, the polynomial claim is a proof sketch, not a certified result.
 
 Closure-constraint handling is **not** a separate D5 obligation: `H` is defined with closure in its edge-allowance rule, and Lemma 3 plus Lemma 5 establish that `H` represents exactly the fully valid paths.
 
@@ -129,7 +129,7 @@ D1 is true (`s→a→b→t` exists), but the only paths are preempted by the cyc
 | D2 | polynomial (Lemma 1–3; prefix/suffix reachability) |
 | D3 | polynomial (Lemma 4; walk + loop erasure) |
 | D4 | polynomial (Lemma 5–6; triple scan + reachability) |
-| D5 | polynomial **proof sketch**; empirical obligations listed in §6 |
+| D5 | polynomial **proof sketch**; proof and test obligations listed in §6 |
 | D6a | polynomial in input size: pre-discovery prechecks, independent of reachability |
 | D6b | polynomial: malformed assessments require `reach_A(s,t)` and a path reaching `assessEdge` |
 
@@ -158,7 +158,7 @@ D1 is true (`s→a→b→t` exists), but the only paths are preempted by the cyc
 
 ## 11. Limits
 
-- D5 needs the empirical evidence listed in §6 before it is called certified polynomial.
+- D5 needs the proof and test obligations listed in §6 before it is called certified polynomial.
 - The D4 specification clarification is proposed, not applied; §8.6 remains unchanged. Terminal-origin semantics is a separate owner question (`OQ-11`), and Policy purity is the assumption `OQ-12`.
 - The terminal-origin choice changes one D4 case; both are polynomial, but the proof text must name the chosen semantics.
 - No status, register, `CORE-001.md`, source or test change is made here.

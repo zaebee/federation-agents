@@ -43,7 +43,7 @@ Yes. `oq4` revision 3.1 proves:
 - **D4** closure failure: triple `(merge node, path edge, failing branch)` with reachability; general over parent counts;
 - **D6a** pre-discovery mechanisms (duplicate id, missing candidate, selector/label validation) are independent of reachability;
 - **D6b** edge-evaluation mechanisms: malformed assessments produce `MECHANISM` only if `reach_A(s,t)` and a path reaches `assessEdge`;
-- **D5** accepted-witness selection: `pathKey`-minimum (greedy on the acyclic subgraph) or `DETERMINISTIC_NON_MINIMUM` with a specified storage-order-independent rule; a non-deterministic/arbitrary witness is not valid under §8.8. The greedy is a **proof sketch with empirical obligations** (see OQ-10 / decision-ready §2.4), not yet certified.
+- **D5** accepted-witness selection: `pathKey`-minimum (greedy on the acyclic subgraph) or `DETERMINISTIC_NON_MINIMUM` with a specified storage-order-independent rule; a non-deterministic/arbitrary witness is not valid under §8.8. The greedy is a **proof sketch with proof and test obligations** (see OQ-10 / decision-ready §2.4), not yet certified.
 
 **Recommended: accept the polynomial analysis for D0–D4/D6a/D6b; treat D5 as a proof obligation before implementation is called complete.**
 
@@ -84,12 +84,24 @@ Closure runs for the `child` of each path edge; the origin is never a child, so 
 
 The equivalence proofs (including D4's path-edge exclusion and any memoisation) assume `applicableAssessments` and `conflictPredicate` are pure: same inputs → same result, no side effects, no exceptions. The type does not enforce this, and a callback that depends on call order/state makes even the legacy traversal order-dependent.
 
-**Owner/spec-editor choice required:** either freeze a pure/deterministic Policy contract (and state exception handling), or explicitly exclude impure hooks from N-176 equivalence. Without this, "equivalent result" is undefined.
+**Verified source behavior at `9e29b3627c9c5daab3a3029d8326dec65c47c161`:** `policy.applicableAssessments` is invoked directly from `assessEdge()` / `narrowByPolicy()`, and `policy.conflictPredicate` is invoked directly from contested-claim collection. These callback invocations are not individually wrapped in `try/catch`; an exception thrown by either callback propagates to the caller and is not converted into a mechanism failure.
+
+**Documentation discrepancy:** `docs/implementation.md` §1.6 currently says policy callbacks are guarded individually and a throwing one becomes a mechanism failure. That statement is stale and contradicts the current source behavior. It requires a separate documentation correction; this PR does not modify `docs/implementation.md` or source.
+
+**Owner/spec-editor choice required:** either freeze a pure/deterministic/non-throwing Policy contract with stated exception handling, or explicitly exclude callback exceptions from the N-176 equivalence claim. Without this, "equivalent result" is undefined. OQ-12 remains OPEN.
 
 ## OQ-9 — Audit consequence
 
-- Reading B + accepted implementation → N-176 PASS, §8.8 PARTIAL → PASS, via a re-audit revision.
-- Reading A → N-176 "conditional not triggered" (not PASS-through-violation).
+Reading B may establish a path toward N-176 PASS, but **adoption of Reading B or acceptance of an implementation does not itself change N-176 status**. N-176 may be changed to PASS only through a separate audit revision that verifies:
+
+- the owner's explicit approval of the normative interpretation;
+- exact L1/L2 equivalence under the approved contract;
+- closure of D5 or approval of a deterministic non-minimum witness rule consistent with §8.8;
+- resolution of OQ-11 and OQ-12, or their explicit and justified exclusion from the equivalence claim;
+- the required conformance tests;
+- a successful re-audit of the resulting package and implementation.
+
+Reading A may instead keep N-176 as "conditional not triggered" (not PASS-through-violation). **Implementation acceptance alone never changes N-176 or §8.8 status.** This document does not mark N-176 PASS or §8.8 PASS.
 
 **Recommended: decide the wording together with OQ-1, not after implementation.**
 

@@ -4,7 +4,7 @@
 
 **Witness terminology:** "canonical" below means the `pathKey`-minimum path **only if D5 closes**. Until then, the valid choices are `PATH_KEY_MINIMUM` (conditional) or `DETERMINISTIC_NON_MINIMUM` (`owner-decision-summary.md` OD-3); a non-deterministic/arbitrary witness is not a valid §8.8 option. The v2 type uses the neutral `AcceptedPathWitness`, not a canonical guarantee.
 **Reviewed revision:** `f1d52e1` (`main`).
-**Complexity source of truth:** `oq4-complexity-adversarial-pass.md` revision 3.1. Where this document and the earlier revisions differ, revision 3.1 governs. **D2/D3/D4/D6a/D6b are polynomial; D5 is a proof sketch with named empirical obligations and is not certified until those obligations are met.**
+**Complexity source of truth:** `oq4-complexity-adversarial-pass.md` revision 3.1. Where this document and the earlier revisions differ, revision 3.1 governs. **D2/D3/D4/D6a/D6b are polynomial; D5 is a proof sketch with named proof and test obligations and is not certified until those obligations are met.**
 **Companions:** `adversarial-review.md`, `remaining-owner-questions.md`, `oq4-complexity-adversarial-pass.md`.
 
 Each section follows the same shape: **exact statement → normative anchor → counterexample → proposed resolution → compatibility impact → closure evidence.**
