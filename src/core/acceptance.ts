@@ -120,99 +120,94 @@ const DECISIONS: readonly AcceptanceDecision[] = ['ACCEPTED', 'REJECTED'];
 const STATES: readonly AcceptanceLifecycleState[] = ['ACTIVE', 'SUSPENDED', 'REINSTATED', 'REVOKED', 'EXPIRED'];
 
 type JsonObject = { readonly [key: string]: JsonValue };
+type FieldKind = 'string' | 'timestamp' | 'string_array' | 'decision' | 'state';
 
 function invalid(path: string, message: string): Result<never> {
   return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', `${path}: ${message}`) };
 }
 
-function isJsonObject(value: JsonValue): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+function firstUnknownField(object: JsonObject, allowed: readonly string[]): string | undefined {
+  return Object.keys(object).find((key) => !allowed.includes(key));
 }
 
-function requireObject(value: JsonValue | undefined, path: string): Result<JsonObject> {
-  if (value === undefined || !isJsonObject(value)) {
-    return invalid(path, 'expected object');
+function readField(object: JsonObject, key: string, path: string, kind: FieldKind): Result<JsonValue> {
+  const value = object[key];
+  if (kind === 'string') {
+    return typeof value === 'string' ? { ok: true, value } : invalid(path, 'expected string');
   }
-  return { ok: true, value };
-}
-
-function requireString(value: JsonValue | undefined, path: string): Result<string> {
-  if (typeof value !== 'string') {
-    return invalid(path, 'expected string');
+  if (kind === 'timestamp') {
+    return typeof value === 'number' && Number.isFinite(value)
+      ? { ok: true, value }
+      : invalid(path, 'expected finite timestamp');
   }
-  return { ok: true, value };
-}
-
-function requireTimestamp(value: JsonValue | undefined, path: string): Result<Timestamp> {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return invalid(path, 'expected finite timestamp');
-  }
-  return { ok: true, value: value as Timestamp };
-}
-
-function requireStringArray(value: JsonValue | undefined, path: string): Result<string[]> {
-  if (!Array.isArray(value)) {
-    return invalid(path, 'expected array of strings');
-  }
-  const out: string[] = [];
-  for (let index = 0; index < value.length; index += 1) {
-    const item = requireString(value[index], `${path}[${index}]`);
-    if (!item.ok) return item;
-    out.push(item.value);
-  }
-  return { ok: true, value: out };
-}
-
-function rejectUnknownFields(value: JsonObject, allowed: readonly string[], path: string): Result<void> {
-  for (const key of Object.keys(value)) {
-    if (!allowed.includes(key)) {
-      return invalid(`${path}.${key}`, 'unknown field');
+  if (kind === 'string_array') {
+    if (!Array.isArray(value)) {
+      return invalid(path, 'expected array of strings');
     }
+    const out: string[] = [];
+    for (const item of value) {
+      if (typeof item !== 'string') {
+        return invalid(path, 'expected array of strings');
+      }
+      out.push(item);
+    }
+    return { ok: true, value: out };
   }
-  return { ok: true, value: undefined };
+  if (kind === 'decision') {
+    return typeof value === 'string' && (DECISIONS as readonly string[]).includes(value)
+      ? { ok: true, value }
+      : invalid(path, `expected one of: ${DECISIONS.join(', ')}`);
+  }
+  return typeof value === 'string' && (STATES as readonly string[]).includes(value)
+    ? { ok: true, value }
+    : invalid(path, `expected one of: ${STATES.join(', ')}`);
+}
+
+function readObject(value: unknown): Result<JsonObject> {
+  const json = validateJsonValue(value);
+  if (!json.ok) return json;
+  if (typeof json.value !== 'object' || json.value === null || Array.isArray(json.value)) {
+    return invalid('$', 'expected object');
+  }
+  return { ok: true, value: json.value as JsonObject };
 }
 
 /** Validates an untrusted §9.1 acceptance record into an owned frozen copy. */
 export function createLocalAcceptanceRecord(value: unknown): Result<DeepReadonly<LocalAcceptanceRecord>> {
-  const json = validateJsonValue(value);
-  if (!json.ok) return json;
-  const object = requireObject(json.value, '$');
+  const object = readObject(value);
   if (!object.ok) return object;
-  const known = rejectUnknownFields(object.value, ACCEPTANCE_FIELDS, '$');
-  if (!known.ok) return known;
+  const unknown = firstUnknownField(object.value, ACCEPTANCE_FIELDS);
+  if (unknown !== undefined) return invalid(`$.${unknown}`, 'unknown field');
 
-  const acceptanceId = requireString(object.value.acceptance_id, '$.acceptance_id');
+  const acceptanceId = readField(object.value, 'acceptance_id', '$.acceptance_id', 'string');
   if (!acceptanceId.ok) return acceptanceId;
-  const subject = requireString(object.value.subject_version_id, '$.subject_version_id');
+  const subject = readField(object.value, 'subject_version_id', '$.subject_version_id', 'string');
   if (!subject.ok) return subject;
-  const domain = requireString(object.value.accepting_domain, '$.accepting_domain');
+  const domain = readField(object.value, 'accepting_domain', '$.accepting_domain', 'string');
   if (!domain.ok) return domain;
-  const context = requireString(object.value.context_scope, '$.context_scope');
+  const context = readField(object.value, 'context_scope', '$.context_scope', 'string');
   if (!context.ok) return context;
-  const grounding = requireStringArray(object.value.grounding_assessments, '$.grounding_assessments');
+  const grounding = readField(object.value, 'grounding_assessments', '$.grounding_assessments', 'string_array');
   if (!grounding.ok) return grounding;
-  const decision = requireString(object.value.decision, '$.decision');
+  const decision = readField(object.value, 'decision', '$.decision', 'decision');
   if (!decision.ok) return decision;
-  if (!(DECISIONS as readonly string[]).includes(decision.value)) {
-    return invalid('$.decision', `expected one of: ${DECISIONS.join(', ')}`);
-  }
-  const policy = requireString(object.value.policy_rule_ref, '$.policy_rule_ref');
+  const policy = readField(object.value, 'policy_rule_ref', '$.policy_rule_ref', 'string');
   if (!policy.ok) return policy;
-  const principal = requireString(object.value.decided_by_principal, '$.decided_by_principal');
+  const principal = readField(object.value, 'decided_by_principal', '$.decided_by_principal', 'string');
   if (!principal.ok) return principal;
-  const decidedAt = requireTimestamp(object.value.decided_at, '$.decided_at');
+  const decidedAt = readField(object.value, 'decided_at', '$.decided_at', 'timestamp');
   if (!decidedAt.ok) return decidedAt;
 
   const record: LocalAcceptanceRecord = {
     acceptance_id: acceptanceId.value as AcceptanceID,
     subject_version_id: subject.value as IdentityVersionID,
     accepting_domain: domain.value as DomainID,
-    context_scope: context.value,
+    context_scope: context.value as string,
     grounding_assessments: grounding.value as AssessmentID[],
     decision: decision.value as AcceptanceDecision,
-    policy_rule_ref: policy.value,
-    decided_by_principal: principal.value,
-    decided_at: decidedAt.value,
+    policy_rule_ref: policy.value as string,
+    decided_by_principal: principal.value as string,
+    decided_at: decidedAt.value as Timestamp,
   };
   return { ok: true, value: deepFreeze(record) };
 }
@@ -221,36 +216,31 @@ export function createLocalAcceptanceRecord(value: unknown): Result<DeepReadonly
 export function createLocalAcceptanceLifecycleEvent(
   value: unknown,
 ): Result<DeepReadonly<LocalAcceptanceLifecycleEvent>> {
-  const json = validateJsonValue(value);
-  if (!json.ok) return json;
-  const object = requireObject(json.value, '$');
+  const object = readObject(value);
   if (!object.ok) return object;
-  const known = rejectUnknownFields(object.value, EVENT_FIELDS, '$');
-  if (!known.ok) return known;
+  const unknown = firstUnknownField(object.value, EVENT_FIELDS);
+  if (unknown !== undefined) return invalid(`$.${unknown}`, 'unknown field');
 
-  const eventId = requireString(object.value.event_id, '$.event_id');
+  const eventId = readField(object.value, 'event_id', '$.event_id', 'string');
   if (!eventId.ok) return eventId;
-  const acceptanceId = requireString(object.value.acceptance_id, '$.acceptance_id');
+  const acceptanceId = readField(object.value, 'acceptance_id', '$.acceptance_id', 'string');
   if (!acceptanceId.ok) return acceptanceId;
-  const newState = requireString(object.value.new_state, '$.new_state');
+  const newState = readField(object.value, 'new_state', '$.new_state', 'state');
   if (!newState.ok) return newState;
-  if (!(STATES as readonly string[]).includes(newState.value)) {
-    return invalid('$.new_state', `expected one of: ${STATES.join(', ')}`);
-  }
-  const reason = requireString(object.value.transition_reason, '$.transition_reason');
+  const reason = readField(object.value, 'transition_reason', '$.transition_reason', 'string');
   if (!reason.ok) return reason;
-  const evidence = requireStringArray(object.value.evidence_refs, '$.evidence_refs');
+  const evidence = readField(object.value, 'evidence_refs', '$.evidence_refs', 'string_array');
   if (!evidence.ok) return evidence;
-  const effectiveAt = requireTimestamp(object.value.effective_at, '$.effective_at');
+  const effectiveAt = readField(object.value, 'effective_at', '$.effective_at', 'timestamp');
   if (!effectiveAt.ok) return effectiveAt;
 
   const event: LocalAcceptanceLifecycleEvent = {
-    event_id: eventId.value,
+    event_id: eventId.value as string,
     acceptance_id: acceptanceId.value as AcceptanceID,
     new_state: newState.value as AcceptanceLifecycleState,
-    transition_reason: reason.value,
-    evidence_refs: evidence.value,
-    effective_at: effectiveAt.value,
+    transition_reason: reason.value as string,
+    evidence_refs: evidence.value as string[],
+    effective_at: effectiveAt.value as Timestamp,
   };
   return { ok: true, value: deepFreeze(event) };
 }
