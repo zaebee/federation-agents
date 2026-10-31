@@ -10,7 +10,6 @@ import {
   diamondState,
   expectNormativeFailure,
   mergeClosureState,
-  mergeClosureWithSideBranchState,
   pathNodes,
 } from '../support/traversal.js';
 
@@ -186,7 +185,10 @@ describe('§12 Category B: merge closure (Task 10)', () => {
   });
 
   test('B-6 non-origin direct branch fails closure without checking deeper edges', () => {
-    const { graph, descriptors, assessments, binding } = mergeClosureWithSideBranchState();
+    const { graph, descriptors, assessments, binding } = mergeClosureState({
+      nonOriginBranch: true,
+      missingBranch: 'c',
+    });
 
     const result = evaluateBinding(
       { graph, descriptors, assessments },

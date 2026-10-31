@@ -76,7 +76,4 @@ test('BLOCKED (A-5, non-conformance): immediate closure does not descend into cl
   expect(result.acceptedPaths.map((path) => String(path.edges[0].parent))).toEqual(['iv-b']);
 });
 
-test.skip('BLOCKED (A-5, non-conformance): recursive closure would also require C→E and C→F', () => {
-  // No normative depth is defined by Rev 0.3.3 for closure-only branches.
-  // Resolving this requires a spec clarifier, not an implementation choice.
-});
+test.todo('BLOCKED (A-5, non-conformance): recursive closure would also require C→E and C→F');

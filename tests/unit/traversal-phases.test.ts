@@ -24,7 +24,6 @@ import {
   expectMechanismFailure,
   expectNormativeFailure,
   mergeClosureState,
-  mergeClosureWithSideBranchState,
   pathNodes,
   requirementFor,
 } from '../support/traversal.js';
@@ -409,7 +408,7 @@ describe('validateMergeClosure (phase 3)', () => {
   });
 
   test('does not descend into a closure-only branch', () => {
-    const { graph, assessments } = mergeClosureWithSideBranchState();
+    const { graph, assessments } = mergeClosureState({ nonOriginBranch: true, missingBranch: 'c' });
     const path: Path = {
       scope: 'FULL_ANCESTRY',
       edges: [

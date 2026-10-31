@@ -527,6 +527,51 @@ function validatePathWithIndex(
   return validationValue({ status: 'VALID' });
 }
 
+function directMergeBranches(graph: LineageGraph, child: IdentityVersionID): EdgeRef[] {
+  const branches = new Map<string, EdgeRef>();
+  for (const candidate of graph.edges) {
+    if (candidate.child === child && candidate.relation === 'MERGED_FROM') {
+      branches.set(String(candidate.parent), edgeRef(candidate));
+    }
+  }
+  return [...branches.values()].sort((a, b) => compareStrings(a.parent, b.parent));
+}
+
+function evaluateClosureBranch(
+  branch: EdgeRef,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<MergeClosureBranchFailure | undefined> {
+  const outcome = evaluateEdgeAssurance(branch, assessments, requirement, policy, ctx);
+  if (!outcome.ok) {
+    return outcome;
+  }
+
+  if (outcome.value.status === 'SATISFIED') {
+    return { ok: true, value: undefined };
+  }
+  if (outcome.value.status === 'NO_APPLICABLE_ASSESSMENT') {
+    return { ok: true, value: { branch, reason: 'NO_APPLICABLE_ASSESSMENT' } };
+  }
+  if (outcome.value.status === 'UNSATISFIED') {
+    return {
+      ok: true,
+      value: {
+        branch,
+        reason: 'ASSURANCE_UNSATISFIED',
+        missing: outcome.value.missing,
+        disallowed: outcome.value.disallowed,
+      },
+    };
+  }
+  return {
+    ok: true,
+    value: { branch, reason: 'CONTESTED', contestedClaims: outcome.value.contestedClaims },
+  };
+}
+
 /**
  * Phase 3: immediate merge closure. For every MERGED_FROM node on the path,
  * every direct parent edge of that node is checked. The edge already on the
@@ -553,15 +598,7 @@ export function validateMergeClosure(
       continue;
     }
 
-    const directBranches = new Map<string, EdgeRef>();
-    for (const candidate of graph.edges) {
-      if (candidate.child === edge.child && candidate.relation === 'MERGED_FROM') {
-        directBranches.set(String(candidate.parent), edgeRef(candidate));
-      }
-    }
-    const ordered = [...directBranches.values()].sort((a, b) => compareStrings(a.parent, b.parent));
-
-    for (const branch of ordered) {
+    for (const branch of directMergeBranches(graph, edge.child)) {
       if (branch.parent === edge.parent) {
         continue;
       }
@@ -570,30 +607,12 @@ export function validateMergeClosure(
         continue;
       }
 
-      const outcome = evaluateEdgeAssurance(branch, assessments, requirement, policy, ctx);
-      if (!outcome.ok) {
-        return outcome;
+      const failure = evaluateClosureBranch(branch, assessments, requirement, policy, ctx);
+      if (!failure.ok) {
+        return failure;
       }
-      if (outcome.value.status === 'SATISFIED') {
-        continue;
-      }
-      if (outcome.value.status === 'NO_APPLICABLE_ASSESSMENT') {
-        failures.set(key, { branch, reason: 'NO_APPLICABLE_ASSESSMENT' });
-        continue;
-      }
-      if (outcome.value.status === 'UNSATISFIED') {
-        failures.set(key, {
-          branch,
-          reason: 'ASSURANCE_UNSATISFIED',
-          missing: outcome.value.missing,
-          disallowed: outcome.value.disallowed,
-        });
-      } else {
-        failures.set(key, {
-          branch,
-          reason: 'CONTESTED',
-          contestedClaims: outcome.value.contestedClaims,
-        });
+      if (failure.value !== undefined) {
+        failures.set(key, failure.value);
       }
     }
   }
@@ -628,6 +647,30 @@ function mechanismResult(error: MechanismFailure): BindingResult {
 
 function mismatchResult(): BindingResult {
   return deepFreeze({ eligible: false, code: 'ERR_AUTHORITY_BINDING_MISMATCH', details: {} }) as BindingResult;
+}
+
+function evaluateOnePath(
+  path: Path,
+  graph: LineageGraph,
+  cycleIndex: CycleIndex,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<PathOutcome> {
+  const validation = validatePathWithIndex(path, cycleIndex, assessments, requirement, policy, ctx);
+  if (!validation.ok) {
+    return validation;
+  }
+  if (validation.value.status !== 'VALID') {
+    return { ok: true, value: { path, outcome: validation.value } };
+  }
+
+  const closure = validateMergeClosure(path, graph, assessments, requirement, policy, ctx);
+  if (!closure.ok) {
+    return closure;
+  }
+  return { ok: true, value: { path, outcome: validation.value, closure: closure.value } };
 }
 
 /**
@@ -731,35 +774,20 @@ export function evaluateBinding(
   const cycleIndex = buildCycleIndex(state.graph);
 
   for (const path of discovered.value) {
-    const validation = validatePathWithIndex(
+    const evaluated = evaluateOnePath(
       path,
+      state.graph,
       cycleIndex,
       state.assessments,
       binding.assurance_requirement,
       policy,
       ctx,
     );
-    if (!validation.ok) {
-      return mechanismResult(asMechanism(validation.error));
+    if (!evaluated.ok) {
+      return mechanismResult(asMechanism(evaluated.error));
     }
-    if (validation.value.status !== 'VALID') {
-      outcomes.push({ path, outcome: validation.value });
-      continue;
-    }
-
-    const closure = validateMergeClosure(
-      path,
-      state.graph,
-      state.assessments,
-      binding.assurance_requirement,
-      policy,
-      ctx,
-    );
-    if (!closure.ok) {
-      return mechanismResult(asMechanism(closure.error));
-    }
-    outcomes.push({ path, outcome: validation.value, closure: closure.value });
-    if (closure.value.status === 'SATISFIED') {
+    outcomes.push(evaluated.value);
+    if (evaluated.value.outcome.status === 'VALID' && evaluated.value.closure?.status === 'SATISFIED') {
       accepted.push(path);
     }
   }
