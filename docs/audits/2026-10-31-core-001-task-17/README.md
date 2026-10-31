@@ -49,7 +49,7 @@
 | Test coverage gaps | 14 |
 | Documentation discrepancies | 8 |
 
-**Verdict: CORE-001 runtime conformance is NOT established, and freeze readiness is NOT READY.** No normative violation was demonstrated (`FAIL = 0`), but 23 applicable requirements are `PARTIAL`, `BLOCKED` or `NOT COVERED`, and 5 of 18 §12 cases are not `PASS`. Under the audit rule, any non-`PASS` applicable requirement prevents a full-conformance claim. Readiness gaps are counted separately and are not mixed into runtime conformance.
+**Verdict: CORE-001 runtime conformance is NOT established, and freeze readiness is NOT READY.** No normative violation was demonstrated (`FAIL = 0`), but there are 23 non-`PASS` items across all three rollups, and 5 of 18 §12 cases are not `PASS`. Under the audit rule, any non-`PASS` applicable requirement prevents a full-conformance claim. Readiness gaps are counted separately and are not mixed into runtime conformance.
 
 ### What is supported by evidence
 
