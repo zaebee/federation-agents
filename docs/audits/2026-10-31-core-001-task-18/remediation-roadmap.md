@@ -1,6 +1,6 @@
 # Remediation Roadmap — Task 18
 
-**Audit base:** `2a83c65`. **Planning only.** `T18-DEC-01` and `T18-DEC-02` are approved; no implementation task is executed. `T18-02A` is eligible for planning; its acceptance is blocked on the registration-ownership decision. `T18-02B` is BLOCKED on the C-2 model; `T18-02C` is retired / superseded.
+**Audit base:** `2a83c65`. **Planning and implementation record.** `T18-DEC-01` and `T18-DEC-02` are approved; T18-02A is implemented. `T18-02A` is eligible for planning and acceptance: Core-owned admission and immutable representation are approved, persistent storage is caller-managed, and publication/retention remain OPEN. `T18-02B` is BLOCKED on the C-2 model; `T18-02C` is retired / superseded.
 
 ## 1. How to read this roadmap
 
@@ -14,11 +14,11 @@
 `T18-01` is complete:
 
 - `T18-DEC-01` = **`REQ-LOCAL`**: local Assessment recording required for `PARENT_UNRESOLVED` and `CYCLE_DETECTED`.
-- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE`**: adapter constructs; Core validates; registration/publication ownership remains OPEN (see `decision-register.md` §3).
+- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation)**: adapter constructs; Core validates and admits; the registered representation is immutable; persistent storage is caller-managed; publication/retention remain OPEN (see `decision-register.md` §3).
 
 | Status | DEC-01 | DEC-02 | Eligible remediation |
 | --- | --- | --- | --- |
-| **Approved** | `REQ-LOCAL` | `OWN-ADAPTER` + `VAL-CORE` | `T18-02A` planning-eligible, acceptance blocked on registration ownership; `T18-02B` blocked on C-2 model; `T18-02C` retired / superseded |
+| **Approved** | `REQ-LOCAL` | `OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation) | `T18-02A` planning- and acceptance-eligible; `T18-02B` blocked on C-2 model; `T18-02C` retired / superseded |
 | Alternative (not selected) | `REQ-LOCAL` | `OWN-CORE` | `PATH-A`; not active |
 | Alternative (not selected) | `REQ-EXTERNAL` / `REQ-NONE` | n/a | `PATH-C`; `T18-SPEC-01` only |
 
@@ -30,10 +30,10 @@ AEBE is a shared deliverable, not a task. It requires:
 
 1. An Assessment produced from graph state with the exact claim: `PARENT_UNRESOLVED` for an orphan, `CYCLE_DETECTED` for a cycle.
 2. Negative evidence: a resolved parent produces no `PARENT_UNRESOLVED`; an acyclic graph produces no `CYCLE_DETECTED`.
-3. Ownership: the assessment is frozen/registered by the assigned registration boundary; the graph and descriptor are unchanged. Registration ownership is currently OPEN.
+3. Ownership: Core validates and admits the assessment; the registered representation is immutable; persistent storage is caller-managed; the graph and descriptor are unchanged; publication remains OPEN.
 4. Boundary authenticity: the evidence comes from the boundary that actually owns emission. A hand-constructed literal in a test is not AEBE.
 5. Validation: see `decision-register.md` §3; AEBE must show enforcement and malformed rejection.
-6. Public API: the evidence uses the package root; an internal-module import is an API boundary gap.
+6. Public API: the evidence uses the package root for the experimental reference adapter and Core admission; an internal-module import is an API boundary gap. The adapter export is experimental and carries no stability guarantee.
 
 T18-13 depends on AEBE, not on a specific implementation task.
 
@@ -42,7 +42,7 @@ T18-13 depends on AEBE, not on a specific implementation task.
 | Task | Type | Includes | Prerequisites | Risk scope | Task priority | Deliverables | Acceptance | Verification |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | T18-01 | specification/design | T18-DEC-01, T18-DEC-02; N-138, N-143, C-1, C-2 | none | `CORE-001_RUNTIME` | P1 | Decision record (approved) | DEC-01 = `REQ-LOCAL`; DEC-02 = `OWN-ADAPTER` + `VAL-CORE` | Recorded in `decision-register.md` |
-| T18-02A | implementation + tests | N-138, CASE-C-1.a3, T-001 | DEC-01/02 approved; Core validation enforced; registration ownership decided | `CORE-001_RUNTIME` | P1 | Adapter C-1 emission + Core validation | AEBE for C-1 from adapter; validation enforced; registration owner assigned | `bun test tests/conformance/c.test.ts`; full suite |
+| T18-02A | implementation + tests | N-138, CASE-C-1.a3, T-001 | DEC-01/02 approved; Core-owned admission approved; Core validation enforced; `T18-DEC-15` OPEN with Option B local choice | `CORE-001_RUNTIME` | P1 | Adapter C-1 emission + Core validation/admission | AEBE for C-1 from adapter; validation and admission enforced; no public generic C-1 bypass; caller-managed persistence documented; `T18-DEC-15` remains OPEN | `bun test tests/conformance/c.test.ts`; full suite |
 | T18-02B | implementation + tests | N-143, CASE-C-2.a2, T-002 | DEC-01/02 approved + C-2 subject-model decision | `CORE-001_RUNTIME` | P1 | Adapter C-2.a2 emission + Core validation | **BLOCKED** until C-2 model approved; AEBE for C-2.a2; C-2 stays BLOCKED | `bun test tests/conformance/c.test.ts`; full suite |
 | T18-02C | retired / superseded | — | none | `CORE-001_RUNTIME` | — | None | Historical task structure; superseded by T18-02A and T18-02B | — |
 | T18-03 | test-only | N-041, CASE-D-4.a2, T-004 | none | `CORE-001_RUNTIME` | P2 | D-4 policy input/outcome test | No auto-authorization; policy context asserted | `bun test tests/conformance/d.test.ts` |
@@ -67,9 +67,11 @@ T18-13 depends on AEBE, not on a specific implementation task.
 
 The project owner approved `T18-DEC-01 = REQ-LOCAL` and `T18-DEC-02 = OWN-ADAPTER + VAL-CORE`. The approved record is in `decision-register.md`. This task is not an implementation task.
 
-### T18-02A — C-1 adapter emission (planning-eligible; acceptance blocked on registration ownership)
+### T18-02A — C-1 adapter emission (implemented; acceptance evidence in AEBE)
 
-The adapter constructs the C-1 Assessment using domain identity, provenance and time. Core semantic validation must be enforced on every supported registration path (see `decision-register.md` §3). Registration/publication ownership remains OPEN, so T18-02A is eligible for planning but cannot be accepted until a registration owner is assigned. AEBE must come from the adapter boundary, not a hand-constructed fixture. T18-02A closes N-138/C-1.a3 only.
+The adapter constructs the C-1 Assessment using domain identity, provenance and time. Core performs generic and C-1 contextual validation and owns admission; the registered representation is immutable; persistent storage is caller-managed. Publication and retention remain OPEN (see `decision-register.md` §3). AEBE comes from the adapter boundary through the package root, not a hand-constructed fixture. T18-02A closes N-138/C-1.a3 only.
+
+`T18-DEC-15` remains OPEN. T18-02A uses Option B — full declared parent set per `(child, relation)`, at least one parent unresolved — as a local implementation choice/disposition, not a normative resolution.
 
 ### T18-02B — C-2.a2 adapter emission (BLOCKED)
 
@@ -81,7 +83,7 @@ The adapter path is selected, but the C-2 subject model (SCC, node, or edge) is 
 
 ### Validation enforcement
 
-See `decision-register.md` §3 for the canonical enforcement and registration/publication scope. AEBE must show that validation is enforced on every supported registration path.
+See `decision-register.md` §3 for the canonical enforcement, admission and persistence scope. AEBE must show that validation is enforced on every supported registration path.
 
 ### T18-05 — Digest verification
 
@@ -144,7 +146,7 @@ graph TD
 ### Milestones
 
 - **M0** — DEC-01 (`REQ-LOCAL`) and DEC-02 (`OWN-ADAPTER` + `VAL-CORE`) approved; C-2 model still OPEN.
-- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A planning-eligible, acceptance blocked on registration ownership; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
+- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A implemented and acceptance-eligible; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
@@ -198,6 +200,7 @@ Both require named owners and explicit acceptance. P3 must not obscure their sig
 - No grant/capability/authority API.
 - No new revocation or acceptance semantics.
 - No recursive closure or conflict predicate before decisions.
+- No Core-owned persistent registry, repository, database, event outbox, publication or delivery mechanism.
 - No constant-`RUNNING` execution test.
 - No CORE-001 specification edit inside Task 18.
 - No implementation task where ownership is unresolved.

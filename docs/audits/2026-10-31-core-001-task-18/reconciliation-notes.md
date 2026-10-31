@@ -72,11 +72,15 @@ Any future correction to Task 17 text or status requires a separate audit revisi
 The project owner approved:
 
 - `T18-DEC-01` = **`REQ-LOCAL`**: CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle. This is a recording obligation; it does not assign construction/publication to Core.
-- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE`**: adapter constructs the Assessment; Core owns semantic validation. See `decision-register.md` §3 for the canonical scope; registration/publication/retention ownership remains OPEN. `T18-02A` is planning-eligible but its acceptance requires the registration-ownership decision.
+- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation)**: adapter constructs the Assessment; Core owns semantic validation and admission; the registered representation is immutable; persistent storage is caller-managed. See `decision-register.md` §3 for the canonical scope; publication/retention remain OPEN. `T18-02A` is planning- and acceptance-eligible.
 
 The canonical approved record is `decision-register.md` §3. The T18-01 package is a historical proposal snapshot; it is not the approval record.
 
-Still OPEN: C-2 subject model (SCC/node/edge; edge-level is a proposal only), exact Assessment shape/provenance, registration/publication/retention ownership details, and C-2.a3 / CORE-003.
+Still OPEN: C-2 subject model (SCC/node/edge; edge-level is a proposal only), exact Assessment shape/provenance, persistent storage/publication/retention ownership, `T18-DEC-15` parent-coverage semantics, and C-2.a3 / CORE-003.
+
+### T18-DEC-15 — parent coverage semantics (OPEN)
+
+`T18-DEC-15` asks whether `ContinuityAssessment.parent_version_ids` denotes the full declared parent set for `(subject_version_id, declared_relation)` or only the subset covered by the Assessment. T18-02A uses Option B — full declared parent set, at least one parent unresolved — as a local implementation choice/disposition. It does not resolve the normative question, and no Task 17 status or rollup changes.
 
 ## 7. PATH-B correction
 
