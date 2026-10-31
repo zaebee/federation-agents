@@ -183,7 +183,7 @@ Traversal is split into independently testable phases. The functions below are i
 
 Phase 3 implements **immediate closure** only — §8.6's literal text about the parent edges of a merge node. Recursive closure and closure over a merge-typed origin are **BLOCKED** in Rev 0.3.3 and are not claimed as conformance (see §9).
 
-Scope and closure cannot contradict each other: a merge node can appear on a selected path only under `FULL_ANCESTRY`, so closure branches never cross a scope-excluded relation.
+Scope governs discovery only. A mixed-relation merge node can be reached through a scope-permitted edge, and immediate closure still checks all its direct parent edges — including relations excluded from discovery. The terminal origin is not closed (A-11).
 
 ## 8. Temporal model (target)
 
