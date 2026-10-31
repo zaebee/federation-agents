@@ -4,7 +4,7 @@
 
 **Source revision measured (exact):** `9e29b3627c9c5daab3a3029d8326dec65c47c161` (`main`, after PR #75 merge).
 
-**Harness revision (exact):** commit that introduced [`benchmark-harness.ts`](./benchmark-harness.ts) in this PR. The harness does not change `src/`, `tests/`, or the public surface; the source revision above and this PR's source tree are identical. To reproduce, check out this PR head (the commit containing the harness) and run the command below from the repository root.
+**Harness revision (exact):** `d94799168e4be01a0f5a28a7f1276d0bba5c0870` — the commit containing [`benchmark-harness.ts`](./benchmark-harness.ts) at the time of this record. The harness does not change `src/`, `tests/`, or the public surface; the source revision above and this harness revision have identical `src/`/`tests/` content. To reproduce, check out `d9479916` (or a later commit whose harness file is unchanged) and run the command below from the repository root.
 
 **Harness (saved, runnable):** [`benchmark-harness.ts`](./benchmark-harness.ts). It is a non-production documentation artifact; it is not imported by `src/` or `tests/`.
 
