@@ -1,0 +1,23 @@
+‎src/core/acceptance.ts
+Line 133
+Check failure
+Refactor this function to reduce its Cognitive Complexity from 21 to the 15 allowed.
+Check failure: Refactor this function to reduce its Cognitive Complexity from 21 to the 15 allowed.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGQiMb2M0eP3oF9rx-3&open=AaGQiMb2M0eP3oF9rx-3&pullRequest=34
+SonarQubeCloud avatar image/ SonarCloud Code Analysis
+‎src/core/acceptance.ts
+Line 253
+Check warning
+Use 'Object.hasOwn()' instead of 'Object.prototype.hasOwnProperty.call()'.
+Check warning: Use 'Object.hasOwn()' instead of 'Object.prototype.hasOwnProperty.call()'.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGQhkgX7JDpWu2qoGUS&open=AaGQhkgX7JDpWu2qoGUS&pullRequest=34
+SonarQubeCloud avatar image/ SonarCloud Code Analysis
+‎src/core/ledger.ts
+Line 90
+Check warning
+Use `export…from` to re-export `AcceptanceLifecycleState`.
+Check warning: Use `export…from` to re-export `AcceptanceLifecycleState`.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGQhkib7JDpWu2qoGUT&open=AaGQhkib7JDpWu2qoGUT&pullRequest=34
