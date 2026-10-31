@@ -105,4 +105,4 @@ Approval of `T18-DEC-01` and `T18-DEC-02` is not conformance evidence and does n
 
 - 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL (Task 17 baseline).
 - §12: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED (Task 17 baseline).
-- At the Task 17 baseline C-1 was NOT COVERED and C-2 BLOCKED. Task 17 audit revision 1 records C-1 **PASS** (`docs/audits/2026-10-31-core-001-task-17-revision-1/`); C-2 remains BLOCKED.
+- At the Task 17 baseline C-1 was NOT COVERED and C-2 BLOCKED. Task 17 audit revision 1 records C-1 **PASS** (`docs/audits/2026-10-31-core-001-task-17-revision-1/`); revision 2 records C-2.a2 and N-143 **PASS** (`docs/audits/2026-10-31-core-001-task-17-revision-2/`); the C-2 case remains BLOCKED on `CASE-C-2.a3`.
