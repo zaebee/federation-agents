@@ -466,6 +466,128 @@ function cryptographicHistorical(verification: SignatureVerificationOutcome): Hi
   return undefined;
 }
 
+type CompromiseMeasurement =
+  | { readonly kind: 'NONE' }
+  | {
+      readonly kind: 'PRESENT';
+      readonly effectiveAt: Timestamp;
+      readonly trust: TemporalTrustOutcome;
+    };
+
+function resolveSignedAtTrust(input: HistoricalSignatureInput): Result<TemporalTrustOutcome> {
+  if (input.subject_binding === undefined) {
+    return { ok: true, value: 'TRUST_ASSESSMENT_UNAVAILABLE' };
+  }
+  return trustOutcome(
+    input.ctx,
+    'SIGNED_AT',
+    signedAtSubjectRef(input.credential, input.subject_binding),
+    input.signed_at,
+  );
+}
+
+function resolveCompromiseMeasurement(input: HistoricalSignatureInput): Result<CompromiseMeasurement> {
+  if (input.revocation?.reason !== 'CONFIRMED_COMPROMISE') {
+    return { ok: true, value: { kind: 'NONE' } };
+  }
+  const effectiveAt = input.revocation.compromise_effective_at;
+  if (effectiveAt === undefined) {
+    return { ok: true, value: { kind: 'NONE' } };
+  }
+  const trust = trustOutcome(input.ctx, 'compromise_effective_at', revocationSubjectRef(input.revocation), effectiveAt);
+  if (!trust.ok) {
+    return trust;
+  }
+  return { ok: true, value: { kind: 'PRESENT', effectiveAt, trust: trust.value } };
+}
+
+function resolveCompromiseAcceptance(
+  input: HistoricalSignatureInput,
+  signedAtTrust: TemporalTrustOutcome,
+  compromise: CompromiseMeasurement,
+): Result<boolean> {
+  if (compromise.kind === 'NONE' || input.revocation === undefined) {
+    return { ok: true, value: false };
+  }
+  return runAcceptCompromiseTime(input.policy, {
+    credential: input.credential,
+    ...(input.subject_binding === undefined ? {} : { subject_binding: input.subject_binding }),
+    revocation: input.revocation,
+    signed_at: input.signed_at,
+    signed_at_trust: signedAtTrust,
+    compromise_trust: compromise.trust,
+  });
+}
+
+function buildTemporal(
+  signedAt: TemporalTrustOutcome,
+  compromise: CompromiseMeasurement,
+): HistoricalSignatureResult['temporal'] {
+  if (compromise.kind === 'NONE') {
+    return { signed_at: signedAt };
+  }
+  return { signed_at: signedAt, compromise_effective_at: compromise.trust };
+}
+
+function buildFutureInput(
+  input: HistoricalSignatureInput,
+  values: {
+    readonly usage: CredentialUsageEvaluation;
+    readonly verification: SignatureVerificationOutcome;
+    readonly temporal: HistoricalSignatureResult['temporal'];
+    readonly reassessmentRequired: boolean;
+  },
+): FutureAuthorizationInput {
+  const base: FutureAuthorizationInput = {
+    credential: input.credential,
+    signed_at: input.signed_at,
+    usage: values.usage,
+    verification: values.verification,
+    temporal: values.temporal,
+    reassessment_required: values.reassessmentRequired,
+  };
+  if (input.subject_binding === undefined && input.revocation === undefined) {
+    return base;
+  }
+  if (input.subject_binding === undefined) {
+    return { ...base, revocation: input.revocation };
+  }
+  if (input.revocation === undefined) {
+    return { ...base, subject_binding: input.subject_binding };
+  }
+  return {
+    ...base,
+    subject_binding: input.subject_binding,
+    revocation: input.revocation,
+    revocation_reason: input.revocation.reason,
+  };
+}
+
+function buildHistoricalResult(
+  input: HistoricalSignatureInput,
+  values: {
+    readonly verification: SignatureVerificationOutcome;
+    readonly usage: CredentialUsageEvaluation;
+    readonly temporal: HistoricalSignatureResult['temporal'];
+    readonly historical: HistoricalValidity;
+    readonly future: FutureAuthorizationOutcome;
+    readonly reassessmentRequired: boolean;
+  },
+): HistoricalSignatureResult {
+  return {
+    verification: values.verification,
+    usage: values.usage,
+    ...(input.revocation === undefined ? {} : { revocation_reason: input.revocation.reason }),
+    temporal: values.temporal,
+    historical: values.historical,
+    ...(values.historical.status === 'INVALID'
+      ? { claim_status: 'CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE' as const }
+      : {}),
+    future_authorizable: values.future,
+    reassessment_required: values.reassessmentRequired,
+  };
+}
+
 /** Evaluates one historical signature. Policy is mandatory; missing/failing policy is a mechanism failure. */
 export function evaluateHistoricalSignature(
   input: HistoricalSignatureInput,
@@ -485,70 +607,25 @@ export function evaluateHistoricalSignature(
     ...(input.payload_ref === undefined ? {} : { payload_ref: input.payload_ref }),
   });
 
-  const signedAtTrust =
-    input.subject_binding === undefined
-      ? ({ ok: true, value: 'TRUST_ASSESSMENT_UNAVAILABLE' } as const)
-      : trustOutcome(
-          input.ctx,
-          'SIGNED_AT',
-          signedAtSubjectRef(input.credential, input.subject_binding),
-          input.signed_at,
-        );
+  const signedAtTrust = resolveSignedAtTrust(input);
   if (!signedAtTrust.ok) {
     return signedAtTrust;
   }
-
-  const confirmed = input.revocation?.reason === 'CONFIRMED_COMPROMISE';
-  const compromiseEffectiveAt =
-    confirmed && input.revocation?.compromise_effective_at !== undefined
-      ? input.revocation.compromise_effective_at
-      : undefined;
-  const compromiseTrust =
-    compromiseEffectiveAt === undefined
-      ? undefined
-      : trustOutcome(
-          input.ctx,
-          'compromise_effective_at',
-          revocationSubjectRef(input.revocation as DeepReadonly<CredentialRevocationRecord>),
-          compromiseEffectiveAt,
-        );
-  if (compromiseTrust !== undefined && !compromiseTrust.ok) {
-    return compromiseTrust;
+  const compromise = resolveCompromiseMeasurement(input);
+  if (!compromise.ok) {
+    return compromise;
   }
-
-  let compromiseAccepted = false;
-  if (confirmed && compromiseEffectiveAt !== undefined && input.revocation !== undefined) {
-    const accepted = runAcceptCompromiseTime(input.policy, {
-      credential: input.credential,
-      ...(input.subject_binding === undefined ? {} : { subject_binding: input.subject_binding }),
-      revocation: input.revocation,
-      signed_at: input.signed_at,
-      signed_at_trust: signedAtTrust.value,
-      compromise_trust: compromiseTrust?.value as TemporalTrustOutcome,
-    });
-    if (!accepted.ok) {
-      return accepted;
-    }
-    compromiseAccepted = accepted.value;
+  const accepted = resolveCompromiseAcceptance(input, signedAtTrust.value, compromise.value);
+  if (!accepted.ok) {
+    return accepted;
   }
 
   const reassessmentRequired = input.revocation?.reason === 'SUSPECTED_COMPROMISE';
-  const temporal = {
-    signed_at: signedAtTrust.value,
-    ...(compromiseTrust === undefined ? {} : { compromise_effective_at: compromiseTrust.value }),
-  };
-
-  const future = runFutureAuthorization(input.policy, {
-    credential: input.credential,
-    ...(input.subject_binding === undefined ? {} : { subject_binding: input.subject_binding }),
-    ...(input.revocation === undefined ? {} : { revocation: input.revocation }),
-    signed_at: input.signed_at,
-    usage,
-    verification,
-    ...(input.revocation === undefined ? {} : { revocation_reason: input.revocation.reason }),
-    temporal,
-    reassessment_required: reassessmentRequired,
-  });
+  const temporal = buildTemporal(signedAtTrust.value, compromise.value);
+  const future = runFutureAuthorization(
+    input.policy,
+    buildFutureInput(input, { usage, verification, temporal, reassessmentRequired }),
+  );
   if (!future.ok) {
     return future;
   }
@@ -559,22 +636,23 @@ export function evaluateHistoricalSignature(
     ...(input.revocation === undefined ? {} : { revocationReason: input.revocation.reason }),
     signedAt: input.signed_at,
     signedAtTrust: signedAtTrust.value,
-    ...(compromiseTrust === undefined ? {} : { compromiseTrust: compromiseTrust.value }),
-    ...(compromiseEffectiveAt === undefined ? {} : { compromiseEffectiveAt }),
-    compromiseAccepted,
+    ...(compromise.value.kind === 'PRESENT'
+      ? { compromiseTrust: compromise.value.trust, compromiseEffectiveAt: compromise.value.effectiveAt }
+      : {}),
+    compromiseAccepted: accepted.value,
   });
 
-  const result: HistoricalSignatureResult = {
-    verification,
-    usage,
-    ...(input.revocation === undefined ? {} : { revocation_reason: input.revocation.reason }),
-    temporal,
-    historical,
-    ...(historical.status === 'INVALID'
-      ? { claim_status: 'CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE' as const }
-      : {}),
-    future_authorizable: future.value,
-    reassessment_required: reassessmentRequired,
+  return {
+    ok: true,
+    value: deepFreeze(
+      buildHistoricalResult(input, {
+        verification,
+        usage,
+        temporal,
+        historical,
+        future: future.value,
+        reassessmentRequired,
+      }),
+    ),
   };
-  return { ok: true, value: deepFreeze(result) };
 }
