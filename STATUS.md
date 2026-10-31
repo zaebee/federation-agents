@@ -56,7 +56,7 @@ These are undefined in Rev 0.3.3. Implementing them silently would turn an inter
 ## Open decisions blocking progress
 
 - **Two P1 decisions have prepared recommendations and await approval:** `T18-DEC-06` (contradiction predicate) and `T18-DEC-07` (closure depth).
-- **The C-2 subject model has no decision id at all.** It blocks `T18-02B`, and therefore C-2.
+- **The C-2 subject model has no decision ID at all.** It blocks `T18-02B`, and therefore C-2.
 - **Publication and retention ownership** of an Assessment is open; it decides where an assessor's record may live.
 - Thirteen decisions are OPEN in total — see [`decision-register.md`](docs/audits/2026-10-31-core-001-task-18/decision-register.md).
 
