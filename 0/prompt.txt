@@ -1,0 +1,57 @@
+‎tests/property/support/merge-oracle.ts
+Line 96
+Check warning
+Extract this nested ternary operation into an independent statement.
+Check warning: Extract this nested ternary operation into an independent statement.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGQHRijQ4iSPc4Vv6Ng&open=AaGQHRijQ4iSPc4Vv6Ng&pullRequest=29
+SonarQubeCloud avatar image/ SonarCloud Code Analysis
+‎tests/property/support/merge-oracle.ts
+Line 277
+Check warning
+Consider removing 'undefined' type or '?' specifier, one of them is redundant.
+Check warning: Consider removing 'undefined' type or '?' specifier, one of them is redundant.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGQHRijQ4iSPc4Vv6Nh&open=AaGQHRijQ4iSPc4Vv6Nh&pullRequest=29
+SonarQubeCloud avatar image/ SonarCloud Code Analysis
+‎tests/property/support/merge-oracle.ts
+Line 301
+Check failure
+Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.
+Check failure: Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGQHRijQ4iSPc4Vv6Ni&open=AaGQHRijQ4iSPc4Vv6Ni&pullRequest=29
+SonarQubeCloud avatar image/ SonarCloud Code Analysis
+‎tests/property/support/normalize.ts
+Line 17
+Check warning
+Extract this nested ternary operation into an independent statement.
+Check warning: Extract this nested ternary operation into an independent statement.
+
+See more on https://sonarcloud.io/project/issues?id=zaebee_federation-agents&issues=AaGQHRgmQ4iSPc4Vv6Nf&open=AaGQHRgmQ4iSPc4Vv6Nf&pullRequest=29 
+---
+Task 12 review — one required correction before merge.
+
+Please fix P9 in `tests/property/traversal-invariance.test.ts`.
+
+**Bug:** the AST export collector skips `ExportDeclaration` nodes without `moduleSpecifier`. This misses local named exports such as:
+
+```ts
+const grantAuthority = () => {};
+export { grantAuthority };
+```
+
+Such a module can be reached through `export *`, but `grantAuthority` will not be added to the collected public export names.
+
+**Required changes:**
+
+1. Collect local named exports (`export { localName }`, including aliases) when `moduleSpecifier` is absent.
+2. Add regression coverage proving that forbidden exported names are detected through a barrel using `export *`.
+3. Handle `export * as namespace` explicitly: either recursively inspect namespace members or document a precise, justified boundary if namespace members are intentionally excluded.
+4. Keep the check based on actual exported names, not comments or arbitrary source text.
+5. Do not change production code or `docs/CORE-001.md`.
+6. Keep A-5/A-8/A-11 OPEN/BLOCKED.
+
+Add a focused regression test that would fail against the current collector and pass after the fix.
+
+Run the full existing validation suite and report exact results, changed files, and the new commit SHA. Keep the correction isolated in a separate commit.
