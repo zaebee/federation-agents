@@ -1506,7 +1506,7 @@ Recursive closure — applying `ALL_BRANCHES_MUST_SATISFY` transitively inside p
 
 The §12 corpus has 18 cases: A-1…A-5, B-1…B-7, C-1, C-2, D-1…D-4.
 
-**Current status: 17 cases are implemented and passing; 1 case (C-2) is `test.todo` and is not conformance evidence.** C-1's assessment emission exists since T18-02A (`src/adapters/orphan-assessment.ts`) and its two tests pass; the Task 17 audit still records C-1 as NOT COVERED, and a re-audit is required before that status changes — see [`STATUS.md`](../STATUS.md). No document, commit message or report may claim full §12 conformance.
+**Current status: 17 cases are implemented and passing; 1 case (C-2) is `test.todo` and is not conformance evidence.** C-1's assessment emission exists since T18-02A (`src/adapters/orphan-assessment.ts`) and its two tests pass; **audit revision 1 records C-1 as PASS at `1440ca4`** (see [`revision-1`](./audits/2026-10-31-core-001-task-17-revision-1/README.md) and [`STATUS.md`](../STATUS.md)). No document, commit message or report may claim full §12 conformance.
 
 ### 4.2 Category A — `tests/conformance/a.test.ts`
 
@@ -1545,7 +1545,7 @@ Describe blocks: `§12 Category B: conditional binding and traversal (Task 9 sub
 | C-1 (resolved) | §12 C-1 | `C-1 resolved parent produces no PARENT_UNRESOLVED Assessment`; :54 | a graph with both parents present registers no Assessment and reports no unresolved parent | pass |
 | C-2 | §11.2, §12 C-2 | `test.todo('C-2 cycle detection records CYCLE_DETECTED and suppresses dependent grants (Tasks 8–9)')`; :66 | **todo — not conformance evidence** | todo |
 
-**Audit status (Task 17).** The two C-1 tests exist and pass, but Task 17 recorded C-1 as NOT COVERED because at that commit no Assessment recorded `PARENT_UNRESOLVED`. The evidence postdates the audit (T18-02A, `docs/audits/2026-10-31-core-001-task-18/aebe/C-1.md`), so the case awaits a re-audit revision; this table describes the tests, not the audit status.
+**Audit status.** Task 17 recorded C-1 as NOT COVERED because at its commit no Assessment recorded `PARENT_UNRESOLVED`. Revision 1 re-audits the case at `1440ca4`: all four C-1 assertions are asserted against the current tests, and the case is **PASS**. The PASS covers construction and admission; retention and publication remain caller-managed (`T18-DEC-15` and the publication-ownership question are OPEN) and are outside §12 C-1's Expected Result. See [`revision-1`](./audits/2026-10-31-core-001-task-17-revision-1/README.md).
 
 Why C-2 remains open: §12 C-2 requires an Assessment that records `CYCLE_DETECTED` **and** suppression of dependent grants. Binding-level traversal already reports `CYCLE_DETECTED`, but no Assessment records the claim, and the repository has no grant API by design, so "suppresses dependent grants" has no referent yet. This needs a normative decision on the C-2 subject model, not a test edit.
 
@@ -1589,6 +1589,8 @@ These are **not** C-2 conformance assertions, and they are not C-1 evidence eith
 **Limits of P7.** The oracle reuses `assessEdge`/`evaluateAssurance` (it does not reimplement assessment semantics), is limited to DAGs of at most 7 nodes, implements immediate closure only, excludes the terminal origin (A-11) and mirrors the implementation's aggregation without resolving A-8. It is not a proof for arbitrary graphs or for recursive closure.
 
 **Limits of P8.** The claim covers the generated model — a cycle as a separate component or a path intersecting a cycle — not an arbitrary-SCC theorem.
+
+**§8.8 non-enumeration (N-176).** The property suite and B-7 pin determinism, not the `MUST NOT` about explicit path enumeration. Revision 1 inventories it as PARTIAL: `collectPaths`/`discoverPaths` materialise every simple path and `evaluateBinding` validates each. Whether that satisfies §8.8 depends on whether the public per-path result makes enumeration part of the required result — the open question in #25 / `T18-SPEC-01`.
 
 ### 4.7 Scope × closure tests
 
@@ -1900,7 +1902,8 @@ Recorded as `D-007` in the Task 17 register and dispositioned as `T18-12` (docum
 
 ### 9.5 What remains unverified
 
-- C-2 has no assertion-level conformance evidence. C-1 now has two passing tests (T18-02A), but its audit status is still NOT COVERED pending a re-audit revision; C-1's retention/publication ownership is also unresolved.
+- C-2 has no assertion-level conformance evidence. C-1 is PASS in audit revision 1; its retention/publication ownership remains unresolved and is outside the case's Expected Result.
+- §8.8's non-enumeration `MUST NOT` (N-176, revision 1) is PARTIAL: `discoverPaths` enumerates every simple path. Adjudication is #25 / `T18-SPEC-01`, not a test edit.
 - Recursive closure and origin closure are blocked interpretations.
 - Default conflict detection is absent.
 - Timestamp trust has no in-repo mechanism.

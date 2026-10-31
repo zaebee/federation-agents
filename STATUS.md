@@ -1,6 +1,6 @@
 # UIA-CORE-001 — Repository Status
 
-**Verified at:** commit `f478d5c`, 2026-10-31.
+**Verified at:** commit `1440ca4`, 2026-10-31.
 **Scope:** the reference implementation and its conformance evidence in this repository.
 **Authority:** the audit trail under [`docs/audits/`](docs/audits/). This file summarises it and links to it; it does not replace it.
 
@@ -11,22 +11,23 @@ Stage: **post-audit disposition**. The implementation through immediate merge cl
 What remains is not a backlog of missing code paths. It is two kinds of work:
 
 1. **Normative decisions** the specification leaves open. They cannot be implemented without inventing protocol semantics.
-2. **Evidence closures** that a re-audit must sign off, including the C-1 case whose evidence postdates the audit.
+2. **Evidence closures** the audits name — C-2 and D-2 blocked, D-1/D-4 partial, §16 independent compatibility absent — plus the open §8.8 reading inventoried as N-176 in audit revision 1.
 
 ## At a glance
 
-| Measure               | Value                                                                    | Source                                      |
-| --------------------- | ------------------------------------------------------------------------ | ------------------------------------------- |
-| §12 cases             | 13 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 1 NOT COVERED (C-1) | Task 17 conformance matrix                  |
-| Requirements          | 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL (175 total)        | Task 17 requirement matrix                  |
-| Decisions             | 2 APPROVED, 13 OPEN                                                      | Task 18 decision register                   |
-| Non-PASS items closed | 0 of 23; remediation implemented: 1 task (T18-02A)                       | Task 18 disposition and remediation roadmap |
-| Readiness             | `NOT_READY`                                                              | Task 18 §7                                  |
-| Local check matrix    | green — 553 tests, 550 pass, 3 todo, 0 fail, 3430 expectations           | `bun test` at the commit above              |
+| Measure               | Value                                                                    | Source                                 |
+| --------------------- | ------------------------------------------------------------------------ | -------------------------------------- |
+| §12 cases             | 14 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 0 NOT COVERED       | Task 17 audit, revision 1              |
+| Requirements          | 153 PASS, 9 PARTIAL, 9 BLOCKED, 5 NOT COVERED, 0 FAIL (176 total)        | Task 17 audit, revision 1              |
+| Decisions             | 2 APPROVED, 13 OPEN                                                      | Task 18 decision register              |
+| Non-PASS items closed | 1 of 23 (N-138 in revision 1); remediation implemented: 1 task (T18-02A) | Task 18 disposition + audit revision 1 |
+| Readiness             | `NOT_READY`                                                              | Task 18 §7                             |
+| Local check matrix    | green — 582 tests, 579 pass, 3 todo, 0 fail, 3646 expectations           | `bun test` at the commit above         |
 
-Two statuses need a caveat:
+Three statuses need a caveat:
 
-- **C-1** is recorded as NOT COVERED by the audit because at the audited commit no Assessment recorded `PARENT_UNRESOLVED`. The evidence now exists (T18-02A: adapter, Core validation and admission, two passing tests). Until a re-audit revision records it, this file reports the audit status, not the code's capability.
+- **C-1 is PASS in audit revision 1.** Task 17 recorded it as NOT COVERED because at its commit no Assessment recorded `PARENT_UNRESOLVED`; revision 1 re-audits all four C-1 assertions at `1440ca4` and moves the case to PASS. The PASS covers construction and admission only: retention and publication remain caller-managed and `T18-DEC-15` / the publication-ownership question stay OPEN, outside §12 C-1's Expected Result.
+- **§8.8 is PARTIAL in audit revision 1.** The revision inventories the §8.8 `MUST NOT` about explicit path enumeration as N-176; `discoverPaths` enumerates every simple path, so the requirement is not satisfied on the literal reading. Whether the public per-path result makes enumeration part of the required result is the open question in #25 / `T18-SPEC-01`.
 - **D-4** gained a future-authorization boundary test after the audit; that test does not assert §12 D-4's second MUST, so the PARTIAL status stands.
 
 ## Check matrix
@@ -68,6 +69,7 @@ These are undefined in Rev 0.3.3. Implementing them silently would turn an inter
 | Why is the architecture shaped this way?               | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                                               |
 | What is the protocol requirement?                      | [`docs/CORE-001.md`](docs/CORE-001.md)                                                                       |
 | What was audited, at which commit, and what was found? | [`docs/audits/2026-10-31-core-001-task-17/`](docs/audits/2026-10-31-core-001-task-17/)                       |
+| Which audit revision is current, and what changed?     | [`docs/audits/2026-10-31-core-001-task-17-revision-1/`](docs/audits/2026-10-31-core-001-task-17-revision-1/) |
 | What is each gap dispositioned to?                     | [`docs/audits/2026-10-31-core-001-task-18/`](docs/audits/2026-10-31-core-001-task-18/)                       |
 | What is planned, and in what order?                    | [`docs/ROADMAP.md`](docs/ROADMAP.md) and the Task 18 remediation roadmap                                     |
 | How was each plan task closed?                         | [Implementation plan](docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md) — historical tracker |

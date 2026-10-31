@@ -34,7 +34,7 @@ Status here is derived from code and tests. The [implementation plan](./superpow
 
 Phases are sequential at the level of dependencies, not of effort: P1 and P4 can overlap, but no phase may claim conformance for a module that does not exist.
 
-**Why P1–P3 are not Done.** Implementation is complete through immediate merge closure, and the suites are green, but phase exit is a conformance question. The Task 17 audit keeps §12 C-1 as NOT COVERED (evidence postdates it), C-2 and D-2 as BLOCKED, and D-1/D-4 as PARTIAL; P3's exit criteria ("every §12 case passes") therefore cannot be met yet. Implementation completion and conformance are separate axes, and this roadmap tracks both.
+**Why P1–P3 are not Done.** Implementation is complete through immediate merge closure, and the suites are green, but phase exit is a conformance question. The Task 17 audit kept §12 C-1 as NOT COVERED because its evidence postdates it; audit revision 1 moves C-1 to PASS. C-2 and D-2 remain BLOCKED and D-1/D-4 PARTIAL; P3's exit criteria ("every §12 case passes") therefore cannot be met yet. Implementation completion and conformance are separate axes, and this roadmap tracks both.
 
 ## 3. P0 — Foundations (Done)
 
@@ -52,7 +52,7 @@ Phases are sequential at the level of dependencies, not of effort: P1 and P4 can
 
 ## 4. P1 — Identity, lineage, assessment, traversal (In progress)
 
-The protocol core is implemented through immediate merge closure and scope × closure consistency. P1 remains open only for the C-series cases: C-1 has passing tests since T18-02A but still carries a NOT COVERED audit status pending a re-audit, while C-2 is BLOCKED on the C-2 subject-model decision and on grant suppression, which belongs to CORE-003.
+The protocol core is implemented through immediate merge closure and scope × closure consistency. P1 remains open only for the C-series cases: C-1 is PASS in audit revision 1, while C-2 is BLOCKED on the C-2 subject-model decision and on grant suppression, which belongs to CORE-003.
 
 | Task | Status  | Deliverable                                                          | Exit criterion |
 | ---- | ------- | -------------------------------------------------------------------- | -------------- |
@@ -95,7 +95,7 @@ The protocol core is implemented through immediate merge closure and scope × cl
 | 12   | Done   | Property-based tests: determinism, order independence, brute-force equivalence |
 | 17   | Done (audit) | Assertion-level conformance audit recorded in the audit trail; verdict `NOT_READY`. Counts and per-case status: [`STATUS.md`](../STATUS.md) |
 
-The audit replaced Task 17's planned "final report and tag": no `uia-core-001-refimpl-0.1.0` tag was created, and no full-conformance claim was made. Its findings were dispositioned in Task 18 (`docs/audits/2026-10-31-core-001-task-18/`), which is now the live remediation track.
+The audit replaced Task 17's planned "final report and tag": no `uia-core-001-refimpl-0.1.0` tag was created, and no full-conformance claim was made. Its findings were dispositioned in Task 18 (`docs/audits/2026-10-31-core-001-task-18/`), which is now the live remediation track. Audit revision 1 (`docs/audits/2026-10-31-core-001-task-17-revision-1/`) moves C-1 to PASS and §8.8 to PARTIAL; Task 17 files remain frozen.
 
 **Exit criteria for P3:**
 
@@ -166,7 +166,7 @@ CORE-001 moves from Candidate Draft Normative to Frozen Baseline only when §16 
 | ---------------------------------------------------------- | ----- |
 | All Category A structural tests pass                       | P1    |
 | All Category B binding and traversal tests pass            | P1    |
-| All Category C federation tests pass                       | P1 (C-1 evidence pending re-audit; C-2 BLOCKED) |
+| All Category C federation tests pass                       | P1 (C-1 PASS in revision 1; C-2 BLOCKED) |
 | All Category D cross-spec integration tests pass           | P2    |
 | Independent implementations agree on discovery and closure  | P6    |
 | Result independent of storage and delivery order            | P3    |
