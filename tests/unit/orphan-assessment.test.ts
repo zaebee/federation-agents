@@ -249,3 +249,14 @@ describe('package-root AEBE surface', () => {
     expect(Object.isFrozen(result.value.registered)).toBe(true);
   });
 });
+
+test('emits by candidate id, not by position, when an existing id sorts after the candidate', () => {
+  const existing = [assessment({ assessment_id: assessmentId('z-1') })];
+
+  const result = emit(mixedGraph, 'iv-d', existing, () => 'a-1');
+
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  expect(result.value.assessments.map((item) => String(item.assessment_id))).toEqual(['a-1']);
+  expect(result.value.registered.map((item) => String(item.assessment_id))).toEqual(['a-1', 'z-1']);
+});

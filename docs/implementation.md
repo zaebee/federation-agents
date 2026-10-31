@@ -837,7 +837,7 @@ function emitOrphanAssessment(
 - `assessmentIdFor` is called once per emitted group, in sorted relation order and sorted parent order. The adapter validates the returned ID as a non-empty string. It does not generate IDs.
 - The adapter calls `registerOrphanAssessments` once for the complete batch, including an empty batch. It stops before Core admission if the graph is not builder-issued, the child is absent, the callback throws, or an ID is invalid. A callback exception is reported as a mechanism failure that includes the original error message when available.
 - Even when no orphan candidate is emitted, the returned `registered` value is a Core-owned frozen copy, not the caller's mutable `existing` array. The emission object is frozen.
-- The returned `assessments` are the admitted tail of the frozen registered representation; `registered` is the complete frozen representation.
+- The returned `assessments` are the admitted records whose ids came from the candidate set, in the canonical (sorted) admitted order; `registered` is the complete frozen representation. They are selected by id, not by array position, because the registered representation is sorted.
 - `PARENT_UNRESOLVED` is declaration-scoped. Applicability of the Assessment to a resolved edge does not make that edge unresolved.
 - Callback side effects are outside Core atomicity and are not rolled back. Caller persistence occurs only after successful admission.
 

@@ -8,7 +8,7 @@
 import type { RuntimeInstanceDescriptor } from './entities.js';
 import { validateRuntimeInstanceDescriptor } from './entities.js';
 import type { Result } from './errors.js';
-import { mechanismFailure } from './errors.js';
+import { invalidInput as invalid, requireNonEmptyString } from './validation.js';
 import type { DeepReadonly } from './ownership.js';
 import { deepFreeze, validateJsonValue } from './ownership.js';
 import type { JsonValue, RuntimeInstanceID } from './primitives.js';
@@ -39,19 +39,8 @@ type JsonObject = { readonly [key: string]: JsonValue };
 
 const EVENT_FIELDS: readonly string[] = ['runtime_instance_id', 'kind'];
 
-function invalid(path: string, message: string): Result<never> {
-  return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', `${path}: ${message}`) };
-}
-
 function isJsonObject(value: JsonValue): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function requireString(value: JsonValue | undefined, path: string): Result<string> {
-  if (typeof value !== 'string') {
-    return invalid(path, 'expected string');
-  }
-  return { ok: true, value };
 }
 
 function rejectUnknownFields(value: JsonObject, allowed: readonly string[], path: string): Result<void> {
@@ -85,11 +74,8 @@ export function createRuntimeLifecycleEvent(value: unknown): Result<DeepReadonly
   }
   const known = rejectUnknownFields(json.value, EVENT_FIELDS, '$');
   if (!known.ok) return known;
-  const runtimeInstanceId = requireString(json.value.runtime_instance_id, '$.runtime_instance_id');
+  const runtimeInstanceId = requireNonEmptyString(json.value.runtime_instance_id, '$.runtime_instance_id');
   if (!runtimeInstanceId.ok) return runtimeInstanceId;
-  if (runtimeInstanceId.value.length === 0) {
-    return invalid('$.runtime_instance_id', 'expected non-empty string');
-  }
   if (json.value.kind !== 'FAILURE') {
     return invalid('$.kind', 'expected FAILURE');
   }

@@ -115,12 +115,14 @@ export function emitOrphanAssessment(request: OrphanAssessmentRequest): Result<O
   }
 
   const candidates: unknown[] = [];
+  const candidateIds = new Set<AssessmentID>();
   for (const group of collectRelationGroups(request.graph, request.child)) {
     if (!groupHasUnresolvedParent(group, request.graph)) {
       continue;
     }
     const id = assessmentIdForGroup(request, group);
     if (!id.ok) return id;
+    candidateIds.add(id.value);
     candidates.push(buildCandidate(request, group, id.value));
   }
 
@@ -129,6 +131,9 @@ export function emitOrphanAssessment(request: OrphanAssessmentRequest): Result<O
     return admitted;
   }
 
-  const assessments = Object.freeze(admitted.value.slice(request.existing.length));
+  // The registered representation is sorted by assessment_id, so selecting the
+  // emitted records by position would pick up pre-existing records. Select by
+  // the candidate IDs instead; the admitted order is preserved.
+  const assessments = Object.freeze(admitted.value.filter((assessment) => candidateIds.has(assessment.assessment_id)));
   return { ok: true, value: Object.freeze({ assessments, registered: admitted.value }) };
 }
