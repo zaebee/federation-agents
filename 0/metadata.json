@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.3-nightly.202610300619.cea1b3cee",
+  "checkpoint_id": "01M67S5G1NDCXW7YAG8YZPZ7WH",
+  "session_id": "ses_e7080ee80ffeBGRZ1GrSHhSuZp",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T01:28:47.032700418Z",
+  "branch": "chore/refresh-bun-lock",
+  "checkpoints_count": 16,
+  "files_touched": [
+    "bun.lock"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "0710bfedaab0",
+  "checkpoint_transcript_start": 38,
+  "transcript_lines_at_start": 38,
+  "compact_transcript_start": 38,
+  "token_usage": {
+    "input_tokens": 67081,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 4023424,
+    "output_tokens": 13148,
+    "api_call_count": 59
+  },
+  "redaction": {
+    "replacements": 2,
+    "layers": {
+      "betterleaks": 2,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 18
+  }
+}
