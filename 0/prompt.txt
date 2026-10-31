@@ -1,0 +1,72 @@
+Да. Посмотрел метаданные PR #44: он открыт, изменён один файл — tests/conformance/d.test.ts, 54 additions и 1 deletion. Это соответствует заявленному test-only scope.
+Scope соответствует T18-03
+Но это пока только предварительная оценка: сейчас проверю сам diff, семантику новых assertions, CI и возможные расхождения с D-4.
+
+Проверил diff, нормативный контекст, реализацию evaluateHistoricalSignature, Task 17/18 acceptance criteria, CI и GitHub review threads.
+APPROVE TO MERGE
+Блокирующих замечаний нет
+
+1. Что проверено
+Проверка	Результат
+Scope	Один файл, только тесты
+D-4 historical result	CONTESTED_COMPROMISED проверяется
+revoked_at ≠ compromise_effective_at	Проверяется
+Future policy invocation	Проверяется, ровно один вызов
+Revocation context	Проверяется
+Temporal context	Проверяется
+Policy outcome	NOT_AUTHORIZABLE и REQUIRES_ASSESSMENT
+Automatic grant	Не вводится и не подразумевается
+Task 17	Не изменён
+CI	PASS
+
+GitHub Actions CI run 41207330814 завершился успешно.
+
+PR сообщает следующие результаты тестирования:
+- Conformance D: 7 pass.
+- Credential unit: 46 pass.
+- Полный suite: 550 pass, 3 todo, 0 fail, 3426 assertions.
+- Typecheck, lint, format, build — заявлены успешными.
+Последние четыре команды я не запускал самостоятельно: ориентируюсь на результаты, указанные в PR.
+2. Проверка семантики
+Здесь Claude хорошо учёл предыдущую критику.
+
+Тест 1: policy возвращает NOT_AUTHORIZABLE. Проверяется, что:
+- исторический результат остаётся CONTESTED_COMPROMISED;
+- callback получает CONFIRMED_COMPROMISE;
+- revoked_at передаётся;
+- compromise_effective_at отсутствует;
+- Core не выводит время компрометации из времени отзыва.
+Тест 2: policy возвращает REQUIRES_ASSESSMENT.
+
+Это правильнее, чем прежний вариант с AUTHORIZABLE: он демонстрирует отдельный policy outcome, не создавая впечатления, будто историческая неопределённость сама по себе позволяет авторизацию.
+
+Особенно важно, что в комментарии к тесту явно сказано: он не доказывает достаточность дополнительной нормативной оценки. Это корректное ограничение доказательства.
+3. Одно необязательное улучшение
+В PR есть открытый комментарий Gemini Code Assist — и я с ним частично согласен.
+
+В первом тесте FutureAuthorizationInput проверяется достаточно подробно, но пропущены три поля:
+- credential;
+- signed_at;
+- subject_binding.
+Я бы добавил:
+expect(observed).toBeDefined();
+expect(observed?.credential).toEqual(credential);
+expect(observed?.signed_at).toBe(timestamp(SIGNED_AT));
+expect(observed?.subject_binding).toEqual(binding);
+
+
+Это усилит проверку полноты передачи контекста.
+
+Но это не блокер для T18-03: ключевые для D-4 поля уже проверяются, а acceptance criterion требует прежде всего revocation/temporal context и отсутствия auto-authorization.
+4. Итог
+Я не вижу оснований отправлять PR на большие изменения или снова запускать Claude Plan Mode.
+- Нет production changes.
+- Нет изменения нормативной семантики.
+- Нет автоматической выдачи authority.
+- Нет подмены времени компрометации.
+- REQUIRES_ASSESSMENT используется корректно как отдельный результат policy.
+Мой вердикт: APPROVE TO MERGE. Три дополнительных assertions — хорошее улучшение, но не обязательное условие merge.
+
+PR #44
+
+Я не отправлял GitHub review и не выполнял merge. После merge T18-03 можно считать выполненным на уровне тестовой реализации; Task 17 D-4 и N-041 всё ещё потребуют отдельного re-audit, прежде чем менять исторические статусы.
