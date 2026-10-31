@@ -60,6 +60,11 @@ export type PathValidation =
 
 export type FailedPathValidation = Exclude<PathValidation, { readonly status: 'VALID' }>;
 
+export interface PathOutcome {
+  readonly path: Path;
+  readonly outcome: PathValidation;
+}
+
 export interface FailedPath {
   readonly path: Path;
   readonly outcome: FailedPathValidation;
@@ -73,7 +78,11 @@ export type BindingFailureCode =
   | 'CYCLE_DETECTED';
 
 export type BindingResult =
-  | { readonly eligible: true; readonly acceptedPaths: readonly Path[] }
+  | {
+      readonly eligible: true;
+      readonly acceptedPaths: readonly Path[];
+      readonly details: { readonly perPath: readonly PathOutcome[] };
+    }
   | { readonly eligible: false; readonly kind: 'MECHANISM'; readonly error: MechanismFailure }
   | {
       readonly eligible: false;
@@ -394,11 +403,23 @@ function precheckCandidate(
   return { ok: true };
 }
 
-function summarizePaths(accepted: readonly Path[], failed: readonly FailedPath[]): BindingResult {
+function isFailedOutcome(item: PathOutcome): item is FailedPath {
+  return item.outcome.status !== 'VALID';
+}
+
+function summarizePaths(accepted: readonly Path[], outcomes: readonly PathOutcome[]): BindingResult {
   if (accepted.length > 0) {
-    return deepFreeze({ eligible: true, acceptedPaths: accepted }) as BindingResult;
+    return deepFreeze({
+      eligible: true,
+      acceptedPaths: accepted,
+      details: { perPath: outcomes },
+    }) as BindingResult;
   }
-  if (failed.length > 0 && failed.every((item) => item.outcome.status === 'CONTESTED')) {
+
+  const failed = outcomes.filter(isFailedOutcome);
+  // Task 9 aggregation: any CONTESTED path makes the top-level outcome
+  // contested; per-path outcomes are preserved regardless of the mix.
+  if (failed.some((item) => item.outcome.status === 'CONTESTED')) {
     return deepFreeze({
       eligible: false,
       kind: 'CONTESTED',
@@ -448,19 +469,18 @@ export function evaluateBinding(
   }
 
   const accepted: Path[] = [];
-  const failed: FailedPath[] = [];
+  const outcomes: PathOutcome[] = [];
 
   for (const path of discovered.value) {
     const validation = validatePath(path, state.assessments, binding.assurance_requirement, policy, ctx);
     if (!validation.ok) {
       return mechanismResult(asMechanism(validation.error));
     }
+    outcomes.push({ path, outcome: validation.value });
     if (validation.value.status === 'VALID') {
       accepted.push(path);
-    } else {
-      failed.push({ path, outcome: validation.value });
     }
   }
 
-  return summarizePaths(accepted, failed);
+  return summarizePaths(accepted, outcomes);
 }

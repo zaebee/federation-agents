@@ -422,6 +422,7 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
 - The plan's Task 9 signatures omit a data source for Assessments. The approved signatures are therefore extended explicitly: `validatePath(path, assessments, requirement, policy, ctx)` and `evaluateBinding(state: { graph, descriptors, assessments }, binding, candidateID, policy, ctx)`. Task 8's `assessEdge` remains the sole owner of applicability; no global or implicit assessment source is introduced.
 - `Path` carries its `LineageTraversalScope`, so `validatePath` can enforce §8.5(1) without adding a scope parameter.
 - `BindingResult` gains two implementation-level variants: `kind: 'MECHANISM'` carrying a `MechanismFailure`, and `kind: 'CONTESTED'` for the all-contested aggregation. Neither is a `UiaErrorCode`; ordinary normative failures keep their codes and all per-path outcomes are preserved. This does not close A-8 or create a normative precedence table.
+- Successful bindings also carry `details.perPath` with every discovered path outcome (VALID, INVALID or CONTESTED), not only `acceptedPaths`. When no path is VALID, a single CONTESTED path is enough for the top-level `kind: 'CONTESTED'`; mixed CONTESTED/INVALID results remain CONTESTED and preserve both per-path outcomes.
 - B-1 uses the fixture-level selector `=1.0.0` and matches it against the candidate label per §8.3(3). No `EXACT` binding mode is introduced; A-2 remains OPEN.
 - B-3 is Task 9 path-level success only. Immediate merge closure and the final §8.6 eligibility remain Task 10.
 

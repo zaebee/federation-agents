@@ -33,6 +33,7 @@ export type {
   FailedPathValidation,
   LineageTraversalScope,
   Path,
+  PathOutcome,
   PathSet,
   PathValidation,
 } from './traversal.js';

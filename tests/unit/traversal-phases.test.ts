@@ -37,6 +37,45 @@ function kindedFailure(result: BindingResult): Extract<BindingResult, { kind: 'M
   return result;
 }
 
+function diamondBinding(): ConditionalVersionBinding {
+  return bindingFor({
+    origin: 'iv-a-1',
+    selector: '>=1.0.0',
+    scope: 'FULL_ANCESTRY',
+    claims: ['OK'],
+    targetParticipant: 'participant-d',
+  });
+}
+
+function diamondAssessments(
+  config: {
+    readonly dbContested?: boolean;
+    readonly dcContested?: boolean;
+    readonly caClaims?: readonly string[];
+  } = {},
+) {
+  const caClaims = config.caClaims ?? ['OK'];
+  const db = config.dbContested
+    ? [
+        assessmentRecord({ id: 'db1', subject: 'iv-d', parents: ['iv-b'], relation: 'MERGED_FROM', verified: ['OK'] }),
+        assessmentRecord({ id: 'db2', subject: 'iv-d', parents: ['iv-b'], relation: 'MERGED_FROM', verified: ['OK'] }),
+      ]
+    : [assessmentRecord({ id: 'db', subject: 'iv-d', parents: ['iv-b'], relation: 'MERGED_FROM', verified: ['OK'] })];
+  const dc = config.dcContested
+    ? [
+        assessmentRecord({ id: 'dc1', subject: 'iv-d', parents: ['iv-c'], relation: 'MERGED_FROM', verified: ['OK'] }),
+        assessmentRecord({ id: 'dc2', subject: 'iv-d', parents: ['iv-c'], relation: 'MERGED_FROM', verified: ['OK'] }),
+      ]
+    : [assessmentRecord({ id: 'dc', subject: 'iv-d', parents: ['iv-c'], relation: 'MERGED_FROM', verified: ['OK'] })];
+
+  return [
+    ...db,
+    assessmentRecord({ id: 'ba', subject: 'iv-b', parents: ['iv-a-1'], relation: 'FORKED_FROM', verified: ['OK'] }),
+    ...dc,
+    assessmentRecord({ id: 'ca', subject: 'iv-c', parents: ['iv-a-1'], relation: 'CONTINUATION', verified: caClaims }),
+  ];
+}
+
 describe('discoverPaths (phase 1)', () => {
   test('finds a single path without any assessments input', () => {
     const { graph } = chainState();
@@ -248,6 +287,56 @@ describe('evaluateBinding orchestration', () => {
     expect(result.eligible).toBe(true);
     if (!result.eligible) return;
     expect(result.acceptedPaths.map(pathNodes)).toEqual([['iv-a-2', 'iv-a-1']]);
+  });
+
+  test('aggregates mixed CONTESTED and INVALID paths as CONTESTED with all outcomes', () => {
+    const { graph, descriptors } = diamondState();
+
+    const result = evaluateBinding(
+      { graph, descriptors, assessments: diamondAssessments({ dbContested: true, caClaims: ['OTHER'] }) },
+      diamondBinding(),
+      identityVersionId('iv-d'),
+      { conflictPredicate: () => true },
+      CTX,
+    );
+
+    const failure = kindedFailure(result);
+    expect(failure.kind).toBe('CONTESTED');
+    if (failure.kind !== 'CONTESTED') return;
+    expect(failure.details.perPath.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'INVALID']);
+  });
+
+  test('preserves failed path outcomes when another path is valid', () => {
+    const { graph, descriptors } = diamondState();
+
+    const result = evaluateBinding(
+      { graph, descriptors, assessments: diamondAssessments({ caClaims: ['OTHER'] }) },
+      diamondBinding(),
+      identityVersionId('iv-d'),
+      EMPTY_POLICY,
+      CTX,
+    );
+
+    expect(result.eligible).toBe(true);
+    if (!result.eligible) return;
+    expect(result.acceptedPaths.map(pathNodes)).toEqual([['iv-d', 'iv-b', 'iv-a-1']]);
+    expect(result.details.perPath.map((item) => item.outcome.status).sort()).toEqual(['INVALID', 'VALID']);
+  });
+
+  test('preserves a contested path outcome when another path is valid', () => {
+    const { graph, descriptors } = diamondState();
+
+    const result = evaluateBinding(
+      { graph, descriptors, assessments: diamondAssessments({ dcContested: true }) },
+      diamondBinding(),
+      identityVersionId('iv-d'),
+      { conflictPredicate: () => true },
+      CTX,
+    );
+
+    expect(result.eligible).toBe(true);
+    if (!result.eligible) return;
+    expect(result.details.perPath.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'VALID']);
   });
 
   test('reports a mechanism failure for a malformed selector', () => {
