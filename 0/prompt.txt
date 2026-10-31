@@ -1,0 +1,7 @@
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md:70-72`
+
+Register §3 now says registration ownership remains OPEN. Yet T18-02A is still marked **eligible**, and its acceptance requires 'validation enforced at registration' and AEBE item 3 ('assessment is frozen/registered'). If no boundary owns registration yet, T18-02A cannot be accepted as written. Either list registration ownership as a T18-02A prerequisite, or say which boundary performs registration for the purpose of AEBE. 
+---
+PTAL
