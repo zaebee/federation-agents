@@ -475,6 +475,7 @@ function descriptorHash(descriptor: DeepReadonly<IdentityVersionDescriptor>): `u
 - Nested credentials and lineage links are projected through their own declared field lists, so an unknown nested property cannot silently enter the hash. Unknown properties are rejected earlier at the descriptor boundary.
 - Wrappers, envelopes, message signatures, delivery metadata, ledger metadata, later lifecycle events, later assessments, revocations and acceptance records are outside the projection and cannot change the hash.
 - `descriptorHash` returns `urn:hash:sha256:<64 lowercase hex>`.
+- It **computes** the digest only. It does not compare the digest with a claimed value and does not produce `DESCRIPTOR_HASH_CONFIRMED`. §7.2 steps 3–4 (compare, refuse on a byte mismatch) are the caller's responsibility until `T18-DEC-05` decides the boundary; Task 17 records N-084 as NOT COVERED. Recorded as A-15 (§6.2).
 
 **Failure modes:** throws `CanonicalizationError`.
 
@@ -546,6 +547,7 @@ function selectorMatches(selector: CompiledSelector, label: VersionLabel): boole
 
 - `SEMVER_2`: `*`, or one or more comparators joined by `&&`. Each comparator starts with `=`, `>`, `>=`, `<`, `<=`, `^` or `~` and is followed by a SemVer 2.0.0 version with no whitespace. `^` and `~` expand at compile time to `>=version` and `<upper-bound`, where `~` increments the minor and `^` increments the first non-zero component (major, else minor, else patch).
 - `CONTENT_HASH` and `OPAQUE_TAG`: `*` or `=label`, with the label taken exactly as written. A range prefix produces `S_SELECTOR_INCOMPATIBLE_SCHEME`; any other syntax produces `E_SELECTOR_SYNTAX_INVALID`.
+- §3.2 permits non-exact matching for `OPAQUE_TAG` only when local policy explicitly defines another mechanism. CORE-001 ships no selector-policy surface, so `uia-ref-selector@1`'s wildcard for those schemes is a mechanism extension applied unconditionally today. Recorded as A-13 (§6.2); `tests/unit/selector.test.ts` cites it.
 - Empty expressions, empty `&&` segments, lone surrogates and non-string inputs are syntax errors.
 - Exact (`=`) comparison is full string identity, including build metadata. Other operators use SemVer precedence, which ignores build metadata. A scheme mismatch returns `false`.
 
@@ -1398,7 +1400,7 @@ validatePath(path, graph, assessments, requirement, policy, ctx): Result<PathVal
 
 - A malformed path — empty, non-contiguous, an edge outside the declared scope, or a repeated node — is a mechanism failure (`E_UNKNOWN_BOUNDARY_REJECTED`). These are caller errors, not protocol states.
 - A path whose edges are not present in the supplied graph is a mechanism failure with the same code. A `Path` is only meaningful against the graph it was discovered from: a path from a stale snapshot or from another domain's JSON never validates by accident, because the graph it is checked against must contain it.
-- A node in a cyclic SCC yields `CYCLE_DETECTED` before any edge is evaluated.
+- A node in a cyclic SCC yields `CYCLE_DETECTED` before any edge is evaluated. This is deliberately broader than §11.2's literal text: an acyclic path whose node belongs to a cycle elsewhere is rejected too. Recorded as A-14 (§6.2); `tests/unit/traversal-phases.test.ts` cites it.
 - An edge with no applicable assessment yields `INVALID` with `missing` equal to all required claims (sorted) and `disallowed` empty. Absence of an assessment is never success (§8.5, §13 #9).
 - An applicable set narrowed to empty by policy behaves the same way, because `assessEdge` sets `unresolved`.
 - An untrusted positive assessment cannot satisfy a requirement: only assessments from the trusted set contribute verified claims.
@@ -1483,6 +1485,7 @@ Recursive closure — applying `ALL_BRANCHES_MUST_SATISFY` transitively inside p
 - `validatePath` checks whether any node on the path belongs to a cyclic SCC and returns `CYCLE_DETECTED` with the union of the touched components, sorted.
 - `evaluateBinding` aggregates `CYCLE_DETECTED` per path and preserves it in `details.perPath`.
 - A cycle never yields `eligible: true` by itself. An unrelated cycle does not invalidate an acyclic path; an acyclic alternative remains eligible while a cyclic path is retained in details.
+- A cycle does invalidate a path that traverses one of its nodes, even when that path's own edges are acyclic (the conservative reading of §11.2; A-14 OPEN, §6.2).
 - No cycle causes an exception, a deletion or a global block.
 
 **Tests:** `tests/unit/lineage-graph.test.ts` (cycle components), `tests/unit/traversal-phases.test.ts` (cycles as dead ends, standalone cycle), `tests/property/traversal-invariance.test.ts` P8.
@@ -1701,6 +1704,18 @@ Reproduced from the approved Rev E plan, unchanged. Statuses are not edited here
 
 A-4a is resolved by the literal text of §6.2.2/§6.4/§8.5, not by an implementation choice. A-10 is resolved by approved implementation semantics, not by specification text. Neither resolution is a precedent for closing A-4b, A-5, A-9 or A-11.
 
+### 6.2 Register additions recorded after Task 18
+
+The §6 table is the frozen Rev E register and is not rewritten here. The independent audit found three implemented semantics that it does not cover; they are recorded as OPEN additions. Each is a specification decision, not an implementation gap: the code is conservative or documented, but the normative reading is not settled.
+
+| # | Spec point | Status | Implemented behavior | Remediation |
+| --- | --- | --- | --- | --- |
+| A-13 | §3.2 non-SemVer selector matching ("`OPAQUE_TAG` допускает только точное сопоставление, если локальная политика явно не определяет иной механизм") | **OPEN** | `uia-ref-selector@1` compiles `*` and `=label` for `CONTENT_HASH`/`OPAQUE_TAG`; CORE-001 has no selector-policy surface, so the wildcard is applied unconditionally. The frozen A-1 row still says "exact-match only", which does not describe the code | Decide: (a) restrict non-SemVer schemes to `=label`; (b) add an explicit policy opt-in and reject `*` without it; (c) declare `uia-ref-selector@1` the explicit local mechanism. Tracked as issue #64; tests cite A-13 |
+| A-14 | §11.2 cycle breadth in path validation | **OPEN** | `validatePath` returns `CYCLE_DETECTED` when **any node** of the path belongs to a cyclic SCC, even if the path's own edges are acyclic and the cycle is on a side branch. §11.2 requires that a cycle not be accepted as proof and that dependent grants be withheld; it does not say whether an independent acyclic path through such a node may be validated | Decide conservative-reject (current), continue-past-cycle or report-don't-reject, and state it in §11.2 or a clarifier. Tracked as issue #65; tests cite A-14 |
+| A-15 | §7.2 steps 3–4 digest verification boundary | **OPEN** (`T18-DEC-05`; N-084 NOT COVERED) | `descriptorHash` computes `urn:hash:sha256:…` only; no API compares it with a claimed digest, so no mismatch evidence and no `DESCRIPTOR_HASH_CONFIRMED` result exists | `T18-DEC-05` assigns verification to CORE-001 or to the caller; if caller, add the contract plus a negative mismatch test; if core, add the API and the §12 evidence. Audit trace: N-084 NOT COVERED |
+
+None of these three is a silent implementation choice in the sense of rule 9: A-13 and A-14 are pinned by tests that name the register entry, and A-15 is stated in §2.7 and §9.5.
+
 ---
 
 ## 7. Mechanisms versus semantics
@@ -1889,6 +1904,8 @@ Recorded as `D-007` in the Task 17 register and dispositioned as `T18-12` (docum
 - Recursive closure and origin closure are blocked interpretations.
 - Default conflict detection is absent.
 - Timestamp trust has no in-repo mechanism.
+- Digest claim verification (§7.2 steps 3–4) is not implemented; `descriptorHash` computes only (A-15, `T18-DEC-05`).
+- Non-SemVer selector matching has no §3.2 policy surface: the mechanism wildcard is applied unconditionally (A-13).
 - No independent implementation has been compared against this one (§16 freeze criteria).
 - The test suite is evidence for the assertions it contains, not for production security or interoperability.
 
