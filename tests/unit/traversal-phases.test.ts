@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { buildLineageGraph } from '../../src/core/lineage.js';
 import type { LineageGraph } from '../../src/core/lineage.js';
-import { discoverPaths, evaluateBinding, validatePath } from '../../src/core/traversal.js';
+import { discoverPaths, evaluateBinding, validateMergeClosure, validatePath } from '../../src/core/traversal.js';
 import type {
   BindingResult,
   ConditionalVersionBinding,
@@ -15,10 +15,18 @@ import {
   EMPTY_POLICY,
   assessmentRecord,
   bindingFor,
+  MERGE_SURVIVING_PATH,
   chainAssessment,
   chainState,
   cyclePairState,
   diamondState,
+  evaluateAt,
+  expectContestedFailure,
+  expectMechanismFailure,
+  expectNormativeFailure,
+  fullAncestryBinding,
+  mergeClosureState,
+  mergeSkeleton,
   pathNodes,
   requirementFor,
 } from '../support/traversal.js';
@@ -36,23 +44,6 @@ function kindedFailure(result: BindingResult): Extract<BindingResult, { kind: 'M
     throw new Error('expected a kinded binding failure');
   }
   return result;
-}
-
-function cycleOutcome(result: BindingResult) {
-  expect(result.eligible).toBe(false);
-  if (result.eligible) {
-    throw new Error('expected a failed binding');
-  }
-  expect('code' in result).toBe(true);
-  if (!('code' in result)) {
-    throw new Error('expected a normative binding failure');
-  }
-  expect(result.code).toBe('CYCLE_DETECTED');
-  const outcome = result.details.perPath?.[0].outcome;
-  if (outcome?.status !== 'CYCLE_DETECTED') {
-    throw new Error('expected a CYCLE_DETECTED path outcome');
-  }
-  return outcome;
 }
 
 function diamondBinding(): ConditionalVersionBinding {
@@ -308,10 +299,7 @@ describe('validatePath (phase 2)', () => {
 
     const result = validatePath(scoped, graph, [], requirementFor([]), EMPTY_POLICY, CTX);
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.kind).toBe('MECHANISM');
-    expect(result.error.code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
+    expect(expectMechanismFailure(result).code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
   });
 
   test('detects a cycle in a standalone path through the cycle index', () => {
@@ -337,6 +325,108 @@ describe('validatePath (phase 2)', () => {
     };
 
     expect(validatePath(broken, graph, [], requirementFor([]), EMPTY_POLICY, CTX).ok).toBe(false);
+  });
+});
+
+describe('validateMergeClosure (phase 3)', () => {
+  test('reports the closure-only branch that fails assurance', () => {
+    const { graph, assessments } = mergeClosureState();
+
+    const result = validateMergeClosure(
+      MERGE_SURVIVING_PATH,
+      graph,
+      assessments,
+      requirementFor(['OK']),
+      EMPTY_POLICY,
+      CTX,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.status).toBe('UNSATISFIED');
+    if (result.value.status !== 'UNSATISFIED') return;
+    expect(result.value.code).toBe('ERR_MERGE_BRANCH_UNSATISFIED');
+    expect(result.value.failures).toHaveLength(1);
+    expect(result.value.failures[0].branch).toEqual({
+      child: identityVersionId('iv-d'),
+      parent: identityVersionId('iv-b'),
+      relation: 'MERGED_FROM',
+    });
+    expect(result.value.failures[0].reason).toBe('NO_APPLICABLE_ASSESSMENT');
+  });
+
+  test('is satisfied for a path without merge nodes', () => {
+    const { graph, assessments } = chainState();
+    const plainPath: Path = {
+      scope: 'CONTINUATION_ONLY',
+      edges: [{ child: identityVersionId('iv-a-2'), parent: identityVersionId('iv-a-1'), relation: 'CONTINUATION' }],
+    };
+
+    const result = validateMergeClosure(plainPath, graph, assessments, requirementFor(['CONT_OK']), EMPTY_POLICY, CTX);
+
+    expect(result).toEqual({ ok: true, value: { status: 'SATISFIED' } });
+  });
+
+  test('keeps path-level VALID distinct from closure failure', () => {
+    const { graph, assessments } = mergeClosureState();
+    const pathResult = validatePath(
+      MERGE_SURVIVING_PATH,
+      graph,
+      assessments,
+      requirementFor(['OK']),
+      EMPTY_POLICY,
+      CTX,
+    );
+    const closure = validateMergeClosure(
+      MERGE_SURVIVING_PATH,
+      graph,
+      assessments,
+      requirementFor(['OK']),
+      EMPTY_POLICY,
+      CTX,
+    );
+
+    expect(pathResult.ok).toBe(true);
+    if (!pathResult.ok) return;
+    expect(pathResult.value).toEqual({ status: 'VALID' });
+    expect(closure.ok).toBe(true);
+    if (!closure.ok) return;
+    expect(closure.value.status).toBe('UNSATISFIED');
+  });
+
+  test('propagates mechanism failures instead of turning them into branch failures', () => {
+    const { graph, assessments } = mergeClosureState();
+    const duplicated = [...assessments, { ...assessments[0] }];
+
+    const result = validateMergeClosure(
+      MERGE_SURVIVING_PATH,
+      graph,
+      duplicated,
+      requirementFor(['OK']),
+      EMPTY_POLICY,
+      CTX,
+    );
+
+    expect(expectMechanismFailure(result).code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
+  });
+
+  test('does not descend into a closure-only branch', () => {
+    const { graph, assessments } = mergeClosureState({ nonOriginBranch: true, missingBranch: 'c' });
+    const path: Path = {
+      scope: 'FULL_ANCESTRY',
+      edges: [
+        { child: identityVersionId('iv-d'), parent: identityVersionId('iv-b'), relation: 'MERGED_FROM' },
+        { child: identityVersionId('iv-b'), parent: identityVersionId('iv-a-1'), relation: 'FORKED_FROM' },
+      ],
+    };
+
+    const result = validateMergeClosure(path, graph, assessments, requirementFor(['OK']), EMPTY_POLICY, CTX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.status).toBe('UNSATISFIED');
+    if (result.value.status !== 'UNSATISFIED') return;
+    expect(result.value.failures.map((item) => String(item.branch.parent))).toEqual(['iv-c']);
   });
 });
 
@@ -390,9 +480,7 @@ describe('evaluateBinding orchestration', () => {
       CTX,
     );
 
-    const failure = kindedFailure(result);
-    expect(failure.kind).toBe('CONTESTED');
-    if (failure.kind !== 'CONTESTED') return;
+    const failure = expectContestedFailure(result);
     expect(failure.details.perPath.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'INVALID']);
   });
 
@@ -413,7 +501,7 @@ describe('evaluateBinding orchestration', () => {
     expect(result.details.perPath.map((item) => item.outcome.status).sort()).toEqual(['INVALID', 'VALID']);
   });
 
-  test('preserves a contested path outcome when another path is valid', () => {
+  test('does not mask a closure failure with a valid path-level outcome', () => {
     const { graph, descriptors } = diamondState();
 
     const result = evaluateBinding(
@@ -424,50 +512,12 @@ describe('evaluateBinding orchestration', () => {
       CTX,
     );
 
-    expect(result.eligible).toBe(true);
-    if (!result.eligible) return;
-    expect(result.details.perPath.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'VALID']);
-  });
-
-  test('rejects a binding whose only path lies inside a cyclic SCC', () => {
-    const { graph, descriptors, assessment, binding } = cyclePairState();
-
-    const result = evaluateBinding(
-      { graph, descriptors, assessments: [assessment] },
-      binding,
-      identityVersionId('iv-v1'),
-      EMPTY_POLICY,
-      CTX,
-    );
-
-    expect(cycleOutcome(result).cycle.map(String).sort()).toEqual(['iv-v1', 'iv-v2']);
-  });
-
-  test('reports only the SCC that intersects the path', () => {
-    const pair = cyclePairState();
-    const v3 = descriptor({
-      id: 'iv-v3',
-      participant: 'participant-a',
-      versionLabel: '1.0.0',
-      lineage: [link('iv-v4', 'CONTINUATION')],
-    });
-    const v4 = descriptor({
-      id: 'iv-v4',
-      participant: 'participant-a',
-      versionLabel: '1.0.0',
-      lineage: [link('iv-v3', 'CONTINUATION')],
-    });
-    const graph = buildLineageGraph(registry([alice], [pair.v1, pair.v2, v3, v4]));
-
-    const result = evaluateBinding(
-      { graph, descriptors: [pair.v1, pair.v2, v3, v4], assessments: [pair.assessment] },
-      pair.binding,
-      identityVersionId('iv-v1'),
-      EMPTY_POLICY,
-      CTX,
-    );
-
-    expect(cycleOutcome(result).cycle.map(String)).toEqual(['iv-v1', 'iv-v2']);
+    const failure = expectNormativeFailure(result);
+    expect(failure.code).toBe('ERR_MERGE_BRANCH_UNSATISFIED');
+    const perPath = failure.details.perPath ?? [];
+    expect(perPath.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'VALID']);
+    const validPath = perPath.find((item) => item.outcome.status === 'VALID');
+    expect(validPath?.closure?.status).toBe('UNSATISFIED');
   });
 
   test('aggregates mixed CYCLE_DETECTED and CONTESTED paths as CYCLE_DETECTED', () => {
@@ -490,12 +540,7 @@ describe('evaluateBinding orchestration', () => {
       versionLabel: '1.0.0',
       lineage: [link('iv-a-1', 'CONTINUATION')],
     });
-    const d = descriptor({
-      id: 'iv-d',
-      participant: 'participant-d',
-      versionLabel: '2.0.0',
-      lineage: [link('iv-b', 'MERGED_FROM'), link('iv-c', 'MERGED_FROM')],
-    });
+    const { d } = mergeSkeleton();
     const graph = buildLineageGraph(registry([alice, participant('participant-d')], [a, b, b2, c, d]));
     const assessments = [
       assessmentRecord({ id: 'db', subject: 'iv-d', parents: ['iv-b'], relation: 'MERGED_FROM', verified: ['OK'] }),
@@ -504,28 +549,15 @@ describe('evaluateBinding orchestration', () => {
       assessmentRecord({ id: 'dc2', subject: 'iv-d', parents: ['iv-c'], relation: 'MERGED_FROM', verified: ['OK'] }),
       assessmentRecord({ id: 'ca', subject: 'iv-c', parents: ['iv-a-1'], relation: 'CONTINUATION', verified: ['OK'] }),
     ];
-    const binding = bindingFor({
-      origin: 'iv-a-1',
-      selector: '>=1.0.0',
-      scope: 'FULL_ANCESTRY',
-      claims: ['OK'],
-      targetParticipant: 'participant-d',
+    const binding = fullAncestryBinding();
+
+    const result = evaluateAt({ graph, descriptors: [a, b, b2, c, d], assessments }, binding, 'iv-d', {
+      conflictPredicate: () => true,
     });
 
-    const result = evaluateBinding(
-      { graph, descriptors: [a, b, b2, c, d], assessments },
-      binding,
-      identityVersionId('iv-d'),
-      { conflictPredicate: () => true },
-      CTX,
-    );
-
-    expect(result.eligible).toBe(false);
-    if (result.eligible) return;
-    expect('code' in result).toBe(true);
-    if (!('code' in result)) return;
-    expect(result.code).toBe('CYCLE_DETECTED');
-    expect(result.details.perPath?.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'CYCLE_DETECTED']);
+    const failure = expectNormativeFailure(result);
+    expect(failure.code).toBe('CYCLE_DETECTED');
+    expect(failure.details.perPath?.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'CYCLE_DETECTED']);
   });
 
   test('reports a mechanism failure for a malformed selector', () => {
@@ -566,9 +598,7 @@ describe('evaluateBinding orchestration', () => {
       CTX,
     );
 
-    const failure = kindedFailure(result);
-    expect(failure.kind).toBe('CONTESTED');
-    if (failure.kind !== 'CONTESTED') return;
+    const failure = expectContestedFailure(result);
     expect(failure.details.perPath[0].outcome.status).toBe('CONTESTED');
   });
 

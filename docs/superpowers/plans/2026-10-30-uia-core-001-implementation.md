@@ -445,6 +445,14 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
 - [ ] **Step 2: Run** → fail; **Step 3: Implement immediate closure (direct parent edges only) + per-path details + GC-18 aggregation.** **Step 4: Run** → pass (experimental file runs but does not gate conformance).
 - [ ] **Step 5: Commit** `feat(core): immediate merge closure with per-path failure reporting (B-4..B-7); recursive closure BLOCKED`.
 
+**Approved implementation decisions (2026-10-31):**
+
+- `validateMergeClosure` takes explicit `assessments` (same data-flow gap as Task 9): `(path, graph, assessments, requirement, policy, ctx)`. `evaluateBinding` passes `state.assessments`; Task 8 remains the sole owner of applicability and assurance.
+- `MergeClosureResult` is `SATISFIED` or `UNSATISFIED { code: 'ERR_MERGE_BRANCH_UNSATISFIED', failures }`, where each failure carries `branch` plus `NO_APPLICABLE_ASSESSMENT`, `ASSURANCE_UNSATISFIED` (`missing`/`disallowed`) or `CONTESTED` (`contestedClaims`). Mechanism failures stay in `Result`, never as branch reasons.
+- `PathOutcome` gains optional `closure`; `BindingResult.details.perPath` is `PathOutcome[]` in both success and failure, because a path can be `VALID` while its closure failed. `FailedPath` remains exported but is not the perPath type.
+- Task 10 aggregation: fully accepted path → eligible; else closure failure → `ERR_MERGE_BRANCH_UNSATISFIED`; else `CYCLE_DETECTED`; else `CONTESTED`; else assurance. This is a local aggregation rule; A-8 remains OPEN.
+- Closure validates every direct parent edge of merge nodes on the path, whatever its relation. Merge nodes are detected from graph adjacency, not from the selected path edge's relation. Only the exact `(child, parent, relation)` edge already validated by Phase 2 is skipped; different relations to the same parent are not collapsed. Closure-only branches are not recursed. B-6 checks `D→C` but not `C→X`.
+
 ### Task 11: Scope × merge-closure internal consistency (review point 4)
 
 **Files:** Create `tests/unit/scope-matrix.test.ts`, `tests/experimental/origin-merge-closure.test.ts`.

@@ -1,9 +1,10 @@
-// Traversal phases 1 and 2 for UIA-CORE-001 §8 (Task 9).
+// Traversal phases for UIA-CORE-001 §8 (Tasks 9 and 10).
 //
 // Phase 1 (`discoverPaths`) answers scope-permitted reachability only; it never
 // consults Assessments. Phase 2 (`validatePath`) validates one concrete path
-// through Task 8's edge-bound assessment APIs. Merge Closure Validation is
-// Task 10 and is not implemented here.
+// through Task 8's edge-bound assessment APIs. Phase 3
+// (`validateMergeClosure`) closes every direct parent edge of merge nodes on a
+// VALID path; closure-only branches are not recursed (A-5).
 
 import {
   assessEdge,
@@ -65,15 +66,38 @@ export type PathValidation =
 
 export type FailedPathValidation = Exclude<PathValidation, { readonly status: 'VALID' }>;
 
+export type MergeClosureBranchFailure =
+  | {
+      readonly branch: EdgeRef;
+      readonly reason: 'NO_APPLICABLE_ASSESSMENT';
+    }
+  | {
+      readonly branch: EdgeRef;
+      readonly reason: 'ASSURANCE_UNSATISFIED';
+      readonly missing: readonly string[];
+      readonly disallowed: readonly string[];
+    }
+  | {
+      readonly branch: EdgeRef;
+      readonly reason: 'CONTESTED';
+      readonly contestedClaims: readonly string[];
+    };
+
+export type MergeClosureResult =
+  | { readonly status: 'SATISFIED' }
+  | {
+      readonly status: 'UNSATISFIED';
+      readonly code: 'ERR_MERGE_BRANCH_UNSATISFIED';
+      readonly failures: readonly MergeClosureBranchFailure[];
+    };
+
 export interface PathOutcome {
   readonly path: Path;
   readonly outcome: PathValidation;
+  readonly closure?: MergeClosureResult;
 }
 
-export interface FailedPath {
-  readonly path: Path;
-  readonly outcome: FailedPathValidation;
-}
+export type FailedPath = PathOutcome & { readonly outcome: FailedPathValidation };
 
 export type BindingFailureCode =
   | 'ERR_AUTHORITY_BINDING_MISMATCH'
@@ -92,12 +116,12 @@ export type BindingResult =
   | {
       readonly eligible: false;
       readonly kind: 'CONTESTED';
-      readonly details: { readonly perPath: readonly FailedPath[] };
+      readonly details: { readonly perPath: readonly PathOutcome[] };
     }
   | {
       readonly eligible: false;
       readonly code: BindingFailureCode;
-      readonly details: { readonly perPath?: readonly FailedPath[] };
+      readonly details: { readonly perPath?: readonly PathOutcome[] };
     };
 
 function compareStrings(a: string, b: string): number {
@@ -222,12 +246,8 @@ interface DiscoveryFrame {
   readonly visited: ReadonlySet<IdentityVersionID>;
 }
 
-interface PrecheckResult {
-  readonly ok: true;
-}
-
 type CandidatePrecheck =
-  | PrecheckResult
+  | { readonly ok: true }
   | { readonly ok: false; readonly mismatch: true }
   | { readonly ok: false; readonly mismatch: false; readonly error: MechanismFailure };
 
@@ -357,6 +377,55 @@ function buildCycleIndex(graph: LineageGraph): CycleIndex {
   return index;
 }
 
+type EdgeAssuranceOutcome =
+  | { readonly status: 'SATISFIED' }
+  | { readonly status: 'NO_APPLICABLE_ASSESSMENT' }
+  | {
+      readonly status: 'UNSATISFIED';
+      readonly missing: readonly string[];
+      readonly disallowed: readonly string[];
+    }
+  | { readonly status: 'CONTESTED'; readonly contestedClaims: readonly string[] };
+
+/** Shared Phase 2/3 edge evaluation; Task 8 owns applicability and assurance. */
+function evaluateEdgeAssurance(
+  branch: EdgeRef,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<EdgeAssuranceOutcome> {
+  const applicable = assessEdge(branch, assessments, policy, ctx);
+  if (!applicable.ok) {
+    return applicable;
+  }
+  if (applicable.value.unresolved) {
+    return { ok: true, value: { status: 'NO_APPLICABLE_ASSESSMENT' } };
+  }
+
+  const assurance = evaluateAssurance(applicable.value, requirement, policy, ctx);
+  if ('kind' in assurance) {
+    return { ok: false, error: assurance };
+  }
+  if (assurance.status === 'SATISFIED') {
+    return { ok: true, value: { status: 'SATISFIED' } };
+  }
+  if (assurance.status === 'UNSATISFIED') {
+    return {
+      ok: true,
+      value: {
+        status: 'UNSATISFIED',
+        missing: assurance.missing,
+        disallowed: assurance.disallowed,
+      },
+    };
+  }
+  return {
+    ok: true,
+    value: { status: 'CONTESTED', contestedClaims: assurance.contestedClaims },
+  };
+}
+
 function cycleForPath(path: Path, index: CycleIndex): readonly IdentityVersionID[] | undefined {
   const cycles = new Set<readonly IdentityVersionID[]>();
   for (const edge of path.edges) {
@@ -419,14 +488,15 @@ function validatePathWithIndex(
 
   for (const edge of path.edges) {
     const reference = edgeRef(edge);
-    const applicable = assessEdge(reference, assessments, policy, ctx);
-    if (!applicable.ok) {
-      return applicable;
+    const outcome = evaluateEdgeAssurance(reference, assessments, requirement, policy, ctx);
+    if (!outcome.ok) {
+      return outcome;
     }
 
-    // §8.5(2): absence of an applicable Assessment is never success, even when
-    // the requirement happens to list no claims.
-    if (applicable.value.unresolved) {
+    if (outcome.value.status === 'SATISFIED') {
+      continue;
+    }
+    if (outcome.value.status === 'NO_APPLICABLE_ASSESSMENT') {
       return validationValue({
         status: 'INVALID',
         code: 'ERR_ASSURANCE_PREDICATE_UNSATISFIED',
@@ -435,31 +505,190 @@ function validatePathWithIndex(
         disallowed: [],
       });
     }
-
-    const assurance = evaluateAssurance(applicable.value, requirement, policy, ctx);
-    if ('kind' in assurance) {
-      return { ok: false, error: assurance };
-    }
-    if (assurance.status === 'SATISFIED') {
-      continue;
-    }
-    if (assurance.status === 'UNSATISFIED') {
+    if (outcome.value.status === 'UNSATISFIED') {
       return validationValue({
         status: 'INVALID',
-        code: assurance.code,
+        code: 'ERR_ASSURANCE_PREDICATE_UNSATISFIED',
         edge: reference,
-        missing: assurance.missing,
-        disallowed: assurance.disallowed,
+        missing: outcome.value.missing,
+        disallowed: outcome.value.disallowed,
       });
     }
     return validationValue({
       status: 'CONTESTED',
       edge: reference,
-      contestedClaims: assurance.contestedClaims,
+      contestedClaims: outcome.value.contestedClaims,
     });
   }
 
   return validationValue({ status: 'VALID' });
+}
+
+function directParentBranches(graph: LineageGraph, child: IdentityVersionID): EdgeRef[] {
+  const branches = new Map<string, EdgeRef>();
+  for (const candidate of graph.edges) {
+    if (candidate.child !== child) {
+      continue;
+    }
+    const branch = edgeRef(candidate);
+    branches.set(`${String(branch.parent)}\u0000${branch.relation}`, branch);
+  }
+  return [...branches.values()].sort(
+    (a, b) => compareStrings(a.parent, b.parent) || compareStrings(a.relation, b.relation),
+  );
+}
+
+function evaluateClosureBranch(
+  branch: EdgeRef,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<MergeClosureBranchFailure | undefined> {
+  const outcome = evaluateEdgeAssurance(branch, assessments, requirement, policy, ctx);
+  if (!outcome.ok) {
+    return outcome;
+  }
+
+  if (outcome.value.status === 'SATISFIED') {
+    return { ok: true, value: undefined };
+  }
+  if (outcome.value.status === 'NO_APPLICABLE_ASSESSMENT') {
+    return { ok: true, value: { branch, reason: 'NO_APPLICABLE_ASSESSMENT' } };
+  }
+  if (outcome.value.status === 'UNSATISFIED') {
+    return {
+      ok: true,
+      value: {
+        branch,
+        reason: 'ASSURANCE_UNSATISFIED',
+        missing: outcome.value.missing,
+        disallowed: outcome.value.disallowed,
+      },
+    };
+  }
+  return {
+    ok: true,
+    value: { branch, reason: 'CONTESTED', contestedClaims: outcome.value.contestedClaims },
+  };
+}
+
+function closureBranchKey(branch: EdgeRef): string {
+  return `${String(branch.child)}\u0000${String(branch.parent)}\u0000${branch.relation}`;
+}
+
+function collectBranchFailure(
+  failures: Map<string, MergeClosureBranchFailure>,
+  edge: EdgeRef,
+  branch: EdgeRef,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<undefined> {
+  if (branch.parent === edge.parent && branch.relation === edge.relation) {
+    return { ok: true, value: undefined };
+  }
+  const key = closureBranchKey(branch);
+  if (failures.has(key)) {
+    return { ok: true, value: undefined };
+  }
+
+  const failure = evaluateClosureBranch(branch, assessments, requirement, policy, ctx);
+  if (!failure.ok) {
+    return failure;
+  }
+  if (failure.value !== undefined) {
+    failures.set(key, failure.value);
+  }
+  return { ok: true, value: undefined };
+}
+
+function collectEdgeClosureFailures(
+  failures: Map<string, MergeClosureBranchFailure>,
+  edge: EdgeRef,
+  graph: LineageGraph,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<undefined> {
+  const branches = directParentBranches(graph, edge.child);
+  if (!branches.some((branch) => branch.relation === 'MERGED_FROM')) {
+    return { ok: true, value: undefined };
+  }
+
+  for (const branch of branches) {
+    const collected = collectBranchFailure(failures, edge, branch, assessments, requirement, policy, ctx);
+    if (!collected.ok) {
+      return collected;
+    }
+  }
+  return { ok: true, value: undefined };
+}
+
+function collectClosureFailures(
+  path: Path,
+  graph: LineageGraph,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<Map<string, MergeClosureBranchFailure>> {
+  const failures = new Map<string, MergeClosureBranchFailure>();
+
+  for (const edge of path.edges) {
+    const collected = collectEdgeClosureFailures(failures, edge, graph, assessments, requirement, policy, ctx);
+    if (!collected.ok) {
+      return collected;
+    }
+  }
+
+  return { ok: true, value: failures };
+}
+
+function closureResult(failures: ReadonlyMap<string, MergeClosureBranchFailure>): MergeClosureResult {
+  if (failures.size === 0) {
+    return deepFreeze({ status: 'SATISFIED' }) as MergeClosureResult;
+  }
+
+  const orderedFailures = [...failures.values()].sort(
+    (a, b) =>
+      compareStrings(a.branch.child, b.branch.child) ||
+      compareStrings(a.branch.parent, b.branch.parent) ||
+      compareStrings(a.branch.relation, b.branch.relation),
+  );
+  return deepFreeze({
+    status: 'UNSATISFIED',
+    code: 'ERR_MERGE_BRANCH_UNSATISFIED',
+    failures: orderedFailures,
+  }) as MergeClosureResult;
+}
+
+/**
+ * Phase 3: immediate merge closure. For every MERGED_FROM node on the path,
+ * every direct parent edge of that node is checked, whatever its relation.
+ * The exact edge already validated by Phase 2 is skipped; closure-only
+ * branches are not recursed.
+ */
+export function validateMergeClosure(
+  path: Path,
+  graph: LineageGraph,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<MergeClosureResult> {
+  const shape = validatePathShape(path);
+  if (!shape.ok) {
+    return shape;
+  }
+
+  const collected = collectClosureFailures(path, graph, assessments, requirement, policy, ctx);
+  if (!collected.ok) {
+    return collected;
+  }
+  return { ok: true, value: closureResult(collected.value) };
 }
 
 function asMechanism(failure: Failure): MechanismFailure {
@@ -477,9 +706,32 @@ function mismatchResult(): BindingResult {
   return deepFreeze({ eligible: false, code: 'ERR_AUTHORITY_BINDING_MISMATCH', details: {} }) as BindingResult;
 }
 
+function evaluateOnePath(
+  path: Path,
+  graph: LineageGraph,
+  cycleIndex: CycleIndex,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<PathOutcome> {
+  const validation = validatePathWithIndex(path, cycleIndex, assessments, requirement, policy, ctx);
+  if (!validation.ok) {
+    return validation;
+  }
+  if (validation.value.status !== 'VALID') {
+    return { ok: true, value: { path, outcome: validation.value } };
+  }
+
+  const closure = validateMergeClosure(path, graph, assessments, requirement, policy, ctx);
+  if (!closure.ok) {
+    return closure;
+  }
+  return { ok: true, value: { path, outcome: validation.value, closure: closure.value } };
+}
+
 /**
- * Orchestrates §8.3 prechecks, path discovery and per-path validation.
- * Merge Closure Validation is deliberately absent until Task 10.
+ * §8.3 prechecks: target participant, selector match and version label.
  */
 function precheckCandidate(
   candidate: DeepReadonly<IdentityVersionDescriptor>,
@@ -504,10 +756,6 @@ function precheckCandidate(
   return { ok: true };
 }
 
-function isFailedOutcome(item: PathOutcome): item is FailedPath {
-  return item.outcome.status !== 'VALID';
-}
-
 function summarizePaths(accepted: readonly Path[], outcomes: readonly PathOutcome[]): BindingResult {
   if (accepted.length > 0) {
     return deepFreeze({
@@ -517,33 +765,38 @@ function summarizePaths(accepted: readonly Path[], outcomes: readonly PathOutcom
     }) as BindingResult;
   }
 
-  const failed = outcomes.filter(isFailedOutcome);
-  // Task 9 aggregation: a cyclic path is a structural failure and outranks
-  // contested outcomes; per-path outcomes are preserved regardless of the mix.
-  if (failed.some((item) => item.outcome.status === 'CYCLE_DETECTED')) {
+  // Task 10 aggregation order: closure failure outranks cycle and contested.
+  if (outcomes.some((item) => item.closure?.status === 'UNSATISFIED')) {
+    return deepFreeze({
+      eligible: false,
+      code: 'ERR_MERGE_BRANCH_UNSATISFIED',
+      details: { perPath: outcomes },
+    }) as BindingResult;
+  }
+  if (outcomes.some((item) => item.outcome.status === 'CYCLE_DETECTED')) {
     return deepFreeze({
       eligible: false,
       code: 'CYCLE_DETECTED',
-      details: { perPath: failed },
+      details: { perPath: outcomes },
     }) as BindingResult;
   }
-  if (failed.some((item) => item.outcome.status === 'CONTESTED')) {
+  if (outcomes.some((item) => item.outcome.status === 'CONTESTED')) {
     return deepFreeze({
       eligible: false,
       kind: 'CONTESTED',
-      details: { perPath: failed },
+      details: { perPath: outcomes },
     }) as BindingResult;
   }
   return deepFreeze({
     eligible: false,
     code: 'ERR_ASSURANCE_PREDICATE_UNSATISFIED',
-    details: { perPath: failed },
+    details: { perPath: outcomes },
   }) as BindingResult;
 }
 
 /**
- * Orchestrates §8.3 prechecks, path discovery and per-path validation.
- * Merge Closure Validation is deliberately absent until Task 10.
+ * Orchestrates §8.3 prechecks, path discovery, per-path validation and
+ * immediate merge closure, then aggregates the per-path outcomes.
  */
 export function evaluateBinding(
   state: {
@@ -581,19 +834,20 @@ export function evaluateBinding(
   const cycleIndex = buildCycleIndex(state.graph);
 
   for (const path of discovered.value) {
-    const validation = validatePathWithIndex(
+    const evaluated = evaluateOnePath(
       path,
+      state.graph,
       cycleIndex,
       state.assessments,
       binding.assurance_requirement,
       policy,
       ctx,
     );
-    if (!validation.ok) {
-      return mechanismResult(asMechanism(validation.error));
+    if (!evaluated.ok) {
+      return mechanismResult(asMechanism(evaluated.error));
     }
-    outcomes.push({ path, outcome: validation.value });
-    if (validation.value.status === 'VALID') {
+    outcomes.push(evaluated.value);
+    if (evaluated.value.outcome.status === 'VALID' && evaluated.value.closure?.status === 'SATISFIED') {
       accepted.push(path);
     }
   }
