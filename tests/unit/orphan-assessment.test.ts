@@ -7,6 +7,7 @@ import { buildLineageGraph } from '../../src/core/lineage.js';
 import type { LineageGraph } from '../../src/core/lineage.js';
 import { assessmentId, domainId, identityVersionId, timestamp } from '../../src/core/primitives.js';
 import { descriptor, link, participant, registry } from '../support/fixtures.js';
+import { continuityAssessment } from '../support/assessment-builder.js';
 
 const BASE_TIME = 1_700_000_000_000;
 
@@ -31,20 +32,13 @@ const multiRelationChild = descriptor({
 const multiRelationGraph = buildLineageGraph(registry([alice], [multiRelationChild]));
 
 function assessment(overrides: Partial<ContinuityAssessment> = {}): ContinuityAssessment {
-  return {
+  return continuityAssessment({
     assessment_id: assessmentId('existing-1'),
-    subject_version_id: identityVersionId('iv-d'),
     parent_version_ids: [identityVersionId('iv-a'), identityVersionId('iv-b')],
     declared_relation: 'MERGED_FROM',
-    assessment_profile_ref: 'profile-1',
-    assessment_method_version: '1.0.0',
-    verified_claims: [],
     unverified_claims: ['PARENT_UNRESOLVED'],
-    evidence_refs: [],
-    assessed_by: domainId('domain-a'),
-    assessed_at: timestamp(BASE_TIME),
     ...overrides,
-  };
+  });
 }
 
 function emit(

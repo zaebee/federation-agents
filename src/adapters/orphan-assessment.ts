@@ -8,12 +8,12 @@ import type { ContinuityAssessment } from '../core/assessment.js';
 import { registerOrphanAssessments } from '../core/assessment.js';
 import type { LineageRelationType } from '../core/entities.js';
 import type { Result } from '../core/errors.js';
-import { mechanismFailure } from '../core/errors.js';
 import { isBuiltLineageGraph } from '../core/lineage.js';
 import type { LineageGraph } from '../core/lineage.js';
 import type { DeepReadonly } from '../core/ownership.js';
-import { validateJsonValue } from '../core/ownership.js';
 import type { AssessmentID, DomainID, IdentityVersionID, Timestamp } from '../core/primitives.js';
+import type { AssessmentEmission } from './emission.js';
+import { compareStrings, freezeEmission, mechanismRejection, readAssessmentId } from './emission.js';
 
 export interface OrphanAssessmentRequest {
   readonly graph: LineageGraph;
@@ -27,24 +27,11 @@ export interface OrphanAssessmentRequest {
   readonly evidence_refs?: readonly string[];
 }
 
-export interface OrphanAssessmentEmission {
-  readonly assessments: readonly DeepReadonly<ContinuityAssessment>[];
-  readonly registered: readonly DeepReadonly<ContinuityAssessment>[];
-}
+export type OrphanAssessmentEmission = AssessmentEmission;
 
 interface RelationGroup {
   readonly relation: LineageRelationType;
   readonly parents: IdentityVersionID[];
-}
-
-function mechanismRejection(message: string): Result<never> {
-  return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', message) };
-}
-
-function compareStrings(a: string, b: string): number {
-  if (a < b) return -1;
-  if (a > b) return 1;
-  return 0;
 }
 
 function collectRelationGroups(graph: DeepReadonly<LineageGraph>, child: IdentityVersionID): RelationGroup[] {
@@ -69,18 +56,7 @@ function groupHasUnresolvedParent(group: RelationGroup, graph: DeepReadonly<Line
 }
 
 function assessmentIdForGroup(request: OrphanAssessmentRequest, group: RelationGroup): Result<AssessmentID> {
-  let id: unknown;
-  try {
-    id = request.assessmentIdFor(group.relation, group.parents);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    return mechanismRejection(`assessmentIdFor threw while constructing a C-1 candidate: ${reason}`);
-  }
-  const idValue = validateJsonValue(id);
-  if (!idValue.ok || typeof idValue.value !== 'string' || idValue.value.length === 0) {
-    return mechanismRejection('assessmentIdFor must return a non-empty string');
-  }
-  return { ok: true, value: idValue.value as AssessmentID };
+  return readAssessmentId(() => request.assessmentIdFor(group.relation, group.parents), 'C-1');
 }
 
 function buildCandidate(request: OrphanAssessmentRequest, group: RelationGroup, id: AssessmentID): unknown {
@@ -131,9 +107,5 @@ export function emitOrphanAssessment(request: OrphanAssessmentRequest): Result<O
     return admitted;
   }
 
-  // The registered representation is sorted by assessment_id, so selecting the
-  // emitted records by position would pick up pre-existing records. Select by
-  // the candidate IDs instead; the admitted order is preserved.
-  const assessments = Object.freeze(admitted.value.filter((assessment) => candidateIds.has(assessment.assessment_id)));
-  return { ok: true, value: Object.freeze({ assessments, registered: admitted.value }) };
+  return { ok: true, value: freezeEmission(admitted.value, candidateIds) };
 }

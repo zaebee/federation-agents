@@ -11,11 +11,11 @@ import {
 } from '../../src/core/assessment.js';
 import type { LineageGraph } from '../../src/core/lineage.js';
 import { buildLineageGraph } from '../../src/core/lineage.js';
-import { assessmentId, domainId, identityVersionId, timestamp } from '../../src/core/primitives.js';
+import { assessmentId, identityVersionId, timestamp } from '../../src/core/primitives.js';
 import type { TemporalContext } from '../../src/core/temporal.js';
 import { descriptor, link, participant, plainGraph, registry } from '../support/fixtures.js';
+import { continuityAssessment } from '../support/assessment-builder.js';
 
-const BASE_TIME = 1_700_000_000_000;
 const CTX: TemporalContext = { basis: 'ASSESSED_AT', declared: {}, trust: {} };
 
 const alice = participant('participant-a');
@@ -27,22 +27,7 @@ const orphanChild = descriptor({
 });
 const mixedGraph = buildLineageGraph(registry([alice], [resolvedParent, orphanChild]));
 
-function assessment(overrides: Partial<ContinuityAssessment> = {}): ContinuityAssessment {
-  return {
-    assessment_id: assessmentId('assessment-1'),
-    subject_version_id: identityVersionId('iv-d'),
-    parent_version_ids: [identityVersionId('iv-a')],
-    declared_relation: 'CONTINUATION',
-    assessment_profile_ref: 'profile-1',
-    assessment_method_version: '1.0.0',
-    verified_claims: [],
-    unverified_claims: [],
-    evidence_refs: [],
-    assessed_by: domainId('domain-a'),
-    assessed_at: timestamp(BASE_TIME),
-    ...overrides,
-  };
-}
+const assessment = continuityAssessment;
 
 function orphanAssessment(overrides: Partial<ContinuityAssessment> = {}): ContinuityAssessment {
   return assessment({

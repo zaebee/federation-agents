@@ -8,6 +8,7 @@ import { buildLineageGraph } from '../../src/core/lineage.js';
 import type { LineageGraph } from '../../src/core/lineage.js';
 import { assessmentId, domainId, identityVersionId, timestamp } from '../../src/core/primitives.js';
 import { descriptor, link, participant, plainGraph, registry } from '../support/fixtures.js';
+import { continuityAssessment } from '../support/assessment-builder.js';
 
 const BASE_TIME = 1_700_000_000_000;
 
@@ -43,20 +44,13 @@ function emit(
 }
 
 function candidate(overrides: Partial<ContinuityAssessment> = {}): ContinuityAssessment {
-  return {
+  return continuityAssessment({
     assessment_id: assessmentId('cycle-1'),
     subject_version_id: identityVersionId('iv-a'),
     parent_version_ids: [identityVersionId('iv-b')],
-    declared_relation: 'CONTINUATION',
-    assessment_profile_ref: 'profile-1',
-    assessment_method_version: '1.0.0',
-    verified_claims: [],
     unverified_claims: ['CYCLE_DETECTED'],
-    evidence_refs: [],
-    assessed_by: domainId('domain-a'),
-    assessed_at: timestamp(BASE_TIME),
     ...overrides,
-  };
+  });
 }
 
 describe('C-2 cycle assessment emission (T18-DEC-16 Option D)', () => {
@@ -219,63 +213,51 @@ describe('C-2 contextual admission boundary', () => {
     expect(result.error.message).toContain('must not record CYCLE_DETECTED');
   });
 
-  test('the C-2 contextual path rejects a C-1 claim', () => {
-    const result = registerCycleAssessments(
-      [candidate({ unverified_claims: ['CYCLE_DETECTED', 'PARENT_UNRESOLVED'] })],
-      cycleGraph(),
-      [],
-    );
+  test('rejects C-2 candidates that violate the contextual boundary', () => {
+    const cases: readonly {
+      readonly name: string;
+      readonly value: ContinuityAssessment;
+      readonly message: string;
+    }[] = [
+      {
+        name: 'C-1 claim',
+        value: candidate({ unverified_claims: ['CYCLE_DETECTED', 'PARENT_UNRESOLVED'] }),
+        message: 'must not record PARENT_UNRESOLVED',
+      },
+      {
+        name: 'two parents',
+        value: candidate({ parent_version_ids: [identityVersionId('iv-b'), identityVersionId('iv-c')] }),
+        message: 'exactly one parent edge',
+      },
+      {
+        name: 'missing edge',
+        value: candidate({
+          subject_version_id: identityVersionId('iv-c'),
+          parent_version_ids: [identityVersionId('iv-b')],
+        }),
+        message: 'edge is not present',
+      },
+      {
+        name: 'acyclic edge',
+        value: candidate({
+          subject_version_id: identityVersionId('iv-c'),
+          parent_version_ids: [identityVersionId('iv-a')],
+        }),
+        message: 'not inside a cyclic',
+      },
+      {
+        name: 'missing subject',
+        value: candidate({ subject_version_id: identityVersionId('iv-missing') }),
+        message: 'subject iv-missing is not present',
+      },
+    ];
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.message).toContain('must not record PARENT_UNRESOLVED');
-  });
+    for (const testCase of cases) {
+      const result = registerCycleAssessments([testCase.value], cycleGraph(), []);
 
-  test('requires exactly one parent edge', () => {
-    const result = registerCycleAssessments(
-      [candidate({ parent_version_ids: [identityVersionId('iv-b'), identityVersionId('iv-c')] })],
-      cycleGraph(),
-      [],
-    );
-
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.message).toContain('exactly one parent edge');
-  });
-
-  test('rejects an edge that is not in the graph', () => {
-    const result = registerCycleAssessments(
-      [candidate({ subject_version_id: identityVersionId('iv-c'), parent_version_ids: [identityVersionId('iv-b')] })],
-      cycleGraph(),
-      [],
-    );
-
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.message).toContain('edge is not present');
-  });
-
-  test('rejects an edge that exists but is not inside a cycle', () => {
-    const result = registerCycleAssessments(
-      [candidate({ subject_version_id: identityVersionId('iv-c'), parent_version_ids: [identityVersionId('iv-a')] })],
-      cycleGraph(),
-      [],
-    );
-
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.message).toContain('not inside a cyclic');
-  });
-
-  test('rejects a subject that is not in the graph', () => {
-    const result = registerCycleAssessments(
-      [candidate({ subject_version_id: identityVersionId('iv-missing') })],
-      cycleGraph(),
-      [],
-    );
-
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.message).toContain('subject iv-missing is not present');
+      expect(result.ok, testCase.name).toBe(false);
+      if (result.ok) continue;
+      expect(result.error.message, testCase.name).toContain(testCase.message);
+    }
   });
 });
