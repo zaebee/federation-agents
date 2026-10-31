@@ -20,6 +20,7 @@ export interface NodeChoice {
 export interface DagSpec {
   readonly nodeCount: number;
   readonly originIndex: number;
+  readonly candidateIndex: number;
   readonly scope: LineageTraversalScope;
   readonly participants: readonly number[];
   readonly choices: readonly NodeChoice[];
@@ -60,6 +61,7 @@ export const dagSpecArbitrary: fc.Arbitrary<DagSpec> = fc.integer({ min: 2, max:
   fc.record({
     nodeCount: fc.constant(nodeCount),
     originIndex: fc.integer({ min: 0, max: nodeCount - 2 }),
+    candidateIndex: fc.constant(nodeCount - 1),
     scope: fc.constantFrom(...SCOPES),
     participants: fc.array(fc.integer({ min: 0, max: PARTICIPANTS.length - 1 }), {
       minLength: nodeCount,
@@ -218,7 +220,7 @@ export function buildCase(spec: DagSpec): GeneratedCase {
     );
   });
 
-  const candidateIndex = spec.nodeCount - 1;
+  const candidateIndex = spec.candidateIndex;
   const candidate = identityVersionId(nodeId(candidateIndex));
   const origin = identityVersionId(nodeId(spec.originIndex));
   const binding = bindingFor({
@@ -255,6 +257,7 @@ export function mixedMergeSpec(
   return {
     nodeCount: 7,
     originIndex: 0,
+    candidateIndex: 5,
     scope,
     participants: [0, 1, 2, 3, 0, 1, 2],
     choices: [
@@ -280,6 +283,7 @@ export function diamondSpec(
   return {
     nodeCount: 4,
     originIndex: 0,
+    candidateIndex: 3,
     scope,
     participants: [0, 1, 0, 3],
     choices: [

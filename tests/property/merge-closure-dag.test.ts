@@ -19,8 +19,10 @@ import {
   dagSpecArbitrary,
   diamondCaseArbitrary,
   mixedMergeCaseArbitrary,
+  mixedMergeSpec,
   shapeStats,
 } from './support/dag-fixtures.js';
+import type { NormalizedResult } from './support/merge-oracle.js';
 import { runOracle } from './support/merge-oracle.js';
 import { normalizeProduction } from './support/normalize.js';
 
@@ -33,7 +35,7 @@ function stateOf(generated: GeneratedCase) {
   return { graph: generated.graph, descriptors: generated.descriptors, assessments: generated.assessments };
 }
 
-function assertMatchesOracle(generated: GeneratedCase): void {
+function assertMatchesOracle(generated: GeneratedCase): NormalizedResult {
   const production = normalizeProduction(
     evaluateBinding(stateOf(generated), generated.binding, generated.candidate, generated.policy, generated.ctx),
   );
@@ -51,6 +53,7 @@ function assertMatchesOracle(generated: GeneratedCase): void {
     throw new Error(oracle.error);
   }
   expect(production).toEqual(oracle.result);
+  return oracle.result;
 }
 
 function expectNotEligible(result: BindingResult): void {
@@ -70,11 +73,22 @@ describe('P7: DAG equivalence against the independent immediate-closure oracle',
   test('mixed-relation and nested closure fixtures match the oracle', () => {
     fc.assert(
       fc.property(mixedMergeCaseArbitrary, (generated) => {
-        assertMatchesOracle(generated);
+        expect(assertMatchesOracle(generated).kind).not.toBe('no-path');
       }),
       { numRuns: 60, seed: SEED_MIXED },
     );
   }, 15_000);
+
+  test('the mixed fixture evaluates closure instead of falling back to no-path', () => {
+    const generated = buildCase(mixedMergeSpec('CONTINUATION_ONLY', ['ok', 'ok', 'ok', 'none', 'none', 'none'], false));
+
+    const result = assertMatchesOracle(generated);
+
+    expect(result.kind).toBe('failure');
+    if (result.kind !== 'failure') return;
+    expect(result.code).toBe('ERR_MERGE_BRANCH_UNSATISFIED');
+    expect(result.perPath.some((item) => item.closure?.status === 'UNSATISFIED')).toBe(true);
+  });
 
   test('diamond multi-path fixtures match the oracle', () => {
     fc.assert(
