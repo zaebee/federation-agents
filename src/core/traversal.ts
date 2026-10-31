@@ -245,12 +245,8 @@ interface DiscoveryFrame {
   readonly visited: ReadonlySet<IdentityVersionID>;
 }
 
-interface PrecheckResult {
-  readonly ok: true;
-}
-
 type CandidatePrecheck =
-  | PrecheckResult
+  | { readonly ok: true }
   | { readonly ok: false; readonly mismatch: true }
   | { readonly ok: false; readonly mismatch: false; readonly error: MechanismFailure };
 
@@ -527,14 +523,18 @@ function validatePathWithIndex(
   return validationValue({ status: 'VALID' });
 }
 
-function directMergeBranches(graph: LineageGraph, child: IdentityVersionID): EdgeRef[] {
+function directParentBranches(graph: LineageGraph, child: IdentityVersionID): EdgeRef[] {
   const branches = new Map<string, EdgeRef>();
   for (const candidate of graph.edges) {
-    if (candidate.child === child && candidate.relation === 'MERGED_FROM') {
-      branches.set(String(candidate.parent), edgeRef(candidate));
+    if (candidate.child !== child) {
+      continue;
     }
+    const branch = edgeRef(candidate);
+    branches.set(`${String(branch.parent)}\u0000${branch.relation}`, branch);
   }
-  return [...branches.values()].sort((a, b) => compareStrings(a.parent, b.parent));
+  return [...branches.values()].sort(
+    (a, b) => compareStrings(a.parent, b.parent) || compareStrings(a.relation, b.relation),
+  );
 }
 
 function evaluateClosureBranch(
@@ -572,37 +572,27 @@ function evaluateClosureBranch(
   };
 }
 
-/**
- * Phase 3: immediate merge closure. For every MERGED_FROM node on the path,
- * every direct parent edge of that node is checked. The edge already on the
- * path was validated by Phase 2 and is skipped; closure-only branches are not
- * recursed. All failing branches are reported in deterministic order.
- */
-export function validateMergeClosure(
+function collectClosureFailures(
   path: Path,
   graph: LineageGraph,
   assessments: readonly ContinuityAssessment[],
   requirement: ContinuityAssuranceRequirement,
   policy: Policy,
   ctx: TemporalContext,
-): Result<MergeClosureResult> {
-  const shape = validatePathShape(path);
-  if (!shape.ok) {
-    return shape;
-  }
-
+): Result<Map<string, MergeClosureBranchFailure>> {
   const failures = new Map<string, MergeClosureBranchFailure>();
 
   for (const edge of path.edges) {
-    if (edge.relation !== 'MERGED_FROM') {
+    const branches = directParentBranches(graph, edge.child);
+    if (!branches.some((branch) => branch.relation === 'MERGED_FROM')) {
       continue;
     }
 
-    for (const branch of directMergeBranches(graph, edge.child)) {
-      if (branch.parent === edge.parent) {
+    for (const branch of branches) {
+      if (branch.parent === edge.parent && branch.relation === edge.relation) {
         continue;
       }
-      const key = `${String(branch.child)}\u0000${String(branch.parent)}`;
+      const key = `${String(branch.child)}\u0000${String(branch.parent)}\u0000${branch.relation}`;
       if (failures.has(key)) {
         continue;
       }
@@ -617,21 +607,51 @@ export function validateMergeClosure(
     }
   }
 
+  return { ok: true, value: failures };
+}
+
+function closureResult(failures: ReadonlyMap<string, MergeClosureBranchFailure>): MergeClosureResult {
   if (failures.size === 0) {
-    return { ok: true, value: deepFreeze({ status: 'SATISFIED' }) as MergeClosureResult };
+    return deepFreeze({ status: 'SATISFIED' }) as MergeClosureResult;
   }
 
   const orderedFailures = [...failures.values()].sort(
-    (a, b) => compareStrings(a.branch.child, b.branch.child) || compareStrings(a.branch.parent, b.branch.parent),
+    (a, b) =>
+      compareStrings(a.branch.child, b.branch.child) ||
+      compareStrings(a.branch.parent, b.branch.parent) ||
+      compareStrings(a.branch.relation, b.branch.relation),
   );
-  return {
-    ok: true,
-    value: deepFreeze({
-      status: 'UNSATISFIED',
-      code: 'ERR_MERGE_BRANCH_UNSATISFIED',
-      failures: orderedFailures,
-    }) as MergeClosureResult,
-  };
+  return deepFreeze({
+    status: 'UNSATISFIED',
+    code: 'ERR_MERGE_BRANCH_UNSATISFIED',
+    failures: orderedFailures,
+  }) as MergeClosureResult;
+}
+
+/**
+ * Phase 3: immediate merge closure. For every MERGED_FROM node on the path,
+ * every direct parent edge of that node is checked, whatever its relation.
+ * The exact edge already validated by Phase 2 is skipped; closure-only
+ * branches are not recursed.
+ */
+export function validateMergeClosure(
+  path: Path,
+  graph: LineageGraph,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<MergeClosureResult> {
+  const shape = validatePathShape(path);
+  if (!shape.ok) {
+    return shape;
+  }
+
+  const collected = collectClosureFailures(path, graph, assessments, requirement, policy, ctx);
+  if (!collected.ok) {
+    return collected;
+  }
+  return { ok: true, value: closureResult(collected.value) };
 }
 
 function asMechanism(failure: Failure): MechanismFailure {

@@ -20,10 +20,13 @@ import {
   chainState,
   cyclePairState,
   diamondState,
+  evaluateAt,
   expectContestedFailure,
   expectMechanismFailure,
   expectNormativeFailure,
+  fullAncestryBinding,
   mergeClosureState,
+  mergeSkeleton,
   pathNodes,
   requirementFor,
 } from '../support/traversal.js';
@@ -537,12 +540,7 @@ describe('evaluateBinding orchestration', () => {
       versionLabel: '1.0.0',
       lineage: [link('iv-a-1', 'CONTINUATION')],
     });
-    const d = descriptor({
-      id: 'iv-d',
-      participant: 'participant-d',
-      versionLabel: '2.0.0',
-      lineage: [link('iv-b', 'MERGED_FROM'), link('iv-c', 'MERGED_FROM')],
-    });
+    const { d } = mergeSkeleton();
     const graph = buildLineageGraph(registry([alice, participant('participant-d')], [a, b, b2, c, d]));
     const assessments = [
       assessmentRecord({ id: 'db', subject: 'iv-d', parents: ['iv-b'], relation: 'MERGED_FROM', verified: ['OK'] }),
@@ -551,21 +549,11 @@ describe('evaluateBinding orchestration', () => {
       assessmentRecord({ id: 'dc2', subject: 'iv-d', parents: ['iv-c'], relation: 'MERGED_FROM', verified: ['OK'] }),
       assessmentRecord({ id: 'ca', subject: 'iv-c', parents: ['iv-a-1'], relation: 'CONTINUATION', verified: ['OK'] }),
     ];
-    const binding = bindingFor({
-      origin: 'iv-a-1',
-      selector: '>=1.0.0',
-      scope: 'FULL_ANCESTRY',
-      claims: ['OK'],
-      targetParticipant: 'participant-d',
-    });
+    const binding = fullAncestryBinding();
 
-    const result = evaluateBinding(
-      { graph, descriptors: [a, b, b2, c, d], assessments },
-      binding,
-      identityVersionId('iv-d'),
-      { conflictPredicate: () => true },
-      CTX,
-    );
+    const result = evaluateAt({ graph, descriptors: [a, b, b2, c, d], assessments }, binding, 'iv-d', {
+      conflictPredicate: () => true,
+    });
 
     const failure = expectNormativeFailure(result);
     expect(failure.code).toBe('CYCLE_DETECTED');

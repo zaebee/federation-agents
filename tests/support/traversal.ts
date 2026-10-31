@@ -2,6 +2,7 @@ import { expect } from 'bun:test';
 import type { ContinuityAssessment, ContinuityAssuranceRequirement, Policy } from '../../src/core/assessment.js';
 import type { Result } from '../../src/core/errors.js';
 import type { LineageRelationType } from '../../src/core/entities.js';
+import { evaluateBinding } from '../../src/core/index.js';
 import { buildLineageGraph } from '../../src/core/lineage.js';
 import type { LineageGraph } from '../../src/core/lineage.js';
 import type { TemporalContext } from '../../src/core/temporal.js';
@@ -9,6 +10,7 @@ import type {
   BindingResult,
   ConditionalVersionBinding,
   LineageTraversalScope,
+  MergeClosureBranchFailure,
   Path,
 } from '../../src/core/traversal.js';
 import { assessmentId, domainId, identityVersionId, participantId, timestamp } from '../../src/core/primitives.js';
@@ -231,6 +233,54 @@ export function cyclePairState(): {
   };
 }
 
+export function mergeSkeleton(extraD: readonly ReturnType<typeof link>[] = []): {
+  alice: ReturnType<typeof participant>;
+  bob: ReturnType<typeof participant>;
+  dave: ReturnType<typeof participant>;
+  a: ReturnType<typeof descriptor>;
+  b: ReturnType<typeof descriptor>;
+  d: ReturnType<typeof descriptor>;
+} {
+  return {
+    alice: participant('participant-a'),
+    bob: participant('participant-b'),
+    dave: participant('participant-d'),
+    a: descriptor({ id: 'iv-a-1', participant: 'participant-a', versionLabel: '1.0.0' }),
+    b: descriptor({
+      id: 'iv-b',
+      participant: 'participant-b',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-a-1', 'FORKED_FROM')],
+    }),
+    d: descriptor({
+      id: 'iv-d',
+      participant: 'participant-d',
+      versionLabel: '2.0.0',
+      lineage: [link('iv-b', 'MERGED_FROM'), link('iv-c', 'MERGED_FROM'), ...extraD],
+    }),
+  };
+}
+
+export function mergeAssessment(id: string, parent: string): ContinuityAssessment {
+  return assessmentRecord({
+    id,
+    subject: 'iv-d',
+    parents: [parent],
+    relation: 'MERGED_FROM',
+    verified: ['OK'],
+  });
+}
+
+export function forkAssessment(): ContinuityAssessment {
+  return assessmentRecord({
+    id: 'ba',
+    subject: 'iv-b',
+    parents: ['iv-a-1'],
+    relation: 'FORKED_FROM',
+    verified: ['OK'],
+  });
+}
+
 export function mergeClosureState(
   options: { readonly nonOriginBranch?: boolean; readonly missingBranch?: 'b' | 'c' } = {},
 ): {
@@ -239,16 +289,7 @@ export function mergeClosureState(
   assessments: ContinuityAssessment[];
   binding: ConditionalVersionBinding;
 } {
-  const alice = participant('participant-a');
-  const bob = participant('participant-b');
-  const dave = participant('participant-d');
-  const a = descriptor({ id: 'iv-a-1', participant: 'participant-a', versionLabel: '1.0.0' });
-  const b = descriptor({
-    id: 'iv-b',
-    participant: 'participant-b',
-    versionLabel: '1.0.0',
-    lineage: [link('iv-a-1', 'FORKED_FROM')],
-  });
+  const { alice, bob, dave, a, b, d } = mergeSkeleton();
   const x = options.nonOriginBranch
     ? descriptor({ id: 'iv-x', participant: 'participant-a', versionLabel: '1.0.0' })
     : undefined;
@@ -258,12 +299,6 @@ export function mergeClosureState(
     versionLabel: '1.0.0',
     lineage: [link(options.nonOriginBranch ? 'iv-x' : 'iv-a-1', 'CONTINUATION')],
   });
-  const d = descriptor({
-    id: 'iv-d',
-    participant: 'participant-d',
-    versionLabel: '2.0.0',
-    lineage: [link('iv-b', 'MERGED_FROM'), link('iv-c', 'MERGED_FROM')],
-  });
 
   const missingBranch = options.missingBranch ?? 'b';
   const versions = x === undefined ? [a, b, c, d] : [a, b, c, d, x];
@@ -271,17 +306,7 @@ export function mergeClosureState(
     graph: buildLineageGraph(registry([alice, bob, dave], versions)),
     descriptors: versions,
     assessments: [
-      ...(missingBranch === 'c'
-        ? []
-        : [
-            assessmentRecord({
-              id: 'dc',
-              subject: 'iv-d',
-              parents: ['iv-c'],
-              relation: 'MERGED_FROM',
-              verified: ['OK'],
-            }),
-          ]),
+      ...(missingBranch === 'c' ? [] : [mergeAssessment('dc', 'iv-c')]),
       assessmentRecord({
         id: 'ca',
         subject: 'iv-c',
@@ -289,32 +314,10 @@ export function mergeClosureState(
         relation: 'CONTINUATION',
         verified: ['OK'],
       }),
-      ...(missingBranch === 'b'
-        ? []
-        : [
-            assessmentRecord({
-              id: 'db',
-              subject: 'iv-d',
-              parents: ['iv-b'],
-              relation: 'MERGED_FROM',
-              verified: ['OK'],
-            }),
-          ]),
-      assessmentRecord({
-        id: 'ba',
-        subject: 'iv-b',
-        parents: ['iv-a-1'],
-        relation: 'FORKED_FROM',
-        verified: ['OK'],
-      }),
+      ...(missingBranch === 'b' ? [] : [mergeAssessment('db', 'iv-b')]),
+      forkAssessment(),
     ],
-    binding: bindingFor({
-      origin: 'iv-a-1',
-      selector: '>=1.0.0',
-      scope: 'FULL_ANCESTRY',
-      claims: ['OK'],
-      targetParticipant: 'participant-d',
-    }),
+    binding: fullAncestryBinding(),
   };
 }
 
@@ -355,4 +358,119 @@ export function expectMechanismFailure<T>(result: Result<T>) {
   }
   expect(result.error.kind).toBe('MECHANISM');
   return result.error;
+}
+
+export function b5State(): {
+  state: {
+    graph: LineageGraph;
+    descriptors: ReturnType<typeof descriptor>[];
+    assessments: ContinuityAssessment[];
+  };
+  binding: ConditionalVersionBinding;
+} {
+  const { graph, descriptors } = chainState();
+  const trusted = assessmentRecord({
+    id: 'trusted',
+    subject: 'iv-a-2',
+    parents: ['iv-a-1'],
+    relation: 'CONTINUATION',
+    verified: [],
+    unverified: ['SPEC_MISMATCH'],
+    by: 'domain-auditor',
+  });
+  const untrusted = assessmentRecord({
+    id: 'untrusted',
+    subject: 'iv-a-2',
+    parents: ['iv-a-1'],
+    relation: 'CONTINUATION',
+    verified: ['SPEC_MISMATCH'],
+    by: 'untrusted.org',
+  });
+  return {
+    state: { graph, descriptors, assessments: [trusted, untrusted] },
+    binding: bindingFor({
+      origin: 'iv-a-1',
+      selector: '>=1.0.0',
+      scope: 'CONTINUATION_ONLY',
+      claims: ['SPEC_MISMATCH'],
+      trusted: ['domain-auditor'],
+    }),
+  };
+}
+
+export function expectB5Refusal(result: BindingResult) {
+  const failure = expectNormativeFailure(result);
+  expect(failure.code).toBe('ERR_ASSURANCE_PREDICATE_UNSATISFIED');
+  const outcome = failure.details.perPath?.[0].outcome;
+  if (outcome?.status !== 'INVALID') {
+    throw new Error('expected an INVALID assurance outcome');
+  }
+  expect(outcome.missing).toEqual(['SPEC_MISMATCH']);
+  expect('negative' in outcome).toBe(false);
+  expect('refuted' in outcome).toBe(false);
+  return outcome;
+}
+
+export function nestedMergeState(): {
+  graph: LineageGraph;
+  descriptors: ReturnType<typeof descriptor>[];
+  assessments: ContinuityAssessment[];
+  binding: ConditionalVersionBinding;
+} {
+  const { alice, bob, dave, a, b, d } = mergeSkeleton();
+  const e = descriptor({ id: 'iv-e', participant: 'participant-a', versionLabel: '1.0.0' });
+  const f = descriptor({ id: 'iv-f', participant: 'participant-a', versionLabel: '1.0.0' });
+  const c = descriptor({
+    id: 'iv-c',
+    participant: 'participant-a',
+    versionLabel: '1.0.0',
+    lineage: [link('iv-e', 'MERGED_FROM'), link('iv-f', 'MERGED_FROM')],
+  });
+
+  return {
+    graph: buildLineageGraph(registry([alice, bob, dave], [a, b, c, d, e, f])),
+    descriptors: [a, b, c, d, e, f],
+    assessments: [mergeAssessment('db', 'iv-b'), mergeAssessment('dc', 'iv-c'), forkAssessment()],
+    binding: fullAncestryBinding(),
+  };
+}
+
+export function expectClosureFailure(
+  result: BindingResult,
+  expectedParents: readonly string[],
+): readonly MergeClosureBranchFailure[] {
+  const failure = expectNormativeFailure(result);
+  expect(failure.code).toBe('ERR_MERGE_BRANCH_UNSATISFIED');
+  const survived = failure.details.perPath?.[0];
+  expect(survived?.outcome.status).toBe('VALID');
+  expect(survived?.closure?.status).toBe('UNSATISFIED');
+  if (survived?.closure?.status !== 'UNSATISFIED') {
+    throw new Error('expected an UNSATISFIED closure');
+  }
+  const parents = survived.closure.failures.map((item) => String(item.branch.parent)).sort();
+  expect(parents).toEqual([...expectedParents].sort());
+  return survived.closure.failures;
+}
+
+export function fullAncestryBinding(targetParticipant = 'participant-d'): ConditionalVersionBinding {
+  return bindingFor({
+    origin: 'iv-a-1',
+    selector: '>=1.0.0',
+    scope: 'FULL_ANCESTRY',
+    claims: ['OK'],
+    targetParticipant,
+  });
+}
+
+export function evaluateAt(
+  state: {
+    graph: LineageGraph;
+    descriptors: ReturnType<typeof descriptor>[];
+    assessments: readonly ContinuityAssessment[];
+  },
+  binding: ConditionalVersionBinding,
+  candidate = 'iv-d',
+  policy: Policy = EMPTY_POLICY,
+): BindingResult {
+  return evaluateBinding(state, binding, identityVersionId(candidate), policy, CTX);
 }
