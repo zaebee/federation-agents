@@ -1,0 +1,220 @@
+мержим
+
+---
+
+# Task 14 — RuntimeInstance Lifecycle and Separated Events (D-1)
+
+You are implementing **Task 14** of the UIA-CORE-001 Rev E (0.3.3) implementation plan.
+
+## 1. Context and source of truth
+
+The normative specification is:
+
+- `docs/CORE-001.md` — UIA-CORE-001 Rev 0.3.3.
+
+The approved implementation roadmap is:
+
+- `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md` — Rev E (0.3.3).
+
+Before coding:
+
+1. Read both documents in full, especially Task 14 and its dependencies.
+2. Inspect the existing entity, descriptor, lineage, credential, and temporal implementations.
+3. Inspect the existing conformance tests and test fixtures.
+4. Check the current repository state and recent commits. Task 13 has been merged; build on the merged implementation rather than recreating or modifying its behavior.
+
+If the implementation plan and normative specification appear inconsistent, do not silently resolve the discrepancy. Report it as a blocker.
+
+## 2. Objective
+
+Implement the **RuntimeInstance lifecycle decomposition (D-1)**.
+
+The task introduces the minimal structural representation needed to distinguish:
+
+- a RuntimeInstance;
+- its lifecycle state;
+- events associated with its lifecycle;
+- the immutable descriptor describing that runtime.
+
+The implementation must preserve the distinction between a runtime lifecycle event and a change to the runtime's identity or authority.
+
+The intended result is a small, testable Core implementation — not a general event-sourcing framework or a runtime orchestration system.
+
+## 3. Required scope
+
+### A. RuntimeInstance registry / entity extension
+
+Extend the existing entity model with the registry and minimal RuntimeInstance representation required by D-1.
+
+Requirements:
+
+- Reuse existing Core primitives, identifiers, ownership rules, validation patterns, and export conventions.
+- Preserve the distinction between Participant, Identity Version, Runtime Instance, and Authority Principal.
+- Do not collapse RuntimeInstance identity into Participant identity.
+- Do not infer identity continuity or authority inheritance from runtime lifecycle events.
+- Apply existing construction-time validation, defensive copying, and deep-freeze conventions.
+- Do not introduce `any` or expose unvalidated `unknown` through public domain APIs.
+
+Keep the model minimal. Do not add fields or lifecycle states merely because they might be useful in a future implementation.
+
+### B. Minimal runtime event record
+
+Introduce the minimal runtime event record required by D-1.
+
+The record must support the separation of lifecycle events from the RuntimeInstance descriptor.
+
+Important:
+
+- The descriptor must remain byte-identical when a lifecycle event occurs.
+- An event must not silently mutate or replace the descriptor.
+- Do not embed future event-format decisions into the implementation.
+- The event format is deferred to CORE-002. Do not design or implement CORE-002 as part of this task.
+
+Use only the event semantics established by the approved plan and CORE-001. Do not invent additional event types, ordering guarantees, delivery semantics, persistence guarantees, or replay behavior.
+
+### C. Separate failure event from runtime state
+
+Implement the D-1 distinction between the failure event and the runtime's lifecycle state.
+
+The conformance requirements explicitly include:
+
+- **rt-1:** a failure event is represented separately from the runtime lifecycle state.
+- **rt-2:** the RuntimeInstance remains `RUNNING` in the specified scenario; recording a failure event must not implicitly transition it to another lifecycle state.
+
+Do not interpret the presence of a failure event as automatic termination, revocation, invalidation, or loss of authority.
+
+The event records what happened. It does not, by itself, decide what the system must do next.
+
+## 4. Conformance tests
+
+Add the D-1 conformance coverage to:
+
+`tests/conformance/d.test.ts`
+
+This file already contains Task 13 coverage. Extend it without weakening, deleting, or rewriting existing Credential conformance assertions.
+
+At minimum, cover:
+
+1. RuntimeInstance registry/entity construction and validation.
+2. RuntimeInstance descriptor immutability.
+3. Runtime event construction and validation.
+4. rt-1: failure event is represented independently from lifecycle state.
+5. rt-2: recording the failure event leaves the RuntimeInstance state `RUNNING`.
+6. The RuntimeInstance descriptor remains byte-identical before and after event recording.
+7. Invalid inputs are rejected according to existing Core conventions.
+8. No authority-related artifact is modified as a side effect.
+
+Use deterministic fixtures and follow the existing test organization.
+
+Do not make tests pass by weakening existing validation or changing unrelated tests.
+
+## 5. Explicit exclusions
+
+This task must NOT implement or introduce:
+
+- Task 15 or any later roadmap task.
+- CORE-002 event-format semantics.
+- A general-purpose event bus, event store, or event replay mechanism.
+- Runtime orchestration, process supervision, or deployment management.
+- Automatic lifecycle transitions triggered by failure events.
+- Automatic credential revocation or global credential invalidation.
+- Authority grants or capability issuance.
+- Authority inheritance from Participant, Identity Version, or RuntimeInstance lineage.
+- New rules for signature validity or historical credential evaluation.
+- Changes to the normative `docs/CORE-001.md` specification.
+- Resolutions of unrelated OPEN/BLOCKED questions, including A-9, A-5, A-8, and A-11.
+
+In particular, do not modify Credential behavior introduced in Task 13 unless a direct dependency makes it unavoidable. If such a dependency appears, stop and explain it rather than expanding the task.
+
+## 6. Engineering constraints
+
+Follow the existing project conventions:
+
+- TypeScript strict mode.
+- ESM / NodeNext conventions.
+- Bun test runner and existing test patterns.
+- No Bun or Node-specific APIs in Core.
+- No public `any`.
+- No unvalidated `unknown` in exported domain records or semantic results.
+- Defensive deep copy and recursive deep freeze on construction.
+- Reject unsupported object structures.
+- Preserve existing public API and export conventions.
+- No unrelated refactoring or formatting churn.
+
+Do not introduce dependencies unless the approved plan explicitly requires them.
+
+## 7. Implementation workflow
+
+1. Inspect the approved plan and existing implementation.
+2. Identify the exact Task 14 acceptance criteria.
+3. Provide a short implementation outline before making changes.
+4. Implement only Task 14.
+5. Add the D-1 conformance tests.
+6. Add focused unit tests where needed.
+7. Run all project checks:
+   - tests;
+   - typecheck;
+   - lint;
+   - format check;
+   - build;
+   - duplication check, if configured.
+8. Inspect the final diff for scope violations.
+
+Do not claim a check passed unless you actually ran it and observed its result.
+
+## 8. Final report
+
+Provide:
+
+### Implementation
+- Files created or modified.
+- Public types and APIs introduced.
+- RuntimeInstance registry/entity design.
+- Runtime event representation.
+- How descriptor immutability is preserved.
+
+### Conformance
+- Explicit results for rt-1 and rt-2.
+- Test cases added.
+- Confirmation that the descriptor remains byte-identical.
+- Confirmation that no authority artifact changes as a side effect.
+
+### Verification
+- Exact test counts and results.
+- Typecheck, lint, format, build, and duplication-check results.
+- Any known limitations.
+
+### Scope audit
+Explicitly confirm:
+
+- No Task 15 implementation.
+- No CORE-002 event-format decisions.
+- No automatic revocation or authority grants.
+- No changes to `docs/CORE-001.md`.
+- No unrelated OPEN/BLOCKED issue was resolved.
+
+### Git
+Use the commit message:
+
+`feat(core): runtime decomposition with separated events (D-1)`
+
+Create a focused commit and PR only after all checks pass.
+
+Do not merge the PR. Leave it available for independent review.
+
+If any acceptance criterion cannot be implemented without inventing normative semantics, stop and report the exact ambiguity instead of making an implementation decision on behalf of the specification.
+
+---
+
+Plan approved. Proceed with implementation of Task 14 using the proposed minimal model.
+
+Four implementation clarifications:
+
+1. Copy-on-write must preserve semantic immutability while respecting Core ownership rules. Do not rely on shared mutable descriptor references or array identity.
+2. `recordRuntimeEvent` must not accept manually forged, unvalidated registry/event objects. Follow the existing Core runtime-branding and validation conventions where applicable.
+3. Duplicate RuntimeInstance IDs and events targeting unknown runtimes must be rejected. Do not introduce event deduplication, idempotency, or replay semantics; event identity is not defined in CORE-001.
+4. Test authority independence through observable invariants: recording FAILURE must not mutate IdentityVersion, Credential, or authority-related state. Do not introduce a generic source-scanning test.
+
+Keep the scope strictly within D-1. No additional lifecycle states, event kinds, timestamps, event IDs, sequencing, delivery, persistence, or replay semantics.
+
+Do not modify `docs/CORE-001.md` or Credential implementation. Implement, run all checks, report exact results, and leave the PR open for independent review.
