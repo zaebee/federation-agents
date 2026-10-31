@@ -1,0 +1,40 @@
+# PR #40 — Minor Documentation Corrections
+
+Please address two remaining documentation inconsistencies in `remediation-roadmap.md`.
+
+## 1. Correct T18-02C task-table prerequisite
+
+The current prerequisite `OWN-CORE not selected` is logically incorrect: that condition is satisfied under the approved `OWN-ADAPTER` decision, yet T18-02C is retired.
+
+Replace it with an explicit inactive/retired state, for example:
+
+- Status: `retired / superseded`
+- Prerequisite: `none`
+- Acceptance: `Historical task structure; superseded by T18-02A and T18-02B`
+
+Preserve historical traceability.
+
+## 2. Correct T18-02C explanation
+
+Replace the statement that T18-02C is not the selected ownership path.
+
+The selected ownership path is `OWN-ADAPTER`. T18-02C was retired because its original bundled scope was split into:
+
+- T18-02A — C-1 adapter emission;
+- T18-02B — C-2.a2 adapter emission.
+
+Suggested wording:
+
+"T18-02C is not the selected task structure. Its original scope has been split into T18-02A (C-1) and T18-02B (C-2.a2). It is retired and must not be treated as active work."
+
+## Constraints
+
+- Modify only `remediation-roadmap.md`.
+- Do not change decision statuses or approved resolutions.
+- Do not modify Task 17 artifacts, CORE-001, source or tests.
+- Do not change T18-02A/B scope or dependencies.
+- Do not create new tasks.
+- Run `git diff --check`.
+- Report the exact diff.
+
+No additional refactoring or wording cleanup.
