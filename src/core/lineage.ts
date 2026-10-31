@@ -147,6 +147,15 @@ export interface LineageGraph {
   readonly cycles: readonly (readonly IdentityVersionID[])[];
 }
 
+// Runtime factory provenance: the type is structural, so identity in this set
+// proves the graph was produced by buildLineageGraph. It does not prove
+// descriptor validity; buildLineageGraph deliberately preserves declarations.
+const BUILT_GRAPHS: WeakSet<object> = new WeakSet<object>();
+
+export function isBuiltLineageGraph(value: unknown): value is LineageGraph {
+  return typeof value === 'object' && value !== null && BUILT_GRAPHS.has(value);
+}
+
 function compareStrings(a: string, b: string): number {
   if (a < b) return -1;
   if (a > b) return 1;
@@ -348,5 +357,7 @@ export function buildLineageGraph(registry: Registry): LineageGraph {
     isCyclicComponent(component, adjacency),
   );
 
-  return deepFreeze({ nodes, edges, unresolvedParents, cycles }) as LineageGraph;
+  const graph = deepFreeze({ nodes, edges, unresolvedParents, cycles }) as LineageGraph;
+  BUILT_GRAPHS.add(graph);
+  return graph;
 }

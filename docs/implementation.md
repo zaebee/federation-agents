@@ -211,7 +211,7 @@ Normative codes (`UiaErrorCode`, exactly eight):
 Mechanism codes (`ImplementationErrorCode`, nine):
 `S_SELECTOR_INCOMPATIBLE_SCHEME`, `E_VERSION_LABEL_INVALID`, `E_SELECTOR_SYNTAX_INVALID`, `E_APPLICABLE_ASSESSMENTS_UNBRANDED`, `E_TEMPORAL_FIELD_REF_INVALID`, `E_CANONICALIZATION_UNSUPPORTED`, `E_OWNERSHIP_UNSUPPORTED`, `E_JSON_VALUE_INVALID`, `E_UNKNOWN_BOUNDARY_REJECTED`.
 
-The split is architectural: a wrong selector scheme is not a statement about a participant, and an unbranded assessment set is not a protocol state. Helpers `isOk`, `isFailure`, `specFailure` and `mechanismFailure` are exported. `PARENT_UNRESOLVED` and `CYCLE_DETECTED` exist as normative codes, but see §4.2 and §6: no public API currently emits an Assessment carrying them.
+The split is architectural: a wrong selector scheme is not a statement about a participant, and an unbranded assessment set is not a protocol state. Helpers `isOk`, `isFailure`, `specFailure` and `mechanismFailure` are exported. `PARENT_UNRESOLVED` and `CYCLE_DETECTED` exist as normative codes. After T18-02A, `PARENT_UNRESOLVED` is emitted by the experimental reference adapter and admitted by Core; `CYCLE_DETECTED` remains unemitted because C-2 is BLOCKED.
 
 ### 1.9 Runtime portability
 
@@ -688,9 +688,25 @@ function evaluateAssurance(
   ctx: TemporalContext,
 ): AssuranceResult;
 
+function validateContinuityAssessment(
+  value: unknown,
+): Result<DeepReadonly<ContinuityAssessment>>;
+
 function registerAssessment(
   existing: readonly DeepReadonly<ContinuityAssessment>[],
-  successor: ContinuityAssessment,
+  successor: unknown,
+): Result<readonly DeepReadonly<ContinuityAssessment>[]>;
+
+function registerOrphanAssessment(
+  candidate: unknown,
+  graph: LineageGraph,
+  existing: readonly DeepReadonly<ContinuityAssessment>[],
+): Result<readonly DeepReadonly<ContinuityAssessment>[]>;
+
+function registerOrphanAssessments(
+  candidates: readonly unknown[],
+  graph: LineageGraph,
+  existing: readonly DeepReadonly<ContinuityAssessment>[],
 ): Result<readonly DeepReadonly<ContinuityAssessment>[]>;
 ```
 
@@ -706,10 +722,14 @@ function registerAssessment(
 - Only trusted assessments contribute verified claims. If `policy.conflictPredicate` is defined and fires for any pair, the result is `CONTESTED`; this check runs before the missing/disallowed computation. By default the predicate is `undefined`, so `CONTESTED` is unreachable.
 - `missing` is the sorted set of required claims absent from the union of verified claims; `disallowed` is the sorted set of verified claims listed in `disallowed_claims`. Either non-empty yields `UNSATISFIED` with `ERR_ASSURANCE_PREDICATE_UNSATISFIED` and the fixed `note`. No negative finding about a claim is established.
 - `unverified_claims` is not read by assurance evaluation at all: it neither supports nor refutes a required claim. Only `verified_claims` count.
-- `registerAssessment` is copy-on-write. A self-supersession or a supersession chain that would cycle returns `CYCLE_DETECTED`; a duplicate `assessment_id` or unknown `supersedes_assessment_id` returns `E_UNKNOWN_BOUNDARY_REJECTED`. Existing records are copied and frozen, never mutated.
+- `validateContinuityAssessment` is the generic runtime validator. It uses strict JSON/ownership validation, rejects unknown fields, requires the §6.2.1 fields, checks the relation enum, requires non-empty identifier strings and non-empty parent IDs, requires claim and evidence arrays of strings, rejects duplicate/self parents, and requires a finite `assessed_at`. It returns an owned, deeply frozen copy. It does not interpret claim semantics.
+- `registerAssessment` is copy-on-write and validates its `unknown` successor before admission. It rejects `PARENT_UNRESOLVED` in either claim list with `E_UNKNOWN_BOUNDARY_REJECTED`; that claim is admission metadata, not claim semantics, and requires the C-1 contextual path. A self-supersession or a supersession chain that would cycle returns `CYCLE_DETECTED`; a duplicate `assessment_id` or unknown `supersedes_assessment_id` returns `E_UNKNOWN_BOUNDARY_REJECTED`. Existing records are copied and frozen, never mutated.
+- `registerOrphanAssessments` is the C-1 atomic batch path. It requires a builder-issued graph, validates every candidate generically, then contextually, then admits all or none. The contextual rules are: the subject is in `graph.nodes`; the parent list is non-empty, unique and does not include the subject; the listed set equals the complete declared parent set for `(subject, declared_relation)`; at least one listed parent is absent from `graph.nodes`; every absent parent is recorded in `graph.unresolvedParents`; `PARENT_UNRESOLVED` is in `unverified_claims` and not in `verified_claims`; and the candidate does not claim `CYCLE_DETECTED`.
+- `PARENT_UNRESOLVED` is declaration-scoped, not edge-scoped. `assessEdge` may return the same Assessment for a resolved edge and an unresolved edge in the same declaration; that applicability does not make the resolved edge unresolved. `unverified_claims` remains unread by assurance evaluation.
+- Batch admission checks duplicate IDs within the batch, against `existing`, and within `existing` itself; validates supersession references against the complete prospective state; and rejects cycles. On failure it returns no new representation; `existing` is unchanged. Callback side effects and caller-managed persistence are outside Core atomicity.
 - Supersession does not remove the predecessor from applicability and there is no "latest wins" rule. Choosing between a predecessor and its successor is left to `Policy.applicableAssessments`.
 
-**Failure modes:** `E_APPLICABLE_ASSESSMENTS_UNBRANDED`, `E_UNKNOWN_BOUNDARY_REJECTED`, `E_OWNERSHIP_UNSUPPORTED`, `CYCLE_DETECTED`, and the `UNSATISFIED`/`CONTESTED` values above.
+**Failure modes:** `E_APPLICABLE_ASSESSMENTS_UNBRANDED`, `E_UNKNOWN_BOUNDARY_REJECTED`, `E_OWNERSHIP_UNSUPPORTED`, `E_JSON_VALUE_INVALID`, `CYCLE_DETECTED`, and the `UNSATISFIED`/`CONTESTED` values above.
 
 **Normative source:** §6.2–§6.4, §8.5. Branding, id-based hook narrowing, sort order and supersession mechanics are `ID-T08`. `CONTESTED` detection is **A-4b BLOCKED**.
 
@@ -760,10 +780,46 @@ function buildLineageGraph(registry: Registry): LineageGraph;
 - `unresolvedParents` groups missing parents by child and deduplicates them for diagnostics only; it does not alter edges or nodes.
 - `cycles` contains sorted strongly connected components, including one-node self-loops. Cycle detection does not remove nodes or edges and does not throw. `CYCLE_DETECTED` is not emitted here; it is a traversal result.
 - The graph is deep-frozen and does not alias registry arrays. Duplicate version ids in a `Registry` are a caller error with unspecified behavior.
+- `buildLineageGraph` records the frozen result in a module-private `WeakSet`. `isBuiltLineageGraph` (not exported from the package root) accepts only builder-issued graphs. This proves **builder provenance**, not descriptor validity. `buildLineageGraph` is deliberately structural: it does not call `validateIdentityVersionDescriptor` or `validateDescriptor`, and it preserves declarations that §5.2 validation would reject. Descriptor validation remains a caller precondition.
+- Duplicate version ids with divergent lineage produce a builder-issued graph whose `nodes` are deduplicated and whose `edges` combine both declarations. This is current structural behavior pinned by `tests/unit/lineage-graph.test.ts`; it does not approve contradictory Registry contents.
 
 **Failure modes:** `StructuralResult` values only; graph construction does not return `Result`.
 
 **Normative source:** §5.2, §11.1, §11.2. Per-type cardinality and mixed arrays are `ID-T06`; duplicate handling and unresolved dedup are `ID-T07`.
+
+### 2.12a `adapters/orphan-assessment.ts` (experimental reference)
+
+**Responsibility:** C-1 orphan Assessment construction. This is an experimental reference adapter API, not a CORE-001 protocol API; it carries no stability guarantee or compatibility commitment.
+
+```ts
+interface OrphanAssessmentRequest {
+  readonly graph: LineageGraph;
+  readonly child: IdentityVersionID;
+  readonly existing: readonly DeepReadonly<ContinuityAssessment>[];
+  readonly assessmentIdFor: (
+    relation: LineageRelationType,
+    parents: readonly IdentityVersionID[],
+  ) => AssessmentID;
+  readonly assessment_profile_ref: string;
+  readonly assessment_method_version: string;
+  readonly assessed_by: DomainID;
+  readonly assessed_at: Timestamp;
+  readonly evidence_refs?: readonly string[];
+}
+
+function emitOrphanAssessment(
+  request: OrphanAssessmentRequest,
+): Result<OrphanAssessmentEmission>;
+```
+
+**Semantics**
+
+- The adapter groups `graph.edges` by `(child, relation)` for the requested child, includes the complete declared parent set for each group, and emits only groups with at least one parent absent from `graph.nodes`.
+- `assessmentIdFor` is called once per emitted group, in sorted relation order and sorted parent order. The adapter validates the returned ID as a non-empty string. It does not generate IDs.
+- The adapter calls `registerOrphanAssessments` once for the complete batch. It stops before Core admission if the graph is not builder-issued, the child is absent, the callback throws, or an ID is invalid.
+- The returned `assessments` are the admitted tail of the frozen registered representation; `registered` is the complete frozen representation.
+- `PARENT_UNRESOLVED` is declaration-scoped. Applicability of the Assessment to a resolved edge does not make that edge unresolved.
+- Callback side effects are outside Core atomicity and are not rolled back. Caller persistence occurs only after successful admission.
 
 ### 2.13 `core/traversal.ts`
 
@@ -1258,7 +1314,7 @@ function appendLifecycleEvent(
 
 ### 2.18 `core/index.ts` and `src/index.ts`
 
-`src/core/index.ts` exports value and type symbols module by module. `src/index.ts` exports `UIA_CORE_001_REVISION` and re-exports the core barrel. The public surface is typed; module-private brands are not reachable. `tests/property/traversal-invariance.test.ts` (P9) walks `export *`, named re-exports, local aliases and namespace exports to assert that no exported identifier suggests a grant-producing API. It checks names and the public surface, not implementation bodies.
+`src/core/index.ts` exports value and type symbols module by module. `src/index.ts` exports `UIA_CORE_001_REVISION`, re-exports the core barrel, and exports the experimental reference adapter `emitOrphanAssessment`. The public surface is typed; module-private brands and `isBuiltLineageGraph` are not reachable. `tests/property/traversal-invariance.test.ts` (P9) walks `export *`, named re-exports, local aliases and namespace exports to assert that no exported identifier suggests a grant-producing API. It checks names and the public surface, not implementation bodies.
 
 ### 2.19 Concept boundaries
 
@@ -1828,8 +1884,9 @@ Value exports (types are omitted here; see §2):
 | `version-scheme` | `isVersionScheme`, `validateVersionLabel`, `parseSemVer`, `compareSemVer`, `incrementDecimal` |
 | `selector` | `SELECTOR_MECHANISM_VERSION`, `InvalidCompiledSelectorError`, `compileSelector`, `selectorMatches` |
 | `temporal` | `trustOutcome` |
-| `assessment` | `assessEdge`, `evaluateAssurance`, `registerAssessment` |
-| `lineage` | `validateDescriptor`, `buildLineageGraph` |
+| `assessment` | `assessEdge`, `evaluateAssurance`, `validateContinuityAssessment`, `registerAssessment`, `registerOrphanAssessment`, `registerOrphanAssessments` |
+| `lineage` | `validateDescriptor`, `buildLineageGraph` (`isBuiltLineageGraph` is internal, not package-root) |
+| `adapters/orphan-assessment` | `emitOrphanAssessment` (experimental reference API) |
 | `traversal` | `discoverPaths`, `validatePath`, `validateMergeClosure`, `evaluateBinding` |
 | `credential` | `validateCredentialRevocationRecord`, `evaluateCredentialUsage`, `signedAtSubjectRef`, `revocationSubjectRef`, `evaluateHistoricalSignature` |
 | `runtime` | `createRuntimeLifecycleEvent`, `createRuntimeRegistry`, `recordRuntimeEvent` |

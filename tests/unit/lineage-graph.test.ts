@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { IdentityVersionDescriptor } from '../../src/core/entities.js';
-import { buildLineageGraph } from '../../src/core/lineage.js';
+import { buildLineageGraph, isBuiltLineageGraph } from '../../src/core/lineage.js';
 import type { DeepReadonly } from '../../src/core/ownership.js';
 import { descriptor, link, participant, plainGraph, registry, snapshot } from '../support/fixtures.js';
 
@@ -166,6 +166,31 @@ describe('delayed parents (graph-level C-1)', () => {
     expect(plainGraph(resolved).nodes).toEqual(['iv-child', 'iv-parent']);
     expect(plainGraph(resolved).unresolvedParents).toEqual([]);
     expect(JSON.stringify(child)).toBe(childBefore);
+  });
+});
+
+describe('structural limitations', () => {
+  test('duplicate version ids with divergent lineage produce a builder-issued combined graph', () => {
+    const first = descriptor({
+      id: 'iv-dup',
+      participant: 'participant-a',
+      lineage: [link('iv-p1', 'CONTINUATION')],
+    });
+    const second = descriptor({
+      id: 'iv-dup',
+      participant: 'participant-a',
+      lineage: [link('iv-p2', 'CONTINUATION')],
+    });
+    const graph = buildLineageGraph(registry([alice], [first, second]));
+
+    // This pins current structural behavior. It does not approve contradictory
+    // Registry contents; descriptor validation remains a caller precondition.
+    expect(isBuiltLineageGraph(graph)).toBe(true);
+    expect(graph.nodes.map(String)).toEqual(['iv-dup']);
+    expect(plainGraph(graph).edges).toEqual([
+      { child: 'iv-dup', parent: 'iv-p1', relation: 'CONTINUATION' },
+      { child: 'iv-dup', parent: 'iv-p2', relation: 'CONTINUATION' },
+    ]);
   });
 });
 

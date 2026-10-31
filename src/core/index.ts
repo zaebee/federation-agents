@@ -14,7 +14,14 @@ export type { LineageEdge, LineageGraph, Registry, StructuralResult } from './li
 
 export * from './temporal.js';
 
-export { assessEdge, evaluateAssurance, registerAssessment } from './assessment.js';
+export {
+  assessEdge,
+  evaluateAssurance,
+  registerAssessment,
+  registerOrphanAssessment,
+  registerOrphanAssessments,
+  validateContinuityAssessment,
+} from './assessment.js';
 export type {
   ApplicableAssessments,
   AssuranceResult,
