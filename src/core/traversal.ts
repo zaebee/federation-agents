@@ -322,6 +322,37 @@ type CandidatePrecheck =
   | { readonly ok: false; readonly mismatch: true }
   | { readonly ok: false; readonly mismatch: false; readonly error: MechanismFailure };
 
+function emitAndBacktrackOrigin(
+  frame: DiscoveryFrame,
+  stack: DiscoveryFrame[],
+  visited: Set<IdentityVersionID>,
+  pathEdges: LineageEdge[],
+  paths: Path[],
+  scope: LineageTraversalScope,
+): void {
+  if (pathEdges.length > 0) {
+    paths.push(frozenPath(scope, pathEdges));
+  }
+  stack.pop();
+  if (stack.length > 0) {
+    visited.delete(frame.node);
+    pathEdges.pop();
+  }
+}
+
+function backtrackExhaustedFrame(
+  frame: DiscoveryFrame,
+  stack: DiscoveryFrame[],
+  visited: Set<IdentityVersionID>,
+  pathEdges: LineageEdge[],
+): void {
+  stack.pop();
+  if (stack.length > 0) {
+    visited.delete(frame.node);
+    pathEdges.pop();
+  }
+}
+
 function collectPaths(
   adjacency: ReadonlyMap<IdentityVersionID, readonly LineageEdge[]>,
   scope: LineageTraversalScope,
@@ -339,34 +370,16 @@ function collectPaths(
   // (one root frame with no incoming edge).
 
   while (stack.length > 0) {
-    const frame = stack.at(-1);
-    if (frame === undefined) {
-      break;
-    }
+    const frame = stack.at(-1)!;
 
     if (frame.node === originID) {
-      if (pathEdges.length > 0) {
-        paths.push(frozenPath(scope, pathEdges));
-      }
-      // Pop the origin frame and backtrack its incoming edge. The root frame
-      // (candidate === origin) is excluded by discoverPaths, but guard anyway.
-      stack.pop();
-      if (stack.length > 0) {
-        visited.delete(frame.node);
-        pathEdges.pop();
-      }
+      emitAndBacktrackOrigin(frame, stack, visited, pathEdges, paths, scope);
       continue;
     }
 
     const edges = adjacency.get(frame.node) ?? [];
     if (frame.next >= edges.length) {
-      stack.pop();
-      // Backtrack the incoming edge of the exhausted frame, unless it is the
-      // root frame, which has no incoming edge.
-      if (stack.length > 0) {
-        visited.delete(frame.node);
-        pathEdges.pop();
-      }
+      backtrackExhaustedFrame(frame, stack, visited, pathEdges);
       continue;
     }
 
