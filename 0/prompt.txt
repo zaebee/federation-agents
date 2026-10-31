@@ -1,0 +1,35 @@
+### Medium finding
+
+**Location:** `src/core/assessment.ts:136-138`
+
+The narrowing hook receives assessments in candidate arrival order. With a valid `(_, xs) => xs.slice(0, 1)` hook and two trusted assessments where only A verifies `C1`, `[A,B]` satisfies `C1` while `[B,A]` fails (`src/core/assessment.ts:247–265`), violating “all graph/assessment iteration in lexicographic ID order” (`docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md:30`). Sort the owned applicable assessments by ID before invoking the hook. 
+---
+### Medium finding
+
+**Location:** `src/core/assessment.ts:280-333`
+
+`registerAssessment` only checks for supersession cycles. If a successor reuses an existing `assessment_id` without forming a cycle (for example, `a-1` registered again with different claims), it is silently added as a second record. The `links` map then keeps only the last entry for that id. This goes against the 'never rewrite history' intent. Reject duplicate ids (and probably `supersedes_assessment_id` targets that don't exist), or document that this is allowed and add a test. 
+---
+### Medium finding
+
+**Location:** `src/core/assessment.ts:153-168`
+
+`narrowByPolicy` maps the hook's selections back to core copies by `assessment_id` only (`new Map(applicable.map(...))`). If two candidates share an id, the map keeps the last one. When a policy hook checks authenticity (for example, a signature in `evidence_refs`), keeps the genuine record and rejects a forged one with the same id, the forged record is still accepted. Its `verified_claims` then count toward assurance. I confirmed this locally: the hook filtered the forged item out, and `evaluateAssurance` returned `SATISFIED` for a claim that only the forged record carried. Fix: reject duplicate `assessment_id`s in `assessEdge`, or match the hook's results by object identity against the frozen `applicable` array. 
+---
+### Low finding
+
+**Location:** `src/core/assessment.ts:184-225`
+
+`collectContestedClaims` returns `CONTESTED` whenever the predicate returns true, even if the two assessments have identical verified claims. In that case `contestedClaims: []` is empty and the caller gets no detail. Also, deriving `contestedClaims` from the symmetric difference of verified claims is an invented rule that ignores why the predicate fired. 
+---
+### Low finding
+
+**Location:** `tests/unit/assessment.test.ts:238-252`
+
+The `narrowByPolicy` docstring says a hook cannot inject altered claims under a known id, but no test covers that case. The 'cannot expand' test uses a different id (`a-2`), so the id lookup rejects it before any edge or claim logic runs. Add a test where the hook returns a modified copy with the same `assessment_id` and assert that the core claims are kept. 
+---
+### Low finding
+
+**Location:** `src/core/assessment.ts:169`
+
+`!appliesToEdge(core, edge)` can never be true: `applicable` has already been filtered by `appliesToEdge` against the same edge. Checking the hook's `candidate` against the edge is also unnecessary, because the stored value is always the core copy. These defensive checks should be removed.
