@@ -13,9 +13,7 @@ Sub-question raised for project-owner review:
 
 > Can a domain claim conformance with the contradiction semantics of §6.4 without providing a mechanism for detecting contradictions between applicable trusted Assessments?
 
-**Reviewed recommended answer (not approved):** no, **if the domain claims support for that capability**. A general CORE-001 implementation may expose Assessments, trust filtering and assurance evaluation without claiming contradiction detection; a domain that declares it relies on §6.4 contradiction semantics must provide a deterministic detection mechanism or record the capability as unsupported.
-
-This distinction is developed in §8.
+The conformance question and the recommended answer are developed in §6; §7.5 records the OPEN status. This package does not approve either.
 
 ## 2. Normative evidence
 
@@ -72,7 +70,7 @@ This distinction is developed in §8.
 
 ### 2.4 Edge-level assurance
 
-**Normative requirement.** `docs/CORE-001.md:796-804` (§8.5):
+**Normative requirement.** `docs/CORE-001.md:794-804` (§8.5):
 
 Each path edge MUST:
 
@@ -143,7 +141,7 @@ function appliesToEdge(assessment: DeepReadonly<ContinuityAssessment>, edge: Edg
 
 **Current implementation behavior.** `narrowByPolicy` (`assessment.ts:380-398`) only accepts IDs from the core-computed applicable set. It cannot introduce a new or altered Assessment; it can only select members of that set. Trust filtering later excludes untrusted members, preserving B-5.
 
-**Interpretation.** Because `assessEdge` returns the narrowed set, conflict detection later sees only the post-narrowing set. A policy that drops one of two contradictory trusted Assessments can hide the conflict. Whether that is permitted is an OPEN sub-decision (§9.2).
+**Interpretation.** Because `assessEdge` returns the narrowed set, conflict detection later sees only the post-narrowing set. A policy that drops one of two contradictory trusted Assessments can hide the conflict. Whether that is permitted is an OPEN sub-decision (§7.2).
 
 ### 3.3 Trust filtering
 
@@ -285,7 +283,7 @@ Architectural separation:
 1. **CORE-001 defines the normative obligation.** When a domain establishes that applicable trusted Assessments contradict, the corresponding Claim enters local `CONTESTED`; no majority voting; dependent decisions cannot rely on it until local resolution.
 2. **CORE-001 implementation provides the mechanism.** The implementation must expose a deterministic way to establish contradiction when the domain configures its claim vocabulary. It must not silently lose an established contradiction through ordering, narrowing, or incorrect diagnostics.
 3. **The domain’s local policy defines contradiction** within its claim vocabulary and evidence model. CORE-001 does not define a universal claim-incompatibility logic.
-4. **A conformance claim requires the capability.** A domain cannot claim support for §6.4 contradiction semantics if it cannot execute the corresponding MUST. A domain without a predicate may claim only limited support and must not describe itself as implementing §6.4 contradiction detection.
+4. **A conformance claim requires the capability.** The canonical statement is the “Conformance claim and predicate absence” paragraph below.
 
 Proposed clarification content (not approved):
 
@@ -293,9 +291,7 @@ Proposed clarification content (not approved):
 
 The “same edge” sentence is a proposed default, not an approved scope decision; §7.1 keeps the scope question OPEN.
 
-**Owner question (OPEN).** Is absence of a predicate a configuration error, or a permissible mode with a limited compatibility claim? **Recommended answer (not approved):** for a domain that claims §6.4 support, it is a configuration/conformance gap; a domain may otherwise declare limited support. This package does not decide the question.
-
-**Recommended answer to the conformance question:** no, if the domain claims support for §6.4 contradiction semantics. A general CORE-001 implementation may expose Assessments and assurance evaluation without claiming contradiction detection; that implementation must not claim §6.4 contradiction support. A domain that declares use of external assessments and relies on §6.4 must provide a detection mechanism or record the capability as unsupported.
+**Conformance claim and predicate absence (OPEN).** A domain cannot claim §6.4 support if it cannot execute the corresponding MUST. A general CORE-001 implementation may expose Assessments and assurance evaluation without claiming contradiction detection; a domain that declares reliance on §6.4 must provide a detection mechanism or record the capability as unsupported. Absence of a predicate is a configuration/conformance gap for such a domain, not compliance. Owner question: configuration error vs permissible limited mode; pending. This package does not decide.
 
 **CORE-001 amendment required?** Yes, if N-078/N-107 are to become normative rather than permanently BLOCKED. The amendment can be the clarification above or a cross-spec pointer to CORE-004. If the owner defers to CORE-004, Option B is the conservative CORE-001 position and N-078/N-107 remain BLOCKED with an explicit readiness limitation.
 
@@ -337,7 +333,7 @@ Do not assume symmetric difference is a valid representation.
 
 ### 7.5 Required capability/conformance declaration
 
-**OPEN.** Does a domain that claims §6.4 support have to declare a contradiction-detection capability? **Recommended answer (not approved):** yes. A general CORE-001 implementation need not claim §6.4 contradiction support; a domain that does claim it must provide a predicate or record the capability as unsupported. Absence of a predicate is not compliance with the MUST for such a domain. Owner question: configuration error vs permissible limited mode; pending.
+**OPEN.** See §6 for the canonical conformance-claim position. This package does not decide whether absence of a predicate is a configuration error or a permissible limited mode.
 
 ## 8. Consequences if approved
 

@@ -17,7 +17,7 @@ CORE-001 requires checking “all parent edges” of a merge node on the selecte
 
 ### 2.1 Path validation
 
-**Normative requirement.** `docs/CORE-001.md:796-804` (§8.5):
+**Normative requirement.** `docs/CORE-001.md:794-804` (§8.5):
 
 Each path edge MUST:
 
@@ -33,7 +33,7 @@ Absence of an Assessment is not successful validation.
 
 ### 2.2 Merge closure
 
-**Normative requirement.** `docs/CORE-001.md:808-824` (§8.6):
+**Normative requirement.** `docs/CORE-001.md:806-824` (§8.6):
 
 > “Если выбранный путь проходит через IdentityVersion, имеющий отношение `MERGED_FROM`, система MUST проверить все родительские рёбра этого merge-узла.”
 >
@@ -103,7 +103,7 @@ Absence of an Assessment is not successful validation.
 
 **Current implementation behavior.** `collectEdgeClosureFailures` (`traversal.ts:607-628`) triggers closure when any direct branch of `edge.child` has relation `MERGED_FROM` (`:617`). The relation of the path edge itself is irrelevant; a merge node reached through `CONTINUATION` or `FORKED_FROM` still triggers closure.
 
-**OPEN sub-decision (trigger semantics).** This is a node-property trigger: a merge node is an IdentityVersion with at least one incoming `MERGED_FROM` parent edge in the lineage graph. The relation of the path edge used to reach it does not matter. Whether §8.6 normatively requires this node-property reading, rather than requiring the path edge itself to be `MERGED_FROM`, is a separate question. It is not resolved by the immediate-vs-recursive depth choice. See §6 and §7.6.
+**OPEN sub-decision (trigger semantics).** This is a node-property trigger: a merge node is an IdentityVersion with at least one incoming `MERGED_FROM` parent edge in the lineage graph. The relation of the path edge used to reach it does not matter. Whether §8.6 normatively requires this node-property reading, rather than requiring the path edge itself to be `MERGED_FROM`, is a separate question. It is not resolved by the immediate-vs-recursive depth choice. See §6 and §7.1.
 
 ### 3.3 Exact path edge exclusion
 
@@ -132,7 +132,7 @@ Consequences:
 
 **Current implementation behavior.** `closureResult` (`traversal.ts:650-667`) returns `SATISFIED` or `UNSATISFIED` with a **flat, sorted list** of branch failures. It does not retain a tree, so recursive depth would require a shape change.
 
-### 3.8 Or one path
+### 3.8 One accepted path and aggregation
 
 **Current implementation behavior.** `evaluateOnePath` (`traversal.ts:709-731`) runs closure only after a `VALID` path-level outcome. `summarizePaths` (`traversal.ts:759-795`) lets an accepted path win; otherwise closure failure outranks cycle and contested. A closure conflict therefore surfaces as `ERR_MERGE_BRANCH_UNSATISFIED`, not necessarily as `kind: 'CONTESTED'`.
 
@@ -244,7 +244,7 @@ Rationale:
 
 Do not add a configurable recursion-depth parameter merely because it is convenient to implement.
 
-### 7.6 Trigger semantics (separate OPEN sub-decision)
+### 7.1 Trigger semantics (separate OPEN sub-decision)
 
 **OPEN.** Current implementation triggers closure on a node property: `edge.child` has at least one direct `MERGED_FROM` parent edge, regardless of the relation of the path edge used to reach it. `docs/CORE-001.md:808` says the path passes through an IdentityVersion “имеющий отношение `MERGED_FROM`”; it does not explicitly say whether that means the node has a `MERGED_FROM` parent edge or the path edge itself is `MERGED_FROM`.
 

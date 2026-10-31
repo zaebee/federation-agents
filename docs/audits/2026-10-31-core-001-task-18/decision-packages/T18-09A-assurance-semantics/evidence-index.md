@@ -78,8 +78,8 @@ Implementation behavior is not normative meaning. A passing test is not proof of
 
 ### 3.3 Implementation documentation
 
-| Source | Line | Relevance |
-| --- | --- | --- |
+| Source | Relevance |
+| --- | --- |
 | `docs/implementation.md:724` | `unverified_claims` not read by assurance evaluation |
 | `docs/implementation.md:730` | No latest-wins; predecessor stays applicable |
 | `docs/implementation.md:1432` | Aggregation is not a normative precedence table; A-8 OPEN |
@@ -163,8 +163,8 @@ Implementation behavior is not normative meaning. A passing test is not proof of
 
 ## 6. Task 18 status references
 
-| Source | Line | Content |
-| --- | --- | --- |
+| Source | Content |
+| --- | --- |
 | `decision-register.md:4` | 2 APPROVED (DEC-01/02); 13 OPEN |
 | `decision-register.md:27` | T18-DEC-06 OPEN |
 | `decision-register.md:28` | T18-DEC-07 OPEN |

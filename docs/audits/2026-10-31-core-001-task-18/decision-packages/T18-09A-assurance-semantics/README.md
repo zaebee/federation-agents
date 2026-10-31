@@ -148,7 +148,7 @@ No tests are required for a documentation-only package. Existing test evidence i
 The project owner reviews:
 
 1. the DEC-06 recommendation and its five unresolved sub-decisions;
-2. the DEC-07 recommendation and the proposed one-sentence clarification;
+2. the DEC-07 depth recommendation, the separate `DEC-07-TRIGGER` question, and the proposed clarification text;
 3. the interaction matrix and invariant check.
 
 If a decision is approved, the approval is recorded in `decision-register.md`; any normative clarification goes through `T18-SPEC-01`; implementation and tests follow separately. Neither decision is approved by this package.
