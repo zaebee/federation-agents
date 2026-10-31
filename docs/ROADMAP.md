@@ -70,13 +70,13 @@ The protocol core is implemented through immediate merge closure and scope × cl
 
 **Deliberately excluded from P1:** recursive merge closure, contradiction detection, and merge-typed origin closure — see §8.
 
-## 5. P2 — Credentials, runtime, acceptance (In progress)
+## 5. P2 — Credentials, runtime, acceptance (Done)
 
 | Task | Status | Deliverable                                                          | Exit criterion |
 | ---- | ------ | -------------------------------------------------------------------- | -------------- |
 | 13   | Done   | Credential usage, revocation reasons, historical signature semantics  | Corpus D-3, D-4 pass; the four temporal trust outcomes stay distinct |
 | 14   | Done   | Runtime instance lifecycle                                           | Corpus D-1 passes; restart does not create a version |
-| 15   | Next   | Local Acceptance and lifecycle                                       | Corpus D-2 passes; earlier rulings survive new events |
+| 15   | Done   | Local Acceptance and lifecycle                                       | Corpus D-2 passes; earlier rulings survive new events |
 
 **Exit criteria for P2:**
 
