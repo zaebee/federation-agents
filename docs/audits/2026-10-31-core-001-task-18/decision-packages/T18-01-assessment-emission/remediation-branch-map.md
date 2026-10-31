@@ -2,14 +2,16 @@
 
 **Status:** Planning only. Paths are conditional on OPEN decisions. No implementation task is created here.
 
+**Labels:** remediation paths `PATH-A`, `PATH-B`, `PATH-C`; ownership `OWN-CORE`, `OWN-ADAPTER`; validation `VAL-CORE`, `VAL-ADAPTER`, `VAL-CORE-CONSTRUCTION`.
+
 ## Decision references
 
-- **T18-DEC-01:** Does CORE-001 require a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle? — **OPEN**.
-- **T18-DEC-02:** Which boundary owns Assessment construction and registration/publication, and which boundary validates the Assessment contract? — **OPEN**.
+- **T18-DEC-01** — **OPEN**; canonical wording in `decision-register-proposal.md`.
+- **T18-DEC-02** — **OPEN**; canonical wording in `decision-register-proposal.md`.
 
-## 1. Path A — Core ownership
+## 1. PATH-A — Core ownership
 
-Applies if T18-DEC-02 selects Core construction/registration.
+Applies if T18-DEC-02 selects `OWN-CORE`.
 
 | Step | Content |
 | --- | --- |
@@ -20,19 +22,19 @@ Applies if T18-DEC-02 selects Core construction/registration.
 | T18-13 | Readiness depends on AEBE, T18-10, T18-11 |
 | C-2.a3 | Remains separate; C-2 stays BLOCKED |
 
-## 2. Path B — Adapter ownership
+## 2. PATH-B — Adapter ownership
 
-Applies if T18-DEC-02 selects adapter construction/registration.
+Applies if T18-DEC-02 selects `OWN-ADAPTER`.
 
 | Step | Content |
 | --- | --- |
 | T18-02C | Adapter emission evidence: adapter uses public `buildLineageGraph` and `registerAssessment` |
-| Validation | Choose A (Core validator called by adapter), B (adapter validator under contract), or C (Core construction/validation); the bypass risk must be addressed |
+| Validation | Choose `VAL-CORE`, `VAL-ADAPTER`, or `VAL-CORE-CONSTRUCTION`; the bypass risk must be addressed |
 | AEBE | Evidence from the actual adapter boundary, not a hand-constructed fixture |
 | T18-13 | Readiness depends on AEBE, T18-10, T18-11 |
 | C-2.a3 | Remains separate; C-2 stays BLOCKED |
 
-### Path B evidence requirements
+### PATH-B evidence requirements
 
 1. The adapter produces the Assessment from graph state.
 2. Exact claim: `PARENT_UNRESOLVED` for C-1; `CYCLE_DETECTED` for C-2.a2.
@@ -44,9 +46,9 @@ Applies if T18-DEC-02 selects adapter construction/registration.
 8. The C-2 subject model is explicitly identified.
 9. Revision and exact test command are recorded.
 
-## 3. Path C — No normative emission requirement
+## 3. PATH-C — No normative emission requirement
 
-Applies if T18-DEC-01 concludes CORE-001 does not require an Assessment.
+Applies if T18-DEC-01 selects `REQ-NONE` or `REQ-EXTERNAL`.
 
 - Do not create C-1/C-2.a2 implementation tasks merely to satisfy tests.
 - Prepare `T18-SPEC-01` clarification/amendment if the project wants to change the normative text.

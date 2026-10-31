@@ -2,16 +2,20 @@
 
 **All decisions remain OPEN.** This file records a recommendation, not an approved decision.
 
-## 1. Decision questions
+Labels used here: requirement outcomes `REQ-LOCAL`, `REQ-EXTERNAL`, `REQ-NONE`; ownership `OWN-CORE`, `OWN-ADAPTER`; validation `VAL-CORE`, `VAL-ADAPTER`, `VAL-CORE-CONSTRUCTION`; remediation `PATH-A`, `PATH-B`, `PATH-C`.
 
-| ID | Proposed wording | Status |
+## 1. Decision references
+
+| ID | Subject | Status |
 | --- | --- | --- |
-| **T18-DEC-01** | Does CORE-001 require a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle? | **OPEN** |
-| **T18-DEC-02** | Which boundary owns Assessment construction and registration/publication, and which boundary validates the Assessment contract? | **OPEN** |
+| **T18-DEC-01** | Assessment recording obligation | **OPEN** |
+| **T18-DEC-02** | Construction/registration and validation ownership | **OPEN** |
 
-## 2. Emission ownership options
+Canonical wording is in `decision-register-proposal.md`.
 
-### Option 1 — Core-owned construction and registration
+## 2. Emission ownership and requirement outcomes
+
+### OWN-CORE — Core-owned construction and registration
 
 | Dimension | Assessment |
 | --- | --- |
@@ -22,7 +26,7 @@
 | Compatibility risk | New API is additive; existing `registerAssessment` remains unless guarded |
 | Unresolved | Exact API shape; C-2 model; whether Core may own local policy inputs |
 
-### Option 2 — Adapter-owned construction and registration
+### OWN-ADAPTER — Adapter-owned construction and registration
 
 | Dimension | Assessment |
 | --- | --- |
@@ -33,7 +37,7 @@
 | Compatibility risk | Low for Core; high for cross-adapter consistency |
 | Unresolved | Validation owner; C-2 model; publication mechanism |
 
-### Option 3 — No normative emission requirement
+### REQ-NONE — No normative emission requirement (DEC-01 outcome, not ownership)
 
 | Dimension | Assessment |
 | --- | --- |
@@ -48,16 +52,16 @@
 
 | Option | Description | Bypass risk | Required APIs/tests |
 | --- | --- | --- | --- |
-| **A. Core validator called by adapter** | Public `validateContinuityAssessment`; adapter must call it before registration | High unless registration also validates | validator API; valid/malformed tests; AEBE shows use |
-| **B. Adapter validation under contract** | Adapter implements the field contract; no Core validator | High across adapters; inconsistent | adapter contract tests; AEBE rejection evidence |
-| **C. Core construction + validation** | Core creates and validates the Assessment; adapter supplies provenance | Low for the new API; old `registerAssessment` remains a bypass unless guarded | construction API; validation tests; guard/deprecate old path |
+| **VAL-CORE** | Public `validateContinuityAssessment`; adapter calls it before registration | High unless registration also validates | validator API; valid/malformed tests; AEBE shows use |
+| **VAL-ADAPTER** | Adapter implements the field contract; no Core validator | High across adapters; inconsistent | adapter contract tests; AEBE rejection evidence |
+| **VAL-CORE-CONSTRUCTION** | Core creates and validates the Assessment; adapter supplies provenance | Low for the new API; old `registerAssessment` remains a bypass unless guarded | construction API; validation tests; guard/deprecate old path |
 
-**Proposal, not approved:** Option A plus validation inside `registerAssessment` (or a validated registration function that guards the old path). A separate validator alone does not prevent bypass.
+**Proposal, not approved:** `VAL-CORE` plus validation inside `registerAssessment` (or a validated registration function that guards the old path). A separate validator alone does not prevent bypass.
 
 ## 4. Recommendation
 
 - **T18-DEC-01:** recommend **required at the local-assessment level**; status **OPEN**. The obligation is explicit in §11.1/§11.2/§12; the exact shape is partly unspecified.
-- **T18-DEC-02:** recommend **adapter construction/registration plus a Core validator (Option A)**, with validation enforced at registration or through a guarded validated-registration API; status **OPEN**. Adapter ownership is a recommendation, not accepted architecture.
+- **T18-DEC-02:** recommend **`OWN-ADAPTER` plus `VAL-CORE`**, with validation enforced at registration or through a guarded validated-registration API; status **OPEN**. Adapter ownership is a recommendation, not accepted architecture.
 - **C-2 model:** recommend **one Assessment per affected lineage edge** for determinism and subject clarity, but this is a proposal only. It remains an explicit specification question; no task may assume it.
 - **C-2.a3:** separate CORE-003; no recommendation can close it here.
 

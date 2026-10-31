@@ -5,8 +5,8 @@
 
 ## Decision references
 
-- **T18-DEC-01:** Does CORE-001 require a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle? — **OPEN**.
-- **T18-DEC-02:** Which boundary owns Assessment construction and registration/publication, and which boundary validates the Assessment contract? — **OPEN**.
+- **T18-DEC-01** — **OPEN**; canonical wording in `decision-register-proposal.md`.
+- **T18-DEC-02** — **OPEN**; canonical wording in `decision-register-proposal.md`.
 
 ## 1. Public API
 
@@ -42,6 +42,27 @@ A read-only probe confirmed:
 ```
 
 The malformed object had empty IDs, empty parent list, empty profile/method, empty claims, empty domain, timestamp `0`.
+
+Reproducible probe (run from the repository root):
+
+```bash
+bun -e "
+import * as core from './src/index.ts';
+const malformed = {
+  assessment_id: '', subject_version_id: '', parent_version_ids: [], declared_relation: 'CONTINUATION',
+  assessment_profile_ref: '', assessment_method_version: '', verified_claims: [], unverified_claims: [],
+  evidence_refs: [], assessed_by: '', assessed_at: 0,
+};
+const result = core.registerAssessment([], malformed);
+console.log(JSON.stringify({
+  registerAssessmentPublic: typeof core.registerAssessment,
+  validatorPublic: typeof core.validateContinuityAssessment,
+  buildGraphPublic: typeof core.buildLineageGraph,
+  acceptedMalformed: result.ok,
+  valueLength: result.ok ? result.value.length : null,
+}));
+"
+```
 
 ## 2. Current execution paths
 
@@ -79,7 +100,42 @@ It does **not** validate field presence, types, enum values, empty strings, time
 
 `evaluateAssurance` (`assessment.ts:262`) checks the brand, filters trusted assessors, reads `verified_claims`, and computes missing/disallowed. It does not validate the assessment shape.
 
-## 3. Terms kept separate
+### 2.4 Fields and invariants not checked
+
+`registerAssessment`, `assessEdge` and `evaluateAssurance` do not check:
+
+- required fields and their presence;
+- non-empty or well-formed IDs;
+- runtime enum validity for `declared_relation`;
+- array-of-string shape for `parent_version_ids`, `verified_claims`, `unverified_claims`, `evidence_refs`;
+- finite `assessed_at`;
+- `assessment_profile_ref` / `assessment_method_version` presence or content;
+- duplicate parents, empty parent sets, self-parent assessments;
+- claim identifier shape;
+- provenance consistency (`assessed_by` domain, `assessed_at` domain time).
+
+Deep copy/freeze is ownership, not semantic validation.
+
+## 3. Minimum C-1 Assessment contract
+
+| Field | Minimum value |
+| --- | --- |
+| `assessment_id` | local unique id |
+| `subject_version_id` | child version |
+| `parent_version_ids` | missing parent(s) |
+| `declared_relation` | declared relation |
+| `verified_claims` | empty |
+| `unverified_claims` | includes `PARENT_UNRESOLVED` |
+| `assessment_profile_ref` | local profile |
+| `assessment_method_version` | local method |
+| `evidence_refs` | descriptor/observation refs |
+| `assessed_by` | local domain |
+| `assessed_at` | local timestamp |
+| `supersedes_assessment_id` | optional, after parent arrives |
+
+Invariants: exact claim; parent genuinely absent; graph/descriptors unchanged; provenance local; no authority consequence. This is a minimum contract, not an approved C-2 model.
+
+## 4. Terms kept separate
 
 | Term | Meaning today |
 | --- | --- |
@@ -91,7 +147,7 @@ It does **not** validate field presence, types, enum values, empty strings, time
 
 These are not interchangeable. In particular, registration does not validate, and returning an array is not a publication mechanism.
 
-## 4. Validation bypass risk
+## 5. Validation bypass risk
 
 Public `registerAssessment` can be called without any validator. The probe accepted a malformed object. A separate `validateContinuityAssessment` would only work if every caller follows `validate → register`; nothing enforces that convention.
 
@@ -103,9 +159,9 @@ Public `registerAssessment` can be called without any validator. The probe accep
 
 **Proposal, not approved:** make `registerAssessment` validate through a shared `validateContinuityAssessment` (or introduce a validated registration function and guard the old one). The project owner must choose the enforcement boundary. Do not assume the `validate → register` convention is sufficient.
 
-## 5. Ownership feasibility
+## 6. Ownership feasibility
 
-### 5.1 Core construction/registration
+### 6.1 Core construction/registration
 
 - Requires a new API with explicit `assessed_by`, `assessed_at`, profile, method, evidence refs.
 - Core has no clock: `temporal.ts` exposes declared/trust values, not `now`.
@@ -113,7 +169,7 @@ Public `registerAssessment` can be called without any validator. The probe accep
 - Directly testable; one validation source if construction validates.
 - Adds public surface and duplicates domain policy inputs.
 
-### 5.2 Adapter construction/registration
+### 6.2 Adapter construction/registration
 
 - Uses public `buildLineageGraph` (`unresolvedParents`, `cycles`) and `registerAssessment`.
 - Adapter owns domain identity, clock, profile/method, evidence.
@@ -121,12 +177,12 @@ Public `registerAssessment` can be called without any validator. The probe accep
 - But validation is absent; adapter must either validate itself or call a new Core validator.
 - Different adapters can choose different C-2 models/IDs unless a contract is defined.
 
-### 5.3 No normative emission requirement
+### 6.3 No normative emission requirement
 
 - Not supported by §11.2/§12; would require a specification change and re-audit.
 - No implementation task should be created under this outcome.
 
-## 6. C-2 model data availability
+## 7. C-2 model data availability
 
 `LineageGraph.cycles` provides node sets, and `LineageGraph.edges` provides `(child, parent, relation)`. An adapter can derive:
 
@@ -136,7 +192,7 @@ Public `registerAssessment` can be called without any validator. The probe accep
 
 The implementation provides enough data for all three, but does not choose one. No implementation task may assume a model before the decision.
 
-## 7. NOT VERIFIED
+## 8. NOT VERIFIED
 
 - No adapter implementation exists; actual adapter behavior cannot be observed.
 - No public validator; malformed objects can be registered (probe).

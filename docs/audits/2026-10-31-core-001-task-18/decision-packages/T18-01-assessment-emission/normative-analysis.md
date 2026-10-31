@@ -5,8 +5,8 @@
 
 ## Decision references
 
-- **T18-DEC-01:** Does CORE-001 require a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle? — **OPEN**.
-- **T18-DEC-02:** Which boundary owns Assessment construction and registration/publication, and which boundary validates the Assessment contract? — **OPEN**.
+- **T18-DEC-01** — **OPEN**; canonical wording in `decision-register-proposal.md`.
+- **T18-DEC-02** — **OPEN**; canonical wording in `decision-register-proposal.md`.
 
 ## 1. C-1 — unresolved/orphan parent
 
@@ -123,8 +123,7 @@ Consequences:
 - C-2 case remains BLOCKED until a3 is resolved.
 - T18-DEC-01/02 cannot close C-2.
 
-## 4. Proposed DEC-01 wording
+## 4. DEC-01 reference
 
-> Does CORE-001 require a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle?
-
-Recommendation: **required at the local-assessment level**; status **OPEN**.
+Canonical wording is in `decision-register-proposal.md` under `T18-DEC-01`.
+Recommendation: **`REQ-LOCAL`** (required at the local-assessment level); status **OPEN**.

@@ -9,8 +9,8 @@
 
 This package supports a project-owner decision on two questions:
 
-- **T18-DEC-01:** Does CORE-001 require a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle?
-- **T18-DEC-02:** Which boundary owns Assessment construction and registration/publication, and which boundary validates the Assessment contract?
+- **T18-DEC-01** — Assessment recording obligation (OPEN; canonical wording in `decision-register-proposal.md`).
+- **T18-DEC-02** — Assessment construction/registration and validation ownership (OPEN; canonical wording in `decision-register-proposal.md`).
 
 The package covers C-1 (orphan/unresolved parent) and C-2.a2 (Assessment with `CYCLE_DETECTED`). C-2.a3 (dependent grant suppression) is a separate CORE-003 question and is not resolved here.
 
@@ -36,10 +36,10 @@ The package covers C-1 (orphan/unresolved parent) and C-2.a2 (Assessment with `C
 
 ## 4. Decision status
 
-| Decision | Wording | Status | Recommendation |
+| Decision | Subject | Status | Recommendation |
 | --- | --- | --- | --- |
-| **T18-DEC-01** | Does CORE-001 require a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle? | **OPEN** | Required at the local-assessment level; not approved |
-| **T18-DEC-02** | Which boundary owns Assessment construction and registration/publication, and which boundary validates the Assessment contract? | **OPEN** | Adapter construction/registration plus a Core validator (Option A); not approved |
+| **T18-DEC-01** | Assessment recording obligation | **OPEN** | Required at the local-assessment level; not approved |
+| **T18-DEC-02** | Construction/registration and validation ownership | **OPEN** | `OWN-ADAPTER` plus `VAL-CORE`; not approved |
 
 ## 5. Recommended next action
 
@@ -63,10 +63,9 @@ These are historical facts. This package does not rewrite them.
 | `README.md` | Objective, scope, conclusion, decision status, next action |
 | `normative-analysis.md` | C-1 and C-2.a2 normative text and interpretation |
 | `implementation-analysis.md` | Execution paths, public API, validation behavior, feasibility |
-| `decision-recommendation.md` | Options 1/2/3 and validation owners A/B/C |
+| `decision-recommendation.md` | `OWN-*` ownership options and `VAL-*` validation owners |
 | `decision-register-proposal.md` | Exact proposed T18-DEC-01/02 entries, both OPEN |
-| `remediation-branch-map.md` | Paths A/B/C, AEBE, T18-13 dependency |
-| `boundary-and-contract-analysis.md` | Public API, validation bypass, minimum contract, C-2 models |
+| `remediation-branch-map.md` | `PATH-A/B/C`, AEBE, T18-13 dependency |
 
 ## 8. No-change statement
 
