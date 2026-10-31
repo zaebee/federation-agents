@@ -1,0 +1,304 @@
+мержим
+
+---
+
+# T18-03 — D-4 Future Authorization Test-Only
+## Plan Mode Investigation
+
+You are working in the `zaebee/federation-agents` repository on UIA CORE-001 conformance remediation.
+
+Your task is to investigate and prepare an implementation plan for **T18-03 — D-4 future-authorization test-only**, part of Task 18: Conformance Gap Disposition & Remediation Roadmap.
+
+This is a narrowly scoped test-only task. Do not implement anything yet.
+
+---
+
+## 1. Mandatory source hierarchy
+
+Before planning, inspect the current repository state. Do not rely on stale assumptions or previous conversation summaries.
+
+Use this precedence:
+
+1. `docs/CORE-001.md` — normative specification, Rev 0.3.3.
+2. Approved implementation plan: `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`, Rev E.
+3. Task 17 conformance audit — historical baseline; must remain unchanged.
+4. Task 18 disposition and remediation documents.
+5. Existing implementation and tests.
+6. PR history and commit messages, only as supporting context.
+
+Identify the current HEAD, relevant merged commits, and working-tree state.
+
+Locate the exact definitions and references for:
+- D-4;
+- N-041;
+- T18-03;
+- `evaluateHistoricalSignature`;
+- `evaluateCredentialUsage`;
+- `trustOutcome`;
+- `compromise_effective_at`;
+- historical signature evaluation;
+- future authorization evaluation.
+
+Do not assume the file paths or API signatures from this prompt are current. Verify them.
+
+## 2. Historical context and invariant
+
+The existing D-4 rule concerns a credential revocation record that does not provide `compromise_effective_at`.
+
+The established behavior is:
+
+- Missing `compromise_effective_at` must not be replaced with `revoked_at`.
+- The system must not infer when compromise began.
+- The historical signature assessment must remain conservative and produce the specified contested outcome (`CONTESTED_COMPROMISED`) where applicable.
+- Historical signature evaluation and future authorization are separate concerns.
+- A historical result must not itself grant or deny future authorization unless the relevant authorization policy explicitly evaluates it.
+
+Verify each statement against the current normative text and implementation. If any statement is inaccurate or incomplete, report the discrepancy rather than silently adopting it.
+
+The test must establish the intended boundary:
+
+**A contested historical signature result does not automatically imply that future authorization is denied.**
+
+Equally, it must not imply that future authorization is automatically granted.
+
+Future authorization must remain a separate policy-driven evaluation.
+
+## 3. Scope — strictly test-only
+
+The intended task is to add or adjust tests demonstrating the D-4 boundary.
+
+Permitted:
+- Add focused unit tests.
+- Add test fixtures or local test helpers when necessary.
+- Add a small number of assertions to an existing relevant test suite.
+- Update test documentation only if directly required to explain the new test.
+
+Not permitted:
+- Modify `src/**`.
+- Modify `docs/CORE-001.md`.
+- Modify the approved implementation plan.
+- Modify Task 17 audit artifacts.
+- Change existing D-4 semantics.
+- Introduce new authorization APIs or policy abstractions.
+- Add implicit revocation, automatic denial, or automatic grant behavior.
+- Change unrelated tests or refactor production code.
+- Resolve any OPEN or BLOCKED Task 18 decision by implementation fiat.
+
+If the current implementation cannot express the required test without production changes, stop and report the blocker. Do not expand scope.
+
+## 4. Investigation questions
+
+Answer these before proposing implementation:
+
+### A. Current behavior
+
+1. Where is D-4 implemented?
+2. What exact inputs produce `CONTESTED_COMPROMISED`?
+3. Does the current implementation distinguish:
+   - missing `compromise_effective_at`;
+   - present and trusted `compromise_effective_at`;
+   - present but untrusted or contested temporal evidence?
+4. Is `revoked_at` ever used as a substitute?
+5. What does `evaluateHistoricalSignature` return?
+6. Which existing function, if any, evaluates future authorization?
+7. Is there an existing policy evaluation path suitable for testing the separation?
+
+Use actual source and test references. Do not infer behavior from function names.
+
+### B. Existing test coverage
+
+1. Find all D-4-related tests.
+2. Determine whether they test only the historical signature result or also future authorization.
+3. Identify existing fixtures and policy mechanisms that can demonstrate the boundary without adding production code.
+4. Identify any tests that accidentally couple historical uncertainty to future denial or grant.
+
+### C. Test design
+
+Determine the smallest test arrangement that can establish:
+
+- Case 1: Missing `compromise_effective_at` produces the required contested historical result.
+- Case 2: That historical result is not itself a future-authorization decision.
+- Case 3: Future authorization is evaluated independently under an explicit policy.
+- Case 4: A policy that denies authorization can deny it independently of the historical result.
+- Case 5: A policy that permits authorization does not become an automatic grant mechanism; all other required authorization conditions remain in force.
+
+Do not assume all five cases require separate tests. Prefer a minimal, readable test matrix.
+
+Be precise about the meaning of “permit”:
+- A policy evaluation result is not necessarily an execution authorization.
+- Do not claim that CORE-001 creates an authorization grant.
+- Do not invent a grant-producing API.
+
+## 5. Normative boundaries
+
+Preserve these distinctions:
+
+- Evidence ≠ Finding ≠ Ruling ≠ Execution Authorization.
+- Historical signature evaluation ≠ future authorization evaluation.
+- Credential revocation status ≠ inferred compromise start time.
+- `CONTESTED_COMPROMISED` ≠ automatic denial.
+- Policy evaluation ≠ grant issuance.
+- A test proving separation ≠ a normative change.
+
+Do not change any of these boundaries.
+
+If the current API cannot demonstrate one of them, state that explicitly.
+
+## 6. Required deliverables from Plan Mode
+
+Produce a concise but evidence-rich plan containing:
+
+1. **Repository baseline**
+   - HEAD commit;
+   - working-tree state;
+   - relevant merged Task 18 commits;
+   - relevant source and test files.
+
+2. **Normative traceability**
+   - exact CORE-001 section(s);
+   - exact D-4 and N-041 references;
+   - what the test is intended to demonstrate;
+   - what it explicitly does not demonstrate.
+
+3. **Implementation traceability**
+   - exact functions and call paths;
+   - current behavior;
+   - existing test coverage;
+   - identified gap.
+
+4. **Proposed test matrix**
+   - test name;
+   - setup;
+   - action;
+   - expected result;
+   - invariant protected.
+
+5. **Exact file change list**
+   - preferably test files only;
+   - explain why each file must change;
+   - no speculative file changes.
+
+6. **Risk analysis**
+   - accidental coupling between historical and future evaluation;
+   - accidental interpretation of policy permission as a grant;
+   - fixture ambiguity;
+   - false confidence from testing only return values.
+
+7. **Verification commands**
+   - focused test command;
+   - full test suite;
+   - typecheck/lint/format/build commands if relevant;
+   - expected baseline and how regressions will be detected.
+
+8. **Out-of-scope register**
+   Explicitly confirm that the plan does not:
+   - modify production source;
+   - amend CORE-001;
+   - rewrite Task 17 results;
+   - resolve unrelated Task 18 decisions;
+   - introduce automatic revocation or authorization semantics.
+
+## 7. Stop conditions
+
+Stop and report rather than inventing behavior if:
+
+- no independent future-authorization policy path exists;
+- the test would require production source changes;
+- the current implementation contradicts D-4;
+- the required distinction cannot be established through public APIs;
+- D-4 or N-041 has changed since the historical context described above.
+
+If blocked, explain the smallest separate decision or implementation task needed. Do not silently convert T18-03 into that task.
+
+## 8. Final response format
+
+Return:
+
+1. `BASELINE`
+2. `NORMATIVE TRACE`
+3. `CURRENT IMPLEMENTATION`
+4. `EXISTING COVERAGE`
+5. `PROPOSED TEST MATRIX`
+6. `FILES TO CHANGE`
+7. `RISKS`
+8. `VERIFICATION`
+9. `BLOCKERS / OPEN QUESTIONS`
+10. `SCOPE CONFIRMATION`
+
+End with one explicit recommendation:
+
+- `READY FOR IMPLEMENTATION`
+- `READY WITH CONDITIONS`
+- `BLOCKED`
+
+Do not modify files, run implementation changes, create commits, or open a PR in Plan Mode.
+
+The task is to establish a testable boundary, not to redesign authorization.
+
+---
+
+План в целом хороший. Claude правильно нашёл главное: в CORE-001 уже есть независимый policy callback для future authorization, поэтому production-код менять не требуется. T18-03 действительно можно выполнить в рамках test-only.
+
+Но я бы пока не давал безусловный `READY`. Есть один существенный семантический момент, который стоит исправить до реализации.
+
+## Что хорошо
+
+1. Правильная точка расширения. `evaluateHistoricalSignature` вызывает `evaluateFutureAuthorization`, передавая отдельный `FutureAuthorizationInput`.
+2. D-4 не подменяет время отзыва временем компрометации. Отсутствующий `compromise_effective_at` остаётся отсутствующим.
+3. Проверяется не только результат, но и вход policy. Это важнее, чем просто проверить `future_authorizable`.
+4. Исторический Task 17 остаётся нетронутым. Новые тесты не переписывают прежний аудит.
+5. Scope соблюдён. Один тестовый файл, без production API и нормативных изменений.
+
+## Один P1: тест с `AUTHORIZABLE`
+
+Меня беспокоит второй тест:
+
+```
+evaluateFutureAuthorization: () => 'AUTHORIZABLE'
+```
+
+В результате получаем:
+
+```
+historical: { status: 'CONTESTED_COMPROMISED' }
+future_authorizable: 'AUTHORIZABLE'
+```
+
+Формально это доказывает независимость двух результатов. Но возникает более важный вопрос: что именно делает этот callback достаточным дополнительным нормативным основанием?
+
+§4.4.1 говорит, что при неизвестном времени компрометации историческая подпись не может быть достаточным основанием для future authorization без дополнительной нормативной оценки.
+
+В `FutureAuthorizationInput`, судя по плану, нет явного поля с такой оценкой. Callback может вернуть `AUTHORIZABLE` просто потому, что его так запрограммировали.
+
+И тогда тест демонстрирует не только независимость результатов, но и возможность получить `AUTHORIZABLE` без видимого дополнительного основания. Это потенциально противоречит смыслу D-4.
+
+Я бы не стал проверять положительную авторизацию в T18-03. Достаточно доказать, что исторический результат не превращается автоматически в future authorization, а policy получает контекст и самостоятельно возвращает консервативный результат.
+
+## Как я предлагаю скорректировать тестовую матрицу
+
+| Сценарий                             | Policy outcome                               | Что доказываем                                |
+| ------------------------------------ | -------------------------------------------- | --------------------------------------------- |
+| D-4, неизвестное время компрометации | `NOT_AUTHORIZABLE`                           | Нет автоматической авторизации                |
+| D-4, неизвестное время компрометации | `REQUIRES_ASSESSMENT` или `POLICY_DEPENDENT` | Неопределённость передана на отдельную оценку |
+
+Второй сценарий особенно полезен: он показывает, что система не превращает исторический `CONTESTED_COMPROMISED` ни в автоматический отказ, ни в автоматическое разрешение.
+
+При этом `AUTHORIZABLE` остаётся возможным результатом отдельной policy, но его основания и соответствие §4.4.1 должны проверяться в рамках другой задачи, а не искусственно создаваться в T18-03.
+
+## Мой вердикт
+
+READY WITH CONDITIONS
+
+Я бы попросил Claude внести одну корректировку:
+
+- убрать permit-side тест с `AUTHORIZABLE`;
+- заменить его на `REQUIRES_ASSESSMENT` или `POLICY_DEPENDENT` — после проверки точной семантики этих enum в коде;
+- явно написать, что T18-03 не доказывает достаточность дополнительной нормативной оценки и не проверяет корректность произвольной policy.
+
+Это не требует нового архитектурного решения и не затрагивает production-код.
+
+После этой корректировки я бы давал добро на реализацию. Не нужно отправлять Claude на ещё один большой анализ — достаточно короткой правки плана.
+
+---
+
+делаем PR
