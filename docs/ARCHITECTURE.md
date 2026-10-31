@@ -241,6 +241,6 @@ Implemented at the boundary: the experimental reference adapter emits a `PARENT_
 
 Not implemented: an Assessment recording `CYCLE_DETECTED` (C-2), which also needs grant suppression owned by CORE-003, so the case stays BLOCKED.
 
-Conformance **status** is not the same as implementation: the assertion-level audit (Task 17) reports 152 of 175 requirements PASS with 0 FAIL, and of the 18 §12 cases 2 are BLOCKED, 2 PARTIAL and 1 NOT COVERED. See [`STATUS.md`](../STATUS.md) and [`audits/`](./audits/).
+Conformance **status** is not the same as implementation: the assertion-level audit (Task 17) found no normative violation, yet several requirements and §12 cases are not PASS, for reasons recorded in the decision register. Counts, per-case results and the readiness label are maintained in [`STATUS.md`](../STATUS.md); the evidence is in [`audits/`](./audits/). This section describes what exists in the code, not what has been certified.
 
 Ordering and exit criteria are tracked in [`ROADMAP.md`](./ROADMAP.md) and in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md).

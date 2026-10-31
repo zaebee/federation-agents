@@ -93,7 +93,7 @@ The protocol core is implemented through immediate merge closure and scope × cl
 | Task | Status | Deliverable                                                          |
 | ---- | ------ | -------------------------------------------------------------------- |
 | 12   | Done   | Property-based tests: determinism, order independence, brute-force equivalence |
-| 17   | Done (audit) | Assertion-level conformance audit: 175 requirements inventoried, 152 PASS / 8 PARTIAL / 7 BLOCKED / 8 NOT COVERED / 0 FAIL; readiness `NOT_READY` |
+| 17   | Done (audit) | Assertion-level conformance audit recorded in the audit trail; verdict `NOT_READY`. Counts and per-case status: [`STATUS.md`](../STATUS.md) |
 
 The audit replaced Task 17's planned "final report and tag": no `uia-core-001-refimpl-0.1.0` tag was created, and no full-conformance claim was made. Its findings were dispositioned in Task 18 (`docs/audits/2026-10-31-core-001-task-18/`), which is now the live remediation track.
 

@@ -207,7 +207,7 @@ The normative specification is currently a Candidate Draft Normative document.
 
 The reference implementation is built incrementally and passes its own unit, conformance and property suites; the §12 corpus is implemented except C-2, which is BLOCKED.
 
-Conformance is **not** established as a whole, and the repository is **NOT READY** for a frozen baseline. The latest assertion-level audit found **no normative violation (0 FAIL) but 23 non-PASS items**, which Task 18 dispositioned into decisions, evidence tasks and cross-spec boundaries; most of those decisions are still OPEN. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
+Conformance is **not** established as a whole, and the repository is **NOT READY** for a frozen baseline. The assertion-level audit found no normative violation, but not every requirement passed: Task 18 dispositioned the non-PASS items into decisions, evidence tasks and cross-spec boundaries, and most of those decisions are still OPEN. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
 
 Current numbers, readiness and the open decisions live in [`STATUS.md`](STATUS.md). This README deliberately does not duplicate them: a count that appears in two places is a count that will be wrong in one of them. The evidence behind the verdicts is in [`docs/audits/`](docs/audits/).
 
