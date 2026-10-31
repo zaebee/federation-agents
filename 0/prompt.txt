@@ -1,0 +1,96 @@
+# Task 17 — Independent Audit Corrections
+
+Review the independent audit feedback for PR #37.
+
+**Mode:** Build Mode, documentation-only corrections.
+
+Do not modify `src/`, `tests/`, `docs/CORE-001.md`, the implementation plan, lockfile, or configuration. Do not fix implementation findings. Do not merge.
+
+## Required corrections
+
+### 1. N-084 — descriptor hash comparison
+
+Re-examine §7.2 against the actual implementation.
+
+`descriptorHash()` computes and returns a digest. Identify an actual implementation and test that compare the computed digest with the claimed value.
+
+If no such implementation exists in this repository:
+- Do not mark N-084 PASS merely because a caller could theoretically perform the comparison.
+- Either mark it NOT COVERED or explicitly classify the comparison as an external responsibility, with a precise scope boundary.
+- Keep digest computation and digest verification as separate requirements.
+
+### 2. N-079 — contested-claim decision gating
+
+Separate:
+- conflict detection (A-4b / N-078);
+- prevention of dependent decisions relying on unresolved contested claims (N-079).
+
+The former is BLOCKED by A-4b.
+The latter is a clearly stated normative consequence. If no implementation or adequate verification evidence exists, mark it NOT COVERED rather than BLOCKED.
+
+If you retain BLOCKED, provide a precise normative reason why the consequence itself is ambiguous.
+
+### 3. D-1 — runtime independence evidence
+
+Inspect `runtime.ts` and `tests/conformance/d.test.ts`.
+
+`RuntimeLifecycleState` currently contains only RUNNING, and `stateOf()` returns RUNNING for every registered runtime regardless of failure events.
+
+The test proves event separation and descriptor non-mutation. It does not demonstrate actual independent execution of rt-2.
+
+Revise CASE-D-1.a2 and the corresponding requirement mapping:
+- distinguish metadata-level independence from actual execution;
+- do not treat a constant RUNNING result as proof of continued execution;
+- mark the execution assertion PARTIAL, NOT COVERED, or explicitly outside CORE-001's observable scope, with reasoning.
+
+Do not add runtime execution semantics.
+
+### 4. Separate conformance and readiness summaries
+
+Keep §14–§16 in the requirement inventory, but provide separate rollups for:
+- CORE-001 implementation/runtime conformance;
+- cross-spec and external boundaries;
+- §16 readiness for Frozen Baseline.
+
+Do not combine external readiness gaps with runtime conformance counts without showing the distinction.
+
+The overall freeze-readiness verdict may remain NOT READY.
+
+### 5. N-019 / F-005
+
+Re-evaluate whether the current descriptor validation path accepts a SEMVER_2 descriptor with an invalid SemVer label.
+
+Explain whether `validateIdentityVersionDescriptor()` is the normative acceptance boundary or whether a separately enforced caller contract exists.
+
+If the public validation path accepts invalid SEMVER_2 labels, justify why the audit status is PARTIAL rather than FAIL. Do not silently lower severity.
+
+### 6. F-007 / D-4
+
+Re-evaluate the claim that future authorization is not protected by additional normative assessment.
+
+Inspect `FutureAuthorizationInput` and the mandatory `evaluateFutureAuthorization` callback. It receives revocation context and temporal outcomes.
+
+Do not infer a missing implementation requirement merely from the absence of a `historical` field.
+
+If the policy mechanism is sufficient as the additional normative assessment, retain the issue as a test coverage gap and remove or narrow the implementation finding. If not, explain the precise normative requirement that the callback cannot satisfy.
+
+## Output
+
+Update only the four Task 17 audit artifacts.
+
+Preserve all existing findings that remain supported. Do not change the audit base commit or silently alter the normative specification.
+
+Recalculate all counts and case rollups after corrections.
+
+Run Markdown consistency checks if available. Existing `format:check` excludes `docs/`; do not claim it validates the audit Markdown.
+
+Push corrections to the existing PR branch and report:
+- new HEAD;
+- exact changed files;
+- corrected status counts;
+- any findings retained, downgraded, or reclassified;
+- verification results.
+
+Do not merge. Await independent review. 
+---
+и посмотри еще коменты gemini к PR
