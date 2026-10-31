@@ -320,34 +320,32 @@ describe('claim legality', () => {
     expect(registered.ok).toBe(false);
   });
 
-  test('a blocked claim outranks an overlapping claim regardless of array position', () => {
+  test('overlap is rejected even when one of the claims is a contextual claim', () => {
     const result = validateContinuityAssessment(
       assessment({ verified_claims: ['X'], unverified_claims: ['X', 'CYCLE_DETECTED'] }),
     );
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.message).toContain('not admissible while C-2 is blocked');
+    expect(result.error.message).toContain('must not be both verified and unverified');
   });
 
-  test('CYCLE_DETECTED is rejected identically by both admission paths while C-2 is blocked', () => {
-    const cases: readonly { readonly name: string; readonly claims: Partial<ContinuityAssessment> }[] = [
-      { name: 'verified', claims: { verified_claims: ['CYCLE_DETECTED'] } },
-      { name: 'unverified', claims: { unverified_claims: ['CYCLE_DETECTED'] } },
-      {
-        name: 'overlapping',
-        claims: { verified_claims: ['CYCLE_DETECTED'], unverified_claims: ['CYCLE_DETECTED'] },
-      },
-    ];
+  test('CYCLE_DETECTED is admitted only through the C-2 contextual path', () => {
+    const generic = registerAssessment([], assessment({ unverified_claims: ['CYCLE_DETECTED'] }));
 
-    for (const testCase of cases) {
-      const generic = registerAssessment([], assessment(testCase.claims));
-      const contextual = registerOrphanAssessment(orphanAssessment(testCase.claims), mixedGraph, []);
+    expect(generic.ok).toBe(false);
+    if (generic.ok) return;
+    expect(generic.error.message).toContain('requires contextual admission');
+    expect(generic.error.message).toContain('registerCycleAssessments');
 
-      expect(generic.ok).toBe(false);
-      expect(contextual.ok).toBe(false);
-      if (generic.ok || contextual.ok) continue;
-      expect(generic.error.message).toBe(contextual.error.message);
-    }
+    const c1 = registerOrphanAssessment(
+      orphanAssessment({ unverified_claims: ['PARENT_UNRESOLVED', 'CYCLE_DETECTED'] }),
+      mixedGraph,
+      [],
+    );
+
+    expect(c1.ok).toBe(false);
+    if (c1.ok) return;
+    expect(c1.error.message).toContain('must not record CYCLE_DETECTED');
   });
 });

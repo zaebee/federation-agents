@@ -15,14 +15,14 @@ What remains is not a backlog of missing code paths. It is two kinds of work:
 
 ## At a glance
 
-| Measure            | Value                                                                                                                                                       | Source                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| §12 cases          | 14 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 0 NOT COVERED                                                                                          | Task 17 audit, revision 1              |
-| Requirements       | 153 PASS, 9 PARTIAL, 9 BLOCKED, 5 NOT COVERED, 0 FAIL (176 total)                                                                                           | Task 17 audit, revision 1              |
-| Decisions          | 4 APPROVED (incl. `T18-DEC-16`/`T18-DEC-17`), 13 OPEN                                                                                                       | Task 18 decision register              |
-| Non-PASS items     | 23 in revision 1 (also 23 at the Task 17 baseline): N-138 closed, N-176 new and not yet dispositioned by Task 18; remediation implemented: 1 task (T18-02A) | Task 18 disposition + audit revision 1 |
-| Readiness          | `NOT_READY`                                                                                                                                                 | Task 18 §7                             |
-| Local check matrix | green — 582 tests, 579 pass, 3 todo, 0 fail, 3646 expectations                                                                                              | `bun test` at the commit above         |
+| Measure            | Value                                                                                                                                                                 | Source                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| §12 cases          | 14 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 0 NOT COVERED                                                                                                    | Task 17 audit, revision 1              |
+| Requirements       | 153 PASS, 9 PARTIAL, 9 BLOCKED, 5 NOT COVERED, 0 FAIL (176 total)                                                                                                     | Task 17 audit, revision 1              |
+| Decisions          | 4 APPROVED (incl. `T18-DEC-16`/`T18-DEC-17`), 13 OPEN                                                                                                                 | Task 18 decision register              |
+| Non-PASS items     | 23 in revision 1 (also 23 at the Task 17 baseline): N-138 closed, N-176 new and not yet dispositioned by Task 18; remediation implemented: 2 tasks (T18-02A, T18-02B) | Task 18 disposition + audit revision 1 |
+| Readiness          | `NOT_READY`                                                                                                                                                           | Task 18 §7                             |
+| Local check matrix | green — 597 tests, 594 pass, 3 todo, 0 fail, 3700 expectations                                                                                                        | `bun test` at the commit above         |
 
 Three statuses need a caveat:
 

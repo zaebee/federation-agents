@@ -728,6 +728,18 @@ function registerOrphanAssessments(
   graph: LineageGraph,
   existing: readonly DeepReadonly<ContinuityAssessment>[],
 ): Result<readonly DeepReadonly<ContinuityAssessment>[]>;
+
+function registerCycleAssessment(
+  candidate: unknown,
+  graph: LineageGraph,
+  existing: readonly DeepReadonly<ContinuityAssessment>[],
+): Result<readonly DeepReadonly<ContinuityAssessment>[]>;
+
+function registerCycleAssessments(
+  candidates: readonly unknown[],
+  graph: LineageGraph,
+  existing: readonly DeepReadonly<ContinuityAssessment>[],
+): Result<readonly DeepReadonly<ContinuityAssessment>[]>;
 ```
 
 **Semantics**
@@ -742,9 +754,10 @@ function registerOrphanAssessments(
 - Only trusted assessments contribute verified claims. If `policy.conflictPredicate` is defined and fires for any pair, the result is `CONTESTED`; this check runs before the missing/disallowed computation. By default the predicate is `undefined`, so `CONTESTED` is unreachable.
 - `missing` is the sorted set of required claims absent from the union of verified claims; duplicate entries in `required_claims` are collapsed first, symmetric with `disallowed_claims`. `disallowed` is the sorted set of verified claims listed in `disallowed_claims`. Either non-empty yields `UNSATISFIED` with `ERR_ASSURANCE_PREDICATE_UNSATISFIED` and the fixed `note`. No negative finding about a claim is established.
 - `unverified_claims` is not read by assurance evaluation at all: it neither supports nor refutes a required claim. Only `verified_claims` count.
-- `validateContinuityAssessment` is the generic runtime validator. It uses strict JSON/ownership validation, rejects unknown fields, requires the §6.2.1 fields, checks the relation enum, requires non-empty strings for identifiers, parent IDs, claims and evidence references, rejects duplicate/self parents, and requires a finite `assessed_at`. Claim legality lives here so every admission path shares it: a claim listed as both verified and unverified is rejected as a self-contradictory record, and `CYCLE_DETECTED` is rejected because §6.2.2 names the claim but C-2 is BLOCKED — no path admits it until that decision lands. The non-empty rule for claims and evidence is a local safety decision, not an additional normative CORE-001 requirement. It returns an owned, deeply frozen copy. It does not interpret claim semantics.
-- `registerAssessment` is copy-on-write and validates its `unknown` successor before admission. It rejects `PARENT_UNRESOLVED` in either claim list with `E_UNKNOWN_BOUNDARY_REJECTED`; that claim is admission metadata, not claim semantics, and requires the C-1 contextual path. `CYCLE_DETECTED` and verified/unverified overlap never reach this rule: the generic validator already rejects them. A self-supersession or a supersession chain that would cycle returns `CYCLE_DETECTED`; a duplicate `assessment_id` or unknown `supersedes_assessment_id` returns `E_UNKNOWN_BOUNDARY_REJECTED`. Existing records are copied and frozen, never mutated.
-- `registerOrphanAssessments` is the C-1 atomic batch path. It requires a builder-issued graph, validates every candidate generically, then contextually, then admits all or none. The contextual rules are: the subject is in `graph.nodes`; the parent list is non-empty, unique and does not include the subject; the listed set equals the complete declared parent set for `(subject, declared_relation)`; at least one listed parent is absent from `graph.nodes`; every absent parent is recorded in `graph.unresolvedParents`; `PARENT_UNRESOLVED` is in `unverified_claims` and not in `verified_claims`. Claim legality (`CYCLE_DETECTED`, verified/unverified overlap) is enforced by the generic validator, so a C-1 candidate cannot reach the contextual rules with such a claim.
+- `validateContinuityAssessment` is the generic runtime validator. It uses strict JSON/ownership validation, rejects unknown fields, requires the §6.2.1 fields, checks the relation enum, requires non-empty strings for identifiers, parent IDs, claims and evidence references, rejects duplicate/self parents, and requires a finite `assessed_at`. Claim legality lives here so every admission path shares it: a claim listed as both verified and unverified is rejected as a self-contradictory record. The contextual claims — `PARENT_UNRESOLVED` and `CYCLE_DETECTED` — are structurally valid here but can only be admitted through their contextual path (`registerOrphanAssessments` and `registerCycleAssessments`); the generic path rejects them. The non-empty rule for claims and evidence is a local safety decision, not an additional normative CORE-001 requirement. It returns an owned, deeply frozen copy. It does not interpret claim semantics.
+- `registerAssessment` is copy-on-write and validates its `unknown` successor before admission. It rejects the contextual claims (`PARENT_UNRESOLVED`, `CYCLE_DETECTED`) in either claim list with `E_UNKNOWN_BOUNDARY_REJECTED`, naming the matching contextual path; those claims are admission metadata, not claim semantics. Verified/unverified overlap is rejected by the generic validator before this rule. A self-supersession or a supersession chain that would cycle returns `CYCLE_DETECTED`; a duplicate `assessment_id` or unknown `supersedes_assessment_id` returns `E_UNKNOWN_BOUNDARY_REJECTED`. Existing records are copied and frozen, never mutated.
+- `registerOrphanAssessments` is the C-1 atomic batch path. It requires a builder-issued graph, validates every candidate generically, then contextually, then admits all or none. The contextual rules are: the subject is in `graph.nodes`; the parent list is non-empty, unique and does not include the subject; the listed set equals the complete declared parent set for `(subject, declared_relation)`; at least one listed parent is absent from `graph.nodes`; every absent parent is recorded in `graph.unresolvedParents`; `PARENT_UNRESOLVED` is in `unverified_claims` and not in `verified_claims`. The C-1 path also rejects `CYCLE_DETECTED`, so the C-2 claim cannot be admitted through it; verified/unverified overlap is rejected by the generic validator.
+- `registerCycleAssessments` is the C-2 atomic batch path (`T18-DEC-16` Option D, approved 2026-10-31). It requires a builder-issued graph, validates every candidate generically, then contextually, then admits all or none. The contextual rules are: exactly one `parent_version_ids` entry; the subject and the parent are in `graph.nodes`; the edge `(subject, declared_relation, parent)` exists in `graph.edges`; both endpoints lie in the same cyclic strongly connected component (`graph.cycles`); `CYCLE_DETECTED` is in `unverified_claims` and not in `verified_claims`; `PARENT_UNRESOLVED` is rejected. A structural self-loop is a one-node cyclic component but cannot be expressed, because the generic validator rejects a subject that is its own parent; the adapter therefore emits no Assessment for it and does not relax the contract.
 - `PARENT_UNRESOLVED` is declaration-scoped, not edge-scoped. `assessEdge` may return the same Assessment for a resolved edge and an unresolved edge in the same declaration; that applicability does not make the resolved edge unresolved. `unverified_claims` remains unread by assurance evaluation.
 - Batch admission checks duplicate IDs within the batch, against `existing`, and within `existing` itself; validates supersession references against the complete prospective state; and rejects cycles. On failure it returns no new representation; `existing` is unchanged. Callback side effects and caller-managed persistence are outside Core atomicity.
 - Supersession does not remove the predecessor from applicability and there is no "latest wins" rule. Choosing between a predecessor and its successor is left to `Policy.applicableAssessments`.
@@ -842,6 +855,38 @@ function emitOrphanAssessment(
 - The returned `assessments` are the admitted records whose ids came from the candidate set, in the canonical (sorted) admitted order; `registered` is the complete frozen representation. They are selected by id, not by array position, because the registered representation is sorted.
 - `PARENT_UNRESOLVED` is declaration-scoped. Applicability of the Assessment to a resolved edge does not make that edge unresolved.
 - Callback side effects are outside Core atomicity and are not rolled back. Caller persistence occurs only after successful admission.
+
+### 2.12b `adapters/cycle-assessment.ts` (experimental reference)
+
+**Responsibility:** C-2 cycle Assessment construction under the approved `T18-DEC-16` Option D model. Experimental reference adapter API, not a CORE-001 protocol API; no stability guarantee.
+
+```ts
+interface CycleAssessmentRequest {
+  readonly graph: LineageGraph;
+  readonly existing: readonly DeepReadonly<ContinuityAssessment>[];
+  readonly assessmentIdFor: (
+    subject: IdentityVersionID,
+    relation: LineageRelationType,
+    parent: IdentityVersionID,
+  ) => AssessmentID;
+  readonly assessment_profile_ref: string;
+  readonly assessment_method_version: string;
+  readonly assessed_by: DomainID;
+  readonly assessed_at: Timestamp;
+  readonly evidence_refs?: readonly string[];
+}
+
+function emitCycleAssessments(request: CycleAssessmentRequest): Result<CycleAssessmentEmission>;
+```
+
+**Semantics**
+
+- Affected edges are those whose endpoints lie in the same cyclic strongly connected component (`graph.cycles`). Duplicate declarations collapse to one edge; an acyclic edge whose endpoint merely belongs to a cycle is not affected.
+- One Assessment per affected edge: subject = child, relation = edge relation, `parent_version_ids = [parent]`, `verified_claims = []`, `unverified_claims = ['CYCLE_DETECTED']`, caller-provided provenance.
+- Emission is deterministic: edges are ordered by `(child, parent, relation)`. `assessmentIdFor` is called once per edge and must return a non-empty string; the adapter does not generate ids.
+- A structural self-loop is a one-node cyclic component but is not emitted: the Assessment contract rejects a subject as its own parent (§5.2 also rejects self-parents for descriptors). The sub-decision is open; the adapter does not silently relax the contract.
+- Calls `registerCycleAssessments` once for the complete batch, including an empty batch; stops before Core admission if the graph is not builder-issued or an id callback fails; selects emitted records by candidate id from the canonical representation; returns a frozen emission.
+- The graph and the caller's `existing` array are not mutated. Callback side effects are outside Core atomicity; caller persistence occurs only after successful admission.
 
 ### 2.13 `core/traversal.ts`
 
@@ -1484,6 +1529,7 @@ Recursive closure — applying `ALL_BRANCHES_MUST_SATISFY` transitively inside p
 - `discoverPaths` treats cycle-forming edges as dead ends.
 - `validatePath` checks whether any node on the path belongs to a cyclic SCC and returns `CYCLE_DETECTED` with the union of the touched components, sorted.
 - `evaluateBinding` aggregates `CYCLE_DETECTED` per path and preserves it in `details.perPath`.
+- Graph-level C-2 recording is separate from binding-level rejection: the experimental `emitCycleAssessments` adapter records one Assessment per affected cyclic edge under the approved `T18-DEC-16` Option D model. The binding result is unchanged, and the A-14 breadth question remains OPEN.
 - A cycle never yields `eligible: true` by itself. An unrelated cycle does not invalidate an acyclic path; an acyclic alternative remains eligible while a cyclic path is retained in details.
 - A cycle does invalidate a path that traverses one of its nodes, even when that path's own edges are acyclic (the conservative reading of §11.2; A-14 OPEN, §6.2).
 - No cycle causes an exception, a deletion or a global block.
@@ -1506,7 +1552,7 @@ Recursive closure — applying `ALL_BRANCHES_MUST_SATISFY` transitively inside p
 
 The §12 corpus has 18 cases: A-1…A-5, B-1…B-7, C-1, C-2, D-1…D-4.
 
-**Current status: 17 cases are implemented and passing; 1 case (C-2) is `test.todo` and is not conformance evidence.** C-1's assessment emission exists since T18-02A (`src/adapters/orphan-assessment.ts`) and its two tests pass; **audit revision 1 records C-1 as PASS at `1440ca4`** (see [`revision-1`](./audits/2026-10-31-core-001-task-17-revision-1/README.md) and [`STATUS.md`](../STATUS.md)). No document, commit message or report may claim full §12 conformance.
+**Current status: C-1 and C-2.a2 are implemented with assertion-level evidence; C-2 remains BLOCKED on `CASE-C-2.a3` (CORE-003 / `T18-DEC-13`), so the corpus is not full conformance evidence.** C-1's assessment emission exists since T18-02A (`src/adapters/orphan-assessment.ts`); **audit revision 1 records C-1 as PASS at `1440ca4`**. C-2.a2 emission exists since T18-02B (`src/adapters/cycle-assessment.ts`, AEBE [`aebe/C-2.a2.md`](./audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md)); the grant-suppression assertion is a separate `test.todo` owned by CORE-003. See [`revision-1`](./audits/2026-10-31-core-001-task-17-revision-1/README.md) and [`STATUS.md`](../STATUS.md). No document, commit message or report may claim full §12 conformance.
 
 ### 4.2 Category A — `tests/conformance/a.test.ts`
 
@@ -1543,18 +1589,19 @@ Describe blocks: `§12 Category B: conditional binding and traversal (Task 9 sub
 | --- | --- | --- | --- | --- |
 | C-1 | §11.1, §12 C-1 | `C-1 orphan ingestion records PARENT_UNRESOLVED in an Assessment`; :38 | `emitOrphanAssessment` registers exactly one Assessment whose `unverified_claims` is `['PARENT_UNRESOLVED']` and whose `parent_version_ids` is the full declared set `['iv-a','iv-b']`; the graph's `unresolvedParents` still reports `iv-b`; the graph JSON is byte-identical after emission; the registered array is frozen | pass |
 | C-1 (resolved) | §12 C-1 | `C-1 resolved parent produces no PARENT_UNRESOLVED Assessment`; :54 | a graph with both parents present registers no Assessment and reports no unresolved parent | pass |
-| C-2 | §11.2, §12 C-2 | `test.todo('C-2 cycle detection records CYCLE_DETECTED and suppresses dependent grants (Tasks 8–9)')`; :66 | **todo — not conformance evidence** | todo |
+| C-2 (assessment) | §11.2, §12 C-2 | `C-2 cycle detection records CYCLE_DETECTED in an Assessment` | `emitCycleAssessments` registers one Assessment per affected edge (`subject_version_id` = child, `parent_version_ids` = `[parent]`, relation = edge relation) with `unverified_claims: ['CYCLE_DETECTED']`; the cyclic component is `['iv-a','iv-b']`; the graph JSON is byte-identical; the registered array is frozen | pass (a2 only) |
+| C-2 (grants) | §11.2, §12 C-2 | `test.todo('C-2 dependent grants are suppressed after cycle detection (CORE-003 / T18-DEC-13)')` | **todo — CORE-003 boundary, not conformance evidence** | todo |
 
 **Audit status.** Task 17 recorded C-1 as NOT COVERED because at its commit no Assessment recorded `PARENT_UNRESOLVED`. Revision 1 re-audits the case at `1440ca4`: all four C-1 assertions are asserted against the current tests, and the case is **PASS**. The PASS covers construction and admission; retention and publication remain caller-managed (`T18-DEC-15` and the publication-ownership question are OPEN) and are outside §12 C-1's Expected Result. See [`revision-1`](./audits/2026-10-31-core-001-task-17-revision-1/README.md).
 
-Why C-2 remains open: §12 C-2 requires an Assessment that records `CYCLE_DETECTED` **and** suppression of dependent grants. Binding-level traversal already reports `CYCLE_DETECTED`, but no Assessment records the claim, and the repository has no grant API by design, so "suppresses dependent grants" has no referent yet. This needs a normative decision on the C-2 subject model, not a test edit.
+Why C-2 remains BLOCKED: §12 C-2 requires an Assessment that records `CYCLE_DETECTED` **and** suppression of dependent grants. C-2.a2 evidence now exists (T18-02B, AEBE [`aebe/C-2.a2.md`](./audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md)); suppression is CORE-003 (`T18-DEC-13`) and has no referent in this repository by design. Task 17 statuses are unchanged: the case stays BLOCKED until a re-audit revision records a2 and the CORE-003 boundary.
 
 **Partial, non-substitute coverage.** `tests/unit/lineage-graph.test.ts` asserts graph-level facts that C-1/C-2 depend on:
 
 - `delayed parents (graph-level C-1)` → `preserves an orphan and resolves it in a newly built graph` (:144): the orphan is preserved, the link is retained, `unresolvedParents` is populated, and a later graph resolves it.
 - `cycles (graph-level C-2)` → `detects V1 <-> V2 and keeps declarations readable` (:173): the cycle is detected exactly, declarations are preserved, no throw, and structural queries still answer.
 
-These are **not** C-2 conformance assertions, and they are not C-1 evidence either: they do not create an Assessment and do not record a claim. C-1's evidence is the adapter test above; the graph-level facts here are supporting context only.
+These are **not** C-2 conformance assertions, and they are not C-1 evidence either: they do not create an Assessment and do not record a claim. The evidence for C-1 and C-2.a2 is the adapter tests above; the graph-level facts here are supporting context only.
 
 ### 4.5 Category D — `tests/conformance/d.test.ts`
 
@@ -1902,7 +1949,7 @@ Recorded as `D-007` in the Task 17 register and dispositioned as `T18-12` (docum
 
 ### 9.5 What remains unverified
 
-- C-2 has no assertion-level conformance evidence. C-1 is PASS in audit revision 1; its retention/publication ownership remains unresolved and is outside the case's Expected Result.
+- C-2.a2 has assertion-level evidence (T18-02B, `docs/audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md`), but the C-2 case stays BLOCKED on `CASE-C-2.a3` (CORE-003 / `T18-DEC-13`). C-1 is PASS in audit revision 1; its retention/publication ownership remains unresolved and is outside the case's Expected Result.
 - §8.8's non-enumeration `MUST NOT` (N-176, revision 1) is PARTIAL: `discoverPaths` enumerates every simple path. Adjudication is #25 / `T18-SPEC-01`, not a test edit.
 - Recursive closure and origin closure are blocked interpretations.
 - Default conflict detection is absent.
@@ -1930,9 +1977,10 @@ Value exports (types are omitted here; see §2):
 | `version-scheme` | `isVersionScheme`, `validateVersionLabel`, `parseSemVer`, `compareSemVer`, `incrementDecimal` |
 | `selector` | `SELECTOR_MECHANISM_VERSION`, `InvalidCompiledSelectorError`, `compileSelector`, `selectorMatches` |
 | `temporal` | `trustOutcome` |
-| `assessment` | `assessEdge`, `evaluateAssurance`, `validateContinuityAssessment`, `registerAssessment`, `registerOrphanAssessment`, `registerOrphanAssessments` |
+| `assessment` | `assessEdge`, `evaluateAssurance`, `validateContinuityAssessment`, `registerAssessment`, `registerOrphanAssessment`, `registerOrphanAssessments`, `registerCycleAssessment`, `registerCycleAssessments` |
 | `lineage` | `validateDescriptor`, `buildLineageGraph` (`isBuiltLineageGraph` is internal, not package-root; required only for Core admission, not for traversal) |
 | `adapters/orphan-assessment` | `emitOrphanAssessment` (experimental reference API) |
+| `adapters/cycle-assessment` | `emitCycleAssessments` (experimental reference API) |
 | `traversal` | `discoverPaths`, `validatePath`, `validateMergeClosure`, `evaluateBinding` |
 | `credential` | `validateCredentialRevocationRecord`, `evaluateCredentialUsage`, `signedAtSubjectRef`, `revocationSubjectRef`, `evaluateHistoricalSignature` |
 | `runtime` | `createRuntimeLifecycleEvent`, `createRuntimeRegistry`, `recordRuntimeEvent` |

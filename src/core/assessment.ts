@@ -49,35 +49,23 @@ const ASSESSMENT_FIELDS: ReadonlySet<string> = new Set([
 
 const ASSESSMENT_RELATIONS: readonly LineageRelationType[] = ['CONTINUATION', 'FORKED_FROM', 'MERGED_FROM'];
 
-// Admission metadata, not claim semantics. This set says only that a claim
-// cannot be admitted through the generic path without a contextual validator.
-// It is never consulted by assessEdge, evaluateAssurance or Policy.
-const CONTEXT_REQUIRED_CLAIMS: ReadonlySet<string> = new Set(['PARENT_UNRESOLVED']);
+// Admission metadata, not claim semantics. These claims can only be admitted
+// through their contextual validator: PARENT_UNRESOLVED through the C-1 path,
+// CYCLE_DETECTED through the C-2 path (T18-DEC-16 approved). The set is never
+// consulted by assessEdge, evaluateAssurance or Policy.
+const CONTEXT_REQUIRED_CLAIMS: ReadonlySet<string> = new Set(['PARENT_UNRESOLVED', 'CYCLE_DETECTED']);
 
-// §6.2.2 names CYCLE_DETECTED as an example claim, but C-2 is BLOCKED: no
-// admission path accepts it until that decision lands. The rule lives in the
-// generic validator so every entry point applies it (ambiguities register: C-2).
-const BLOCKED_ASSESSMENT_CLAIMS: ReadonlySet<string> = new Set(['CYCLE_DETECTED']);
+const CONTEXT_CLAIM_PATHS: ReadonlyMap<string, string> = new Map([
+  ['PARENT_UNRESOLVED', 'registerOrphanAssessments'],
+  ['CYCLE_DETECTED', 'registerCycleAssessments'],
+]);
 
 /**
- * Claim legality in one place: the verified/unverified split must not overlap,
- * and a blocked claim is rejected regardless of the list it appears in.
+ * Claim legality in one place: a claim may not be both verified and unverified.
+ * Contextual admissibility is decided by firstContextRequiredClaim and the
+ * per-claim contextual validators.
  */
 function claimListsFailure(verified: readonly string[], unverified: readonly string[]): string | undefined {
-  // A blocked claim is inadmissible in either list and outranks overlap, so both
-  // lists are scanned for it before the split is considered; otherwise an
-  // earlier overlapping claim would report first and hide the blocked one.
-  for (const claim of verified) {
-    if (BLOCKED_ASSESSMENT_CLAIMS.has(claim)) {
-      return `Claim ${claim} is not admissible while C-2 is blocked`;
-    }
-  }
-  for (const claim of unverified) {
-    if (BLOCKED_ASSESSMENT_CLAIMS.has(claim)) {
-      return `Claim ${claim} is not admissible while C-2 is blocked`;
-    }
-  }
-
   // Only an assessment with claims on both sides can overlap, so the Set is
   // allocated only then (candidate validation runs per edge during traversal).
   if (verified.length > 0 && unverified.length > 0) {
@@ -649,6 +637,9 @@ function validateOrphanClaims(candidate: DeepReadonly<ContinuityAssessment>): Re
   if (candidate.verified_claims.includes('PARENT_UNRESOLVED')) {
     return mechanismRejection('C-1 assessment must not record PARENT_UNRESOLVED as verified');
   }
+  if (candidate.unverified_claims.includes('CYCLE_DETECTED') || candidate.verified_claims.includes('CYCLE_DETECTED')) {
+    return mechanismRejection('C-1 assessment must not record CYCLE_DETECTED; use registerCycleAssessments');
+  }
   return { ok: true, value: undefined };
 }
 
@@ -792,7 +783,8 @@ export function registerAssessment(
   }
   const required = firstContextRequiredClaim(validated.value);
   if (required !== undefined) {
-    return mechanismRejection(`Claim ${required} requires contextual admission; use registerOrphanAssessments`);
+    const path = CONTEXT_CLAIM_PATHS.get(required) ?? 'the contextual registration path';
+    return mechanismRejection(`Claim ${required} requires contextual admission; use ${path}`);
   }
   return admitAssessments(existing, [validated.value]);
 }
@@ -839,4 +831,111 @@ export function registerOrphanAssessment(
   existing: readonly DeepReadonly<ContinuityAssessment>[],
 ): Result<readonly DeepReadonly<ContinuityAssessment>[]> {
   return registerOrphanAssessments([candidate], graph, existing);
+}
+
+// ---------------------------------------------------------------------------
+// C-2 cycle Assessment (T18-DEC-16 Option D)
+// ---------------------------------------------------------------------------
+
+function validateCycleClaims(candidate: DeepReadonly<ContinuityAssessment>): Result<void> {
+  if (!candidate.unverified_claims.includes('CYCLE_DETECTED')) {
+    return mechanismRejection('C-2 assessment must record CYCLE_DETECTED as unverified');
+  }
+  if (candidate.verified_claims.includes('CYCLE_DETECTED')) {
+    return mechanismRejection('C-2 assessment must not record CYCLE_DETECTED as verified');
+  }
+  const recordsUnresolved =
+    candidate.unverified_claims.includes('PARENT_UNRESOLVED') ||
+    candidate.verified_claims.includes('PARENT_UNRESOLVED');
+  if (recordsUnresolved) {
+    return mechanismRejection('C-2 assessment must not record PARENT_UNRESOLVED; use registerOrphanAssessments');
+  }
+  return { ok: true, value: undefined };
+}
+
+function validateCycleParentEdge(
+  candidate: DeepReadonly<ContinuityAssessment>,
+  graph: DeepReadonly<LineageGraph>,
+): Result<void> {
+  if (candidate.parent_version_ids.length !== 1) {
+    return mechanismRejection('C-2 assessment must name exactly one parent edge');
+  }
+  const subject = candidate.subject_version_id;
+  const parent = candidate.parent_version_ids[0];
+  if (!graph.nodes.includes(subject)) {
+    return mechanismRejection(`C-2 subject ${subject} is not present in the graph`);
+  }
+  if (!graph.nodes.includes(parent)) {
+    return mechanismRejection(`C-2 parent ${parent} is not present in the graph`);
+  }
+  const edgeExists = graph.edges.some(
+    (edge) => edge.child === subject && edge.parent === parent && edge.relation === candidate.declared_relation,
+  );
+  if (!edgeExists) {
+    return mechanismRejection('C-2 assessment edge is not present in the graph');
+  }
+  const insideCycle = graph.cycles.some((component) => component.includes(subject) && component.includes(parent));
+  if (!insideCycle) {
+    return mechanismRejection('C-2 assessment edge is not inside a cyclic strongly connected component');
+  }
+  return { ok: true, value: undefined };
+}
+
+/**
+ * C-2 contextual validation. Each Assessment names exactly one lineage edge
+ * (`subject_version_id` -> its single parent, with `declared_relation`) that
+ * lies inside a cyclic strongly connected component, and records
+ * `CYCLE_DETECTED` as unverified.
+ */
+function validateCycleAssessment(
+  candidate: DeepReadonly<ContinuityAssessment>,
+  graph: DeepReadonly<LineageGraph>,
+): Result<void> {
+  const edge = validateCycleParentEdge(candidate, graph);
+  if (!edge.ok) return edge;
+  return validateCycleClaims(candidate);
+}
+
+/**
+ * C-2 atomic batch admission (T18-DEC-16 Option D). All candidates are
+ * validated before any representation is returned; one failure admits none.
+ */
+export function registerCycleAssessments(
+  candidates: readonly unknown[],
+  graph: LineageGraph,
+  existing: readonly DeepReadonly<ContinuityAssessment>[],
+): Result<readonly DeepReadonly<ContinuityAssessment>[]> {
+  if (!isBuiltLineageGraph(graph)) {
+    return mechanismRejection('graph must be produced by buildLineageGraph');
+  }
+  if (!Array.isArray(candidates)) {
+    return mechanismRejection('C-2 admission requires an array of candidates');
+  }
+
+  const validated: DeepReadonly<ContinuityAssessment>[] = [];
+  for (const candidate of candidates) {
+    const result = validateContinuityAssessment(candidate);
+    if (!result.ok) {
+      return result;
+    }
+    validated.push(result.value);
+  }
+
+  for (const candidate of validated) {
+    const result = validateCycleAssessment(candidate, graph);
+    if (!result.ok) {
+      return result;
+    }
+  }
+
+  return admitAssessments(existing, validated);
+}
+
+/** Convenience wrapper for one C-2 candidate. */
+export function registerCycleAssessment(
+  candidate: unknown,
+  graph: LineageGraph,
+  existing: readonly DeepReadonly<ContinuityAssessment>[],
+): Result<readonly DeepReadonly<ContinuityAssessment>[]> {
+  return registerCycleAssessments([candidate], graph, existing);
 }
