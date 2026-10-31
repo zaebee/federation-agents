@@ -4,7 +4,7 @@
 **Reviewed revision:** `f1d52e1` (`main`, Task 17 audit revision 2 merged).
 **Method:** every claim in `README.md`, `n176-path-enumeration.md` and `benchmark-procedure.md` was checked against `docs/CORE-001.md` §8.4/§8.7/§8.8, `src/core/traversal.ts`, the §12 conformance corpus and the Task 17 audit. No source or test was changed.
 
-**Post-review correction:** the NP-hardness expectations in §2–§3 were corrected by `oq4-complexity-adversarial-pass.md` revision 2. Cycle preemption makes D2/D4 polynomial and removes the path-scoped mechanism class (D6); only D3 is open. "Option D" in this review means the legacy hybrid option in `n176-path-enumeration.md` §5, not a new scheme.
+**Post-review correction (revision 3):** the NP-hardness expectations in §2–§3 were corrected by `oq4-complexity-adversarial-pass.md`. Cycle preemption makes D2/D4 polynomial and removes the path-scoped mechanism class (D6); D3 is polynomial too, via a walk-through-cyclic-node reachability lemma (Lemma 4). Only D5 retains a proof obligation. "Option D" in this review means the legacy hybrid option in `n176-path-enumeration.md` §5, not a new scheme.
 
 ## 1. What holds up
 
