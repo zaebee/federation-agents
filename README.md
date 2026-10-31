@@ -101,20 +101,21 @@ Implemented so far:
 - Explicit separation of normative protocol errors (`ERR_INVALID_RELATION`, `ERR_NO_TRAVERSAL_PATH`, …) from implementation/mechanism errors.
 - RFC 8785 JSON Canonicalization Scheme over a strict data model.
 - Pure TypeScript SHA-256, with no runtime crypto dependency.
-- IdentityVersion descriptor types with minimal structural validation: required fields and enum values, strict JSON, unknown-field rejection, and an owned, deep-frozen copy.
+- IdentityVersion descriptor types with structural validation: required fields and enum values, strict JSON, unknown-field rejection, and an owned, deep-frozen copy.
+- Entity constructors for §3–§5 — Participant, IdentityVersion, RuntimeInstance, Credential and Lineage records — all owned and deeply frozen.
+- Structural lineage validation (§5.2): per-relation cardinality, distinct merge parents, the `CONTINUATION` same-participant constraint, and self-parent rejection, covered by the A-1…A-5 conformance cases.
 - Descriptor hashing over the explicit §7.1 projection, pinned by a known-answer test.
 - Version label validation: strict SemVer 2.0.0 for `SEMVER_2`, non-empty labels for `CONTENT_HASH` and `OPAQUE_TAG` (no format or ordering inferred).
 - The versioned `uia-ref-selector@1` mechanism — exact match, wildcard, comparators, `&&` composition — with factory-provenance checks on compiled selectors.
 
 Still to come:
 
-- The full entity model: Participant, runtime, credential and lineage record constructors.
 - Credential semantics and temporal validation.
 - Identity lineage graph construction, delayed parent resolution, cycle detection.
 - Continuity assessments and edge-bound assurance.
 - Conditional version binding and graph traversal.
 - Local Acceptance and lifecycle semantics.
-- The §12 conformance corpus and property-based invariance tests.
+- The remaining §12 conformance corpus (B, C, D) and property-based invariance tests.
 
 Implementation progress is tracked task by task in the implementation plan. Not every capability described in the specification is necessarily implemented in the current repository state.
 
