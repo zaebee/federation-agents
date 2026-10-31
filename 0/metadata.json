@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M68N7ZAXS78XTTT90ATPGZHE",
+  "session_id": "ses_e6f615c5affeXmShrQYs2JOmPQ",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T09:39:35.756248539Z",
+  "branch": "docs/t18-01-assessment-emission-package",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-01-assessment-emission/implementation-analysis.md"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "0c842dc8a017",
+  "checkpoint_transcript_start": 272,
+  "transcript_lines_at_start": 272,
+  "compact_transcript_start": 272,
+  "token_usage": {
+    "input_tokens": 1310,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2363520,
+    "output_tokens": 754,
+    "api_call_count": 4
+  },
+  "redaction": {
+    "replacements": 12,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 12,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 23
+  }
+}
