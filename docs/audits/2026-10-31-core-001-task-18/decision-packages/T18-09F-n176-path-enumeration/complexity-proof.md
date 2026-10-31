@@ -8,7 +8,7 @@
 
 Every equivalence claim below assumes the `Policy` callbacks (`applicableAssessments`, `conflictPredicate`) are **deterministic and pure**: the same arguments produce the same result, with no observable side effects and no exceptions. The TypeScript type does not enforce this. A callback that depends on call count, wall-clock time or external state makes even the legacy traversal order-dependent (§8.8) and the compact equivalence undefined. Exceptions thrown by callbacks propagate (they are not `MECHANISM` outcomes) and are outside this proof.
 
-## 1. Definitions (revision 3 taxonomy)
+## 1. Definitions (revision 3.1 taxonomy)
 
 Graph `G`, traversal scope `σ`, scoped edges `E_σ`, candidate `s`, origin `t`.
 `C` = the set of nodes in `graph.cycles` (cyclic SCCs).
@@ -121,6 +121,8 @@ Three obligations from `oq4` §6 remain open:
 2. **Oracle tests.** No test compares the greedy witness against exhaustive enumeration on small generated DAGs. The existing property tests check storage-order invariance and immutability, not witness minimality.
 3. **Invariance tests.** No test reverses `nodes`/`edges` arrays on the exponential merge-diamond shape and compares the canonical witness. P1/P2 cover bounded DAGs only.
 
+Closure-constraint handling is **not** an independent D5 obligation: `H` is defined with closure in its edge-allowance rule, and Lemma 3 plus Lemma 5 establish that `H` represents exactly the fully valid paths. The open D5 issues are the three above.
+
 **Conclusion: D5 remains OPEN.** The greedy is a plausible polynomial construction and the proposed direction, but it is a proof sketch, not a certified result. No implementation should rely on it until the three obligations are closed, or the owner explicitly chooses `DETERMINISTIC_NON_MINIMUM` with a specified storage-order-independent rule as L2 evidence (`owner-decision-summary.md` OD-3). A non-deterministic/arbitrary witness is not a valid §8.8 option.
 
 ### 9.4 Required oracle cases (specification only, not executed)
@@ -140,7 +142,7 @@ Three obligations from `oq4` §6 remain open:
 - selector compilation failure;
 - version-label validation failure.
 
-D6a is independent of `reach_A(s,t)`: it can return `MECHANISM` even when no candidate→origin path exists. It is constant-time/polynomial by construction.
+D6a is independent of `reach_A(s,t)`: it can return `MECHANISM` even when no candidate→origin path exists. It is polynomial in input size (duplicate-id scan, selector compilation, version-label validation); it is not constant-time in the input.
 
 ### 10.2 D6b — edge-evaluation mechanism failures
 
@@ -160,7 +162,7 @@ The earlier condition "malformed assessments and at least one path exists (D1)" 
 | D3 | polynomial | Lemma 4; walk + loop erasure |
 | D4 | polynomial | Lemma 6; triple scan + reachability |
 | D5 | **OPEN** | greedy proof sketch; §9.3 obligations |
-| D6a | polynomial/constant | pre-discovery prechecks, independent of reachability |
+| D6a | polynomial in input size | pre-discovery prechecks, independent of reachability |
 | D6b | polynomial | malformed assessments require `reach_A(s,t)` and a path reaching `assessEdge` |
 
 ## 12. Consequence for the recommendation

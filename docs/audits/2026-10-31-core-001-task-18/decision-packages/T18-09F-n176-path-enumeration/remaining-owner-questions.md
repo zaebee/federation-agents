@@ -1,7 +1,7 @@
 # T18-09F — Remaining Owner Questions
 
 **Status:** input for the project owner. `T18-DEC-18` remains **PROPOSED / OPEN**; nothing here is approved or registered.
-**Basis:** `decision-ready-revision.md` (six required outcomes), `adversarial-review.md`, and `oq4-complexity-adversarial-pass.md` **revision 3** (all classes polynomial; D5 proof obligations named).
+**Basis:** `decision-ready-revision.md` (six required outcomes), `adversarial-review.md`, and `oq4-complexity-adversarial-pass.md` **revision 3.1** (all classes polynomial; D5 proof obligations named; mechanism split into D6a/D6b).
 
 ## Option schemes (do not conflate)
 
@@ -35,7 +35,7 @@ If OQ-2 chooses **Option 5.B**, keep B-3/B-4/B-6 on the legacy API and add v2 ca
 
 ## OQ-4 — Is the compact rejection proof polynomial? (resolved)
 
-Yes. `oq4` revision 3 proves:
+Yes. `oq4` revision 3.1 proves:
 
 - **D1** reachability; **D0** reachability on the valid subgraph;
 - **D2** first-failing-edge class: `(u→v)` in class X with `reach_{valid}(s,u)` and `reach_A(v,t)` — two reachability computations;
@@ -63,9 +63,9 @@ Who owns the bound, what is returned when it is reached, and is the diagnostics 
 
 ## OQ-8 — Resource target and benchmark acceptance
 
-`k=16` is a **benchmark target**, not a proof of complexity. The current evidence is `k=16` → 65 536 paths / ~2.7 s from a scratch run.
+`k=16` is a **benchmark target**, not a proof of complexity. The executed record is `benchmark-record.md`: source revision `9e29b36…`, harness revision `d947991…`, Bun 1.4.2 on AMD EPYC-Rome (4 cores), median of three runs `k=16` → 65 536 paths / 2 305 ms / 458 MiB RSS delta. The record also includes the `k=12` storage-order reversal check. This is empirical resource-exhaustion evidence, not a complexity bound.
 
-**Recommended: keep `k=16` as the conformance-oriented benchmark target, attach an executed record (date, revision, machine, counts), and state that it does not establish a bound.**
+**Recommended: keep `k=16` as the conformance-oriented benchmark target, cite the executed `benchmark-record.md`, and state that it does not establish a bound.**
 
 ## OQ-11 — Is the terminal origin subject to merge closure?
 

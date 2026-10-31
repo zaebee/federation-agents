@@ -85,6 +85,8 @@ Valid paths lie in `A` (Lemma 1) and are all-edge-satisfied. Define `H` on edges
 
 **Proof obligations still open (qualified claim):** a written proof of the lexicographic induction for the exact `pathKey` string encoding, oracle tests against exhaustive enumeration on small generated DAGs, and invariance tests under storage/adjacency permutations. Until those tests exist the polynomial claim is a proof sketch, not an empirical certification.
 
+Closure-constraint handling is **not** a separate D5 obligation: `H` is defined with closure in its edge-allowance rule, and Lemma 3 plus Lemma 5 establish that `H` represents exactly the fully valid paths.
+
 ## 7. D6a/D6b — input-scoped mechanism failures
 
 The reachable `MECHANISM` results split into two classes.
@@ -98,7 +100,7 @@ The reachable `MECHANISM` results split into two classes.
 - selector compilation failure;
 - version-label validation failure.
 
-They are independent of graph reachability. A `MECHANISM` is returned even when the candidate cannot reach the origin. This class is constant-time/polynomial by construction and must not be conditioned on `reach_A(s,t)`.
+They are independent of graph reachability. A `MECHANISM` is returned even when the candidate cannot reach the origin. This class is polynomial in input size (duplicate-id scan, selector compilation, version-label validation) and must not be conditioned on `reach_A(s,t)`.
 
 ### D6b — edge-evaluation mechanism failures
 
@@ -128,7 +130,7 @@ D1 is true (`s→a→b→t` exists), but the only paths are preempted by the cyc
 | D3 | polynomial (Lemma 4; walk + loop erasure) |
 | D4 | polynomial (Lemma 5–6; triple scan + reachability) |
 | D5 | polynomial **proof sketch**; empirical obligations listed in §6 |
-| D6a | polynomial/constant: pre-discovery prechecks, independent of reachability |
+| D6a | polynomial in input size: pre-discovery prechecks, independent of reachability |
 | D6b | polynomial: malformed assessments require `reach_A(s,t)` and a path reaching `assessEdge` |
 
 **Consequence for N-176:** a compact exact algorithm exists for all classes; the exponential output is not required. Reading B is no longer blocked by a complexity barrier; the remaining choice is normative/API (Reading A vs B, replace vs version).

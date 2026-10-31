@@ -20,13 +20,15 @@ Three layers; only the first two are normative:
 | Layer | Content | Status |
 | --- | --- | --- |
 | **L1 — normative validity** | `eligible` plus, when false, the top-level code required by §8.4/§8.6. Acceptance means at least one fully valid path exists (§8.7). | **normative** |
-| **L2 — mandatory evidence** | Acceptance: one canonical accepted witness (node/edge sequence), the per-edge assurance results for that path, and the closure results for the merge nodes on it (§8.6). Rejection: the class witness required by the returned code plus the top-level code. Mechanism: the input-scoped mechanism failure. | **mandatory evidence** |
+| **L2 — mandatory evidence** | Acceptance: one deterministically selected accepted witness (node/edge sequence), the per-edge assurance results for that path, and the closure results for the merge nodes on it (§8.6). Rejection: the class witness required by the returned code plus the top-level code. Mechanism: the input-scoped mechanism failure. | **mandatory evidence** |
 | **L3 — diagnostics** | The complete path list and every per-path outcome. | **optional, not validity** |
 
 Classification of the current fields:
 
-- **`acceptedPaths`** currently lists **all** fully valid paths (B-3 asserts two). Under Reading B it is **L3 diagnostic**; the normative witness is one canonical accepted path.
+- **`acceptedPaths`** currently lists **all** fully valid paths (B-3 asserts two). Under Reading B it is **L3 diagnostic**; the normative witness is one deterministically selected accepted path.
 - **`details.perPath`** is **L3 diagnostic**, except the specific failure evidence L2 requires for the returned code: for `ERR_MERGE_BRANCH_UNSATISFIED`, the failing branch identity; for assurance/contested, the failing edge class.
+
+**Accepted-witness mode:** L2 requires one deterministically selected witness. `PATH_KEY_MINIMUM` is available only after D5 closes. While D5 is OPEN, the valid alternative is `DETERMINISTIC_NON_MINIMUM` with an explicit rule independent of storage order, declaration arrival order and node traversal order. L2 does not imply canonicality unless `PATH_KEY_MINIMUM` is selected and D5 is closed.
 
 ### 1.2 Normative anchor
 
@@ -42,7 +44,7 @@ B-3 asserts `acceptedPaths` equals **both** diamond paths. If L3 is declared dia
 | --- | --- | --- |
 | B-3 (both diamond paths) | legacy `acceptedPaths` (L3 list) | **legacy API only** |
 | B-4 / B-6 (per-path closure evidence) | failing path + closure branch identity | **L2 mandatory evidence**, plus L3 list on the legacy API |
-| new v2 cases (acceptance) | one canonical witness + per-edge assurance + closure for that path | **L2** |
+| new v2 cases (acceptance) | one deterministically selected accepted witness + per-edge assurance + closure for that path | **L2** |
 | new v2 cases (rejection) | top-level code + class witness | **L2** |
 | diagnostics tests | full per-path list, bounded/truncated result | **L3 only** |
 
@@ -80,8 +82,9 @@ If D5 closes, define the witness by `pathKey` minimum; the greedy algorithm abov
 
 - written proof for the exact `pathKey` string encoding;
 - oracle comparison against exhaustive enumeration on small generated DAGs;
-- invariance under storage/adjacency permutations;
-- closure-constraint handling in `H`.
+- invariance under storage/adjacency permutations.
+
+Closure-constraint handling is **not** an independent D5 obligation: `H` is defined with closure as part of edge allowance, and `oq4` Lemma 5 / `complexity-proof.md` Lemma 3 establish that `H` represents exactly the fully valid paths. Any residual question there is part of the `H` definition, not of D5's minimality claim.
 
 ### 2.5 Compatibility impact
 
@@ -89,7 +92,7 @@ Only the accepted-witness content changes (L2); L1 unchanged. B-3 is replaced fo
 
 ### 2.6 Closure evidence
 
-The four obligations above, plus a unit test with two valid branches of different lengths and a permutation test.
+The three obligations above, plus a unit test with two valid branches of different lengths and a permutation test.
 
 ---
 
@@ -106,7 +109,7 @@ After Lemma 1 (cycle preemption) every path that reaches assurance/closure class
 | D2 | path whose first non-satisfied edge has class X? | polynomial: `reach_{valid}(s,u)` + `reach_A(v,t)` for some `e*=(u→v) ∈ E_X`; proof in `oq4` §3 |
 | D3 | path touching a cyclic node? | **polynomial**: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; walk + loop erasure (`oq4` §4) |
 | D4 | all edges satisfied and closure fails? | polynomial: triple `(merge node m, path edge e, failing branch b)` + reachability; `oq4` §5 |
-| D6a | pre-discovery mechanism? | polynomial/constant: duplicate id, missing candidate, selector compilation, version-label validation; independent of reachability |
+| D6a | pre-discovery mechanism? | polynomial in input size: duplicate id, missing candidate, selector compilation, version-label validation; independent of reachability |
 | D6b | edge-evaluation mechanism? | polynomial: malformed assessments **and `reach_A(s,t)`** plus a path reaching `assessEdge`; no path-scoped class exists |
 
 **Evidence shape:** rejection returns the class witness required by L2 — for D2 the failing edge class, for D3 one witness path touching a cyclic node, for D4 the failing branch identity, for D6a the precheck failure, for D6b the edge-evaluation mechanism failure. A single failing edge is not a proof for a higher-precedence class.

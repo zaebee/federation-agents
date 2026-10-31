@@ -97,12 +97,14 @@ interface CycleWitness {
 }
 ```
 
-**Verification rule (independently checkable):**
+**Construction and verification rule (independently checkable):**
 
-1. `path.edges` is contiguous, scope-permitted, candidate→origin, and contains no repeated node (a simple path). The implementation must perform the loop-erasure step from the D3 proof before returning it; the raw concatenated reachability walk is never exposed.
-2. The path's node sequence contains `cyclicNode`.
-3. `cycle` is exactly one entry of `graph.cycles` (the SCC containing `cyclicNode`); it is not a union of SCCs.
-4. `verification: 'SIMPLE_PATH_AND_SCC'` states which checks the caller should rerun.
+1. The implementation starts from the D3 reachability walk `s⇝c⇝t`, loop-erases it, and only then selects the witness node. The raw concatenated walk is never exposed.
+2. `path.edges` is contiguous, scope-permitted, candidate→origin, and contains no repeated node (a simple path).
+3. `cyclicNode` is selected **from the final loop-erased path**, not from the original reachability pivot. The original pivot `c` may itself be erased by loop erasure; the witness must not assume it survives.
+4. The path's node sequence contains `cyclicNode`.
+5. `cycle` is exactly one entry of `graph.cycles` — the SCC containing the surviving `cyclicNode` — not a union of SCCs.
+6. `verification: 'SIMPLE_PATH_AND_SCC'` states which checks the caller should rerun.
 
 This is an existence witness: it proves that some simple path touches `C`. It does not claim to be the `cycleForPath()` per-path union or a global union.
 
@@ -118,7 +120,7 @@ This is an existence witness: it proves that some simple path touches `C`. It do
 
 `cycleForPath()` in the current code computes a **per-path union**: for one path, it unions every SCC whose node set intersects that path and sorts the nodes. It does not compute a global union over every discovered path.
 
-The v2 witness is deliberately narrower: a **minimal existence witness** in the shape defined in §3.2.1 — one concrete, simple candidate→origin path containing a cyclic node `c`, plus the SCC entry containing `c`. The path is the loop-erased result required by the D3 proof, not the raw concatenated reachability walk. It does **not** promise:
+The v2 witness is deliberately narrower: a **minimal existence witness** in the shape defined in §3.2.1 — one concrete, simple candidate→origin path containing a cyclic node selected from the **final loop-erased path**, plus the SCC entry containing that surviving node. The path is the loop-erased result required by the D3 proof, not the raw concatenated reachability walk; the original reachability pivot may be erased. It does **not** promise:
 
 - the per-path union produced by `cycleForPath()` for any particular legacy path;
 - a global union over all cyclic paths;
