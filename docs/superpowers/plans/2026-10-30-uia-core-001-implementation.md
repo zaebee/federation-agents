@@ -417,6 +417,18 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
 - [ ] **Step 4: Run** → pass.
 - [ ] **Step 5: Commit** `feat(core): path discovery and validation as independent phases (B-1..B-3)`.
 
+**Approved implementation decisions (2026-10-31):**
+
+- The plan's Task 9 signatures omit a data source for Assessments. The approved signatures are therefore extended explicitly: `validatePath(path, assessments, requirement, policy, ctx)` and `evaluateBinding(state: { graph, descriptors, assessments }, binding, candidateID, policy, ctx)`. Task 8's `assessEdge` remains the sole owner of applicability; no global or implicit assessment source is introduced.
+- `Path` carries its `LineageTraversalScope`, so `validatePath` can enforce §8.5(1) without adding a scope parameter.
+- `BindingResult` gains two implementation-level variants: `kind: 'MECHANISM'` carrying a `MechanismFailure`, and `kind: 'CONTESTED'` for the all-contested aggregation. Neither is a `UiaErrorCode`; ordinary normative failures keep their codes and all per-path outcomes are preserved. This does not close A-8 or create a normative precedence table.
+- Successful bindings also carry `details.perPath` with every discovered path outcome (VALID, INVALID or CONTESTED), not only `acceptedPaths`. When no path is VALID, a single CONTESTED path is enough for the top-level `kind: 'CONTESTED'`; mixed CONTESTED/INVALID results remain CONTESTED and preserve both per-path outcomes.
+- `validatePath` takes the `LineageGraph` explicitly and rejects a path whose nodes intersect a cyclic SCC from `graph.cycles`, returning `PathValidation { status: 'CYCLE_DETECTED', code: 'CYCLE_DETECTED', cycle }`. Aggregation for Task 9: VALID wins; otherwise CYCLE_DETECTED outranks CONTESTED; otherwise assurance failure. All per-path outcomes are preserved.
+- Discovery runs a deterministic reverse-reachability prepass from the origin over scope-permitted edges and prunes dead subgraphs before enumeration. Unreachable-target dead-end explosion is avoided; genuinely exponential numbers of valid paths still require exponential output because the API returns every Path and per-path outcome.
+- The reverse adjacency is built in O(E) with no per-parent deduplication (`reachable` prevents duplicate queueing). Cycle membership is indexed once as `node -> SCC` in `evaluateBinding`; standalone `validatePath` builds the same index locally, so the public signature and independent callability are unchanged.
+- B-1 uses the fixture-level selector `=1.0.0` and matches it against the candidate label per §8.3(3). No `EXACT` binding mode is introduced; A-2 remains OPEN.
+- B-3 is Task 9 path-level success only. Immediate merge closure and the final §8.6 eligibility remain Task 10.
+
 ### Task 10: Immediate Merge Closure — B-4, B-5, B-6, B-7, phased results
 
 **Files:** Modify `src/core/traversal.ts` (`validateMergeClosure`); Test `tests/conformance/b.test.ts` (B-4, B-5, B-6, B-7), `tests/unit/traversal-phases.test.ts` (phase contrast), `tests/experimental/nested-merge-recursion.test.ts` (BLOCKED, non-conformance).

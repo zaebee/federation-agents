@@ -24,6 +24,20 @@ export type {
   Policy,
 } from './assessment.js';
 
+export { discoverPaths, evaluateBinding, validatePath } from './traversal.js';
+export type {
+  BindingFailureCode,
+  BindingResult,
+  ConditionalVersionBinding,
+  FailedPath,
+  FailedPathValidation,
+  LineageTraversalScope,
+  Path,
+  PathOutcome,
+  PathSet,
+  PathValidation,
+} from './traversal.js';
+
 export { validateVersionLabel } from './version-scheme.js';
 export type { SemVer, VersionLabel } from './version-scheme.js';
 
