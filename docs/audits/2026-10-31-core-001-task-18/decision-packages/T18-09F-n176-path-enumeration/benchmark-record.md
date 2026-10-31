@@ -2,7 +2,9 @@
 
 **Status:** executed benchmark record. This is **empirical evidence of resource-exhaustion risk**, not a proof of complexity and not a normative result.
 
-**Repository revision (exact):** `9e29b3627c9c5daab3a3029d8326dec65c47c161` (`main`, after PR #75 merge).
+**Source revision measured (exact):** `9e29b3627c9c5daab3a3029d8326dec65c47c161` (`main`, after PR #75 merge).
+
+**Harness revision (exact):** commit that introduced [`benchmark-harness.ts`](./benchmark-harness.ts) in this PR. The harness does not change `src/`, `tests/`, or the public surface; the source revision above and this PR's source tree are identical. To reproduce, check out this PR head (the commit containing the harness) and run the command below from the repository root.
 
 **Harness (saved, runnable):** [`benchmark-harness.ts`](./benchmark-harness.ts). It is a non-production documentation artifact; it is not imported by `src/` or `tests/`.
 
@@ -26,6 +28,8 @@ done
 for i in 1 2; do
   bun run docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/benchmark-harness.ts 18
 done
+# storage-order reversal check
+bun run docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/benchmark-harness.ts 12 reverse
 ```
 
 **Measurement method:**
@@ -70,4 +74,4 @@ done
 - Time and memory grow roughly in proportion to the number of paths on this shape. This is **empirical evidence** of a resource-exhaustion risk for untrusted participants; it is not a complexity proof and does not establish that a compact equivalent computation exists.
 - `k=20` (1 048 576 paths) was not run; the procedure permits it but it would require a multi-GiB allocation on this machine. The trend from k=12..18 is sufficient to size the risk.
 
-**Determinism check (procedure §6):** not executed in this record; the graph's `nodes`/`edges` arrays were not reversed in these runs. `traversal-invariance.test.ts` P1/P2 cover storage-order invariance on bounded DAGs, not this exponential shape. A follow-up should run the reversal check on at least k=12.
+**Storage-order reversal check (procedure §6, executed):** for `k=12`, the harness ran once with the original `nodes`/`edges` arrays and once with both arrays reversed. Both returned 4 096 paths with the same digest `682585051c6b7be9` (SHA-256 prefix over the full ordered path list). Times were 182 ms and 169 ms respectively. This is evidence for the `k=12` shape only; it is not a general determinism proof.

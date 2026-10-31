@@ -18,7 +18,7 @@
 - **A:** the full per-path list is normative evidence.
 - **B:** the normative result is validity plus mandatory evidence; the full list is diagnostics.
 
-**Preferred: B (R2).** §8.4/§8.7 define validity by the existence of one fully valid path; no sentence requires returning every path. The complexity analysis now supports B: all decision classes (D0–D6) are polynomial, so the compact result does not need the exponential path set. **If A:** no API change; B-3/B-4 keep their meaning; `2^k` output remains an explicit availability risk; N-176 would be recorded as "conditional not triggered" rather than PASS.
+**Preferred: B (R2).** §8.4/§8.7 define validity by the existence of one fully valid path; no sentence requires returning every path. The complexity analysis now supports B: all decision classes (D0–D4, D6a, D6b) are polynomial and D5 is a proof obligation, so the compact result does not need the exponential path set. **If A:** no API change; B-3/B-4 keep their meaning; `2^k` output remains an explicit availability risk; N-176 would be recorded as "conditional not triggered" rather than PASS.
 
 ## OQ-2 — API strategy under Reading B: replace or version?
 
@@ -41,10 +41,11 @@ Yes. `oq4` revision 3 proves:
 - **D2** first-failing-edge class: `(u→v)` in class X with `reach_{valid}(s,u)` and `reach_A(v,t)` — two reachability computations;
 - **D3** cycle-class existence: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; a walk through `c` loop-erases to a simple path that still touches a cyclic node (Lemma 4);
 - **D4** closure failure: triple `(merge node, path edge, failing branch)` with reachability; general over parent counts;
-- **D6** input-scoped mechanisms only, with the corrected condition: malformed assessments produce `MECHANISM` only if `reach_A(s,t)` (a path survives cycle preemption);
-- **D5** canonical witness: greedy on the acyclic subgraph; **proof sketch with empirical obligations** (see OQ-10 / decision-ready §2.4), not yet certified.
+- **D6a** pre-discovery mechanisms (duplicate id, missing candidate, selector/label validation) are independent of reachability;
+- **D6b** edge-evaluation mechanisms: malformed assessments produce `MECHANISM` only if `reach_A(s,t)` and a path reaches `assessEdge`;
+- **D5** accepted-witness selection: `pathKey`-minimum (greedy on the acyclic subgraph), deterministic non-minimum, or arbitrary valid; the greedy is a **proof sketch with empirical obligations** (see OQ-10 / decision-ready §2.4), not yet certified.
 
-**Recommended: accept the polynomial analysis for D0–D4/D6; treat D5 as a proof obligation before implementation is called complete.**
+**Recommended: accept the polynomial analysis for D0–D4/D6a/D6b; treat D5 as a proof obligation before implementation is called complete.**
 
 ## OQ-5 — Does A-8 stay OPEN, with the current precedence as an implementation rule?
 
@@ -97,7 +98,7 @@ The equivalence proofs (including D4's path-edge exclusion and any memoisation) 
 | Option | Meaning | Consequence |
 | --- | --- | --- |
 | **R1 — Reading A** | Per-path result normative. | No API break; exponential output accepted as availability risk; no compact-rejection work. |
-| **R2 — Reading B, exact** | Compact API; D0–D4/D6 polynomial; D5 proof obligations first. | Satisfies N-176; needs `T18-SPEC-01`, versioned API, corpus additions. |
+| **R2 — Reading B, exact** | Compact API; D0–D4/D6a/D6b polynomial; D5 proof obligations first. | Satisfies N-176; needs `T18-SPEC-01`, versioned API, corpus additions. |
 | **R3 — Reading B, semantic change** | Walk/state-based cycle class. | **Not needed**: D3 is polynomial under current semantics. |
 | **R4 — Defer** | Keep N-176 PARTIAL; clarify §8.8 and D4/§8.6 in `T18-SPEC-01`. | No decision now; honest fallback. |
 
@@ -108,7 +109,7 @@ The equivalence proofs (including D4's path-edge exclusion and any memoisation) 
 ## What is settled by this revision (no owner choice needed)
 
 - Three-layer model L1/L2/L3 and the diagnostics classification under Reading B.
-- D0/D2/D3/D4/D6 are polynomial; D6 has no path-scoped class; `N176-13` withdrawn.
+- D0/D2/D3/D4/D6a/D6b are polynomial; D6a is reachability-independent and D6b has no path-scoped class; `N176-13` withdrawn.
 - The D4/§8.6 path-edge discrepancy is a specification-wording issue (path edge already validated by §8.5), not an implementation change. Terminal-origin closure (OQ-11) and Policy purity (OQ-12) are **not** settled and are listed below.
 - Validity API must not be resource-capped; caps belong to diagnostics.
 - No new normative error code.

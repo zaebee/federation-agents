@@ -6,16 +6,18 @@
 
 | # | Decision | Options | Recommendation (not approved) | Consequence if alternative |
 | --- | --- | --- | --- | --- |
-| D1 | Reading of §8.8 `MUST NOT` | R1 (per-path output normative) / R2 (validity normative, enumeration diagnostic) / R3 (changed walk semantics) / R4 (defer) | R2, conditional on D5 or a non-canonical witness | R1: N-176 not triggered, API unchanged, exponential risk accepted. R3: unnecessary unless semantics cannot be preserved (current analysis says they can). R4: N-176 stays PARTIAL. |
-| D2 | API strategy | replace `BindingResult` / versioned compact API / defer | versioned compact API | Replace breaks B-3/B-4/B-6 and all callers; defer leaves N-176 PARTIAL. |
-| D3 | Canonical witness | `pathKey`-minimum (D5) / any valid path / none | `pathKey`-minimum if D5 closes; otherwise any valid path as an explicit owner choice | Any valid path weakens determinism evidence; none drops L2 acceptance evidence. |
-| D4 | Rejection witness sufficiency | class-existence proof / first failing path / all failing paths | class-existence proof (polynomial D4) | First failing path depends on traversal order; all failing paths is exponential. |
-| D5 | A-8 aggregation order in compact API | preserve current order / redefine | preserve current order as implementation compatibility rule | Redefining changes observable top-level codes. |
-| D6 | A-14 cycle reporting | preserve current `cycleForPath` / resolve normatively | preserve as-is | Resolving changes normative error content. |
-| D7 | Mechanism precedence | preserve input-scoped rule (D6) / simplify | preserve D6 | Simplifying may report MECHANISM when current code reports cycle. |
-| D8 | Diagnostics cap | caller-owned with explicit truncation / fixed default / none | caller-owned, optional, never affects validity | A cap in validity violates §8.8 determinism. |
-| D9 | Benchmark target | record only / set threshold | record only | A threshold becomes a contractual performance target not supported by proof. |
-| D10 | N-176 audit wording | PARTIAL until decision / FAIL | PARTIAL until decision | FAIL would assert a violation before the conditional is resolved. |
+| OD-1 | Reading of §8.8 `MUST NOT` | R1 (per-path output normative) / R2 (validity normative, enumeration diagnostic) / R3 (changed walk semantics) / R4 (defer) | R2, conditional on D5 or a non-canonical witness | R1: N-176 not triggered, API unchanged, exponential risk accepted. R3: unnecessary unless semantics cannot be preserved (current analysis says they can). R4: N-176 stays PARTIAL. |
+| OD-2 | API strategy | replace `BindingResult` / versioned compact API / defer | versioned compact API | Replace breaks B-3/B-4/B-6 and all callers; defer leaves N-176 PARTIAL. |
+| OD-3 | Accepted witness | `pathKey`-minimum (D5) / deterministic non-minimum / any valid path / none | `pathKey`-minimum if D5 closes; otherwise an explicit deterministic-non-minimum or any-valid choice | Any valid path weakens determinism evidence; none drops L2 acceptance evidence. |
+| OD-4 | Rejection witness sufficiency | class-existence proof / first failing path / all failing paths | class-existence proof (polynomial D4) | First failing path depends on traversal order; all failing paths is exponential. |
+| OD-5 | A-8 aggregation order in compact API | preserve current order / redefine | preserve current order as implementation compatibility rule | Redefining changes observable top-level codes. |
+| OD-6 | A-14 cycle witness scope | minimal existence witness / per-path `cycleForPath()` union / global union | minimal existence witness; legacy per-path union only in v1 diagnostics | Promising per-path or global union without implementing it would be a false equivalence claim. |
+| OD-7 | Mechanism classes | preserve D6a pre-discovery + D6b edge-evaluation / simplify | preserve the split | Simplifying may report MECHANISM when current code reports cycle, or omit pre-discovery failures. |
+| OD-8 | No-path rejection evidence | reachability recheck / cut certificate | reachability recheck in v2; cut certificate as a future addition | A cut certificate is independently verifiable but requires additional implementation and format. |
+| OD-9 | Authority-mismatch evidence | precheck facts / code only | precheck facts (target vs candidate participant, selector, scheme, label) | Code-only evidence is not independently verifiable. |
+| OD-10 | Diagnostics cap | caller-owned with explicit truncation / fixed default / none | caller-owned, optional, never affects validity | A cap in validity violates §8.8 determinism. |
+| OD-11 | Benchmark target | record only / set threshold | record only | A threshold becomes a contractual performance target not supported by proof. |
+| OD-12 | N-176 audit wording | PARTIAL until decision / FAIL | PARTIAL until decision | FAIL would assert a violation before the conditional is resolved. |
 
 ## Consequences of each alternative (Reading A vs B)
 

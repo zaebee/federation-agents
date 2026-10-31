@@ -1,8 +1,8 @@
-# T18-09F — Complexity Proof (D0–D6)
+# T18-09F — Complexity Proof (D0–D6b)
 
 **Status:** proof document for the decision package. **D5 remains OPEN** as a proof sketch with named empirical obligations. No implementation is authorised by this document.
 
-**Source of truth for D0–D6:** `oq4-complexity-adversarial-pass.md` revision 3 §1. This document uses exactly those definitions; it does not introduce a second taxonomy.
+**Source of truth for D0–D6b:** `oq4-complexity-adversarial-pass.md` revision 3.1 §1. This document uses exactly those definitions; it does not introduce a second taxonomy.
 
 ## 0. Environment assumptions
 
@@ -22,7 +22,8 @@ Graph `G`, traversal scope `σ`, scoped edges `E_σ`, candidate `s`, origin `t`.
 | **D3** | Does a simple path exist that touches a node of `C`? (`CYCLE_DETECTED` class) |
 | **D4** | Does a simple path exist whose edges are all satisfied and whose closure fails? (`ERR_MERGE_BRANCH_UNSATISFIED`) |
 | **D5** | What is the canonical (minimum `pathKey`) fully valid simple path? (acceptance witness) |
-| **D6** | Does an input-scoped mechanism failure apply before/at the first edge evaluation of a path that survives cycle preemption? |
+| **D6a** | Does a pre-discovery mechanism failure apply independently of graph reachability? (duplicate descriptor id, missing candidate, selector compilation, version-label validation) |
+| **D6b** | Does an edge-evaluation mechanism failure apply on a path that survives cycle preemption and reaches `assessEdge` with malformed data? |
 
 ## 2. Lemma 1 — cycle preemption (corrected)
 
@@ -120,7 +121,7 @@ Three obligations from `oq4` §6 remain open:
 2. **Oracle tests.** No test compares the greedy witness against exhaustive enumeration on small generated DAGs. The existing property tests check storage-order invariance and immutability, not witness minimality.
 3. **Invariance tests.** No test reverses `nodes`/`edges` arrays on the exponential merge-diamond shape and compares the canonical witness. P1/P2 cover bounded DAGs only.
 
-**Conclusion: D5 remains OPEN.** The greedy is a plausible polynomial construction and the proposed direction, but it is a proof sketch, not a certified result. No implementation should rely on it until the three obligations are closed, or the owner explicitly chooses "any valid witness" as L2 evidence (`owner-decision-summary.md` D3).
+**Conclusion: D5 remains OPEN.** The greedy is a plausible polynomial construction and the proposed direction, but it is a proof sketch, not a certified result. No implementation should rely on it until the three obligations are closed, or the owner explicitly chooses "any valid witness" as L2 evidence (`owner-decision-summary.md` OD-3).
 
 ### 9.4 Required oracle cases (specification only, not executed)
 
@@ -128,13 +129,26 @@ Three obligations from `oq4` §6 remain open:
 - **Encoding collisions:** generate ids containing `\u0000` and `\u0001`; enumerate pairs of distinct simple paths from the same candidate/origin and record any equal `pathKey`. If a collision exists, record the exact counterexample and do not claim canonical witness uniqueness.
 - **Permutation:** for the merge-diamond shape at `k=12`, reverse `nodes` and `edges` arrays; assert identical witness edge sequence and identical path count.
 
-## 10. D6 — input-scoped mechanism failures
+## 10. D6a/D6b — input-scoped mechanism failures
 
-Reachable `MECHANISM` results are limited to prechecks before discovery (selector compilation, candidate lookup, duplicated descriptor id) and candidate-array validation inside `assessEdge`. A throwing `Policy` hook propagates and is not a mechanism outcome.
+### 10.1 D6a — pre-discovery mechanism failures
+
+`evaluateBinding()` calls `precheckCandidate()` before `discoverPaths()`. The following return `MECHANISM` before any graph reachability is consulted:
+
+- duplicate descriptor id;
+- candidate descriptor not supplied;
+- selector compilation failure;
+- version-label validation failure.
+
+D6a is independent of `reach_A(s,t)`: it can return `MECHANISM` even when no candidate→origin path exists. It is constant-time/polynomial by construction.
+
+### 10.2 D6b — edge-evaluation mechanism failures
+
+Candidate-array validation inside `assessEdge` is reached only while evaluating an edge of a path. A throwing `Policy` hook propagates and is not a mechanism outcome.
 
 The earlier condition "malformed assessments and at least one path exists (D1)" is incorrect: `validatePathWithIndex` returns `CYCLE_DETECTED` before `assessEdge` is called. If every existing path touches a cyclic SCC, malformed assessments never reach validation and the observable result is a cycle outcome.
 
-**Correct condition:** prechecks pass, the assessment array is malformed, `reach_A(s,t)` holds, and at least one simple path that avoids every cyclic SCC reaches an edge where `assessEdge` consults the malformed data. If no such path exists, the cycle (or no-path, or ordinary assurance) outcome wins. `reach_A` is a reachability query on the acyclic induced subgraph (Lemma 2); locating a path that reaches a malformed edge is another reachability query on the same subgraph, so D6 remains polynomial.
+**Correct condition:** prechecks pass, the assessment array is malformed, `reach_A(s,t)` holds, and at least one simple path that avoids every cyclic SCC reaches an edge where `assessEdge` consults the malformed data. If no such path exists, the cycle (or no-path, or ordinary assurance) outcome wins. `reach_A` is a reachability query on the acyclic induced subgraph (Lemma 2); locating a path that reaches a malformed edge is another reachability query on the same subgraph, so D6b remains polynomial.
 
 ## 11. Result table
 
@@ -146,8 +160,9 @@ The earlier condition "malformed assessments and at least one path exists (D1)" 
 | D3 | polynomial | Lemma 4; walk + loop erasure |
 | D4 | polynomial | Lemma 6; triple scan + reachability |
 | D5 | **OPEN** | greedy proof sketch; §9.3 obligations |
-| D6 | polynomial | prechecks; malformed assessments require `reach_A(s,t)` |
+| D6a | polynomial/constant | pre-discovery prechecks, independent of reachability |
+| D6b | polynomial | malformed assessments require `reach_A(s,t)` and a path reaching `assessEdge` |
 
 ## 12. Consequence for the recommendation
 
-D0, D1, D2, D3, D4 and D6 are polynomial with stated lemmas. D5 is a proof sketch with three open obligations. A compact implementation that needs a canonical witness must not be authorised until D5 is closed or the witness requirement is relaxed to "any valid witness". Reading R2 (compact API) is therefore conditional on that owner decision.
+D0, D1, D2, D3, D4, D6a and D6b are polynomial with stated lemmas. D5 is a proof sketch with three open obligations. A compact implementation that needs a canonical witness must not be authorised until D5 is closed or the witness requirement is relaxed to "any valid witness". Reading R2 (compact API) is therefore conditional on that owner decision.

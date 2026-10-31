@@ -4,6 +4,7 @@
 // It prints one JSON record per invocation. Use a fresh process per k/run so RSS
 // deltas are not polluted by earlier graphs.
 
+import { createHash } from 'node:crypto';
 import { buildLineageGraph } from '../../../../../src/core/lineage.js';
 import { identityVersionId } from '../../../../../src/core/primitives.js';
 import { discoverPaths } from '../../../../../src/core/traversal.js';
@@ -45,25 +46,38 @@ function buildGraph(k: number) {
 }
 
 const k = Number(process.argv[2]);
+const reverse = process.argv[3] === 'reverse';
 if (!Number.isInteger(k) || k < 1) {
-  throw new Error('usage: benchmark-harness.ts <k>');
+  throw new Error('usage: benchmark-harness.ts <k> [reverse]');
 }
 
-const { graph, candidate, origin } = buildGraph(k);
+const built = buildGraph(k);
+const graph = reverse ? { ...built.graph, nodes: [...built.graph.nodes].reverse(), edges: [...built.graph.edges].reverse() } : built.graph;
 const before = process.memoryUsage().rss;
 const t0 = performance.now();
-const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId(candidate), identityVersionId(origin));
+const result = discoverPaths(
+  graph,
+  'FULL_ANCESTRY',
+  identityVersionId(built.candidate),
+  identityVersionId(built.origin),
+);
 const t1 = performance.now();
 const after = process.memoryUsage().rss;
+
+const fingerprint = result.ok
+  ? JSON.stringify(result.value.map((path) => path.edges.map((edge) => [edge.child, edge.parent, edge.relation])))
+  : 'ERR';
 
 console.log(
   JSON.stringify({
     k,
+    reversed: reverse,
     nodes: graph.nodes.length,
     expectedPaths: 2 ** k,
     actualPaths: result.ok ? result.value.length : 'ERR',
     timeMs: Math.round(t1 - t0),
     rssDeltaMB: Math.round((after - before) / 1024 / 1024),
     rssAfterMB: Math.round(after / 1024 / 1024),
+    digest: createHash('sha256').update(fingerprint).digest('hex').slice(0, 16),
   }),
 );

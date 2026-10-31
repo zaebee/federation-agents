@@ -1,8 +1,10 @@
 # T18-09F — Decision-Ready Revision (not approved)
 
 **Status:** decision-support revision of the draft package. **`T18-DEC-18` remains PROPOSED / OPEN.** This document does not approve it, register it, or change any status.
+
+**Witness terminology:** "canonical" below means the `pathKey`-minimum path **only if D5 closes**. Until then, the accepted witness is one of the three modes in `owner-decision-summary.md` OD-3 (`PATH_KEY_MINIMUM`, `DETERMINISTIC_NON_MINIMUM`, `ARBITRARY_VALID`); the v2 type uses the neutral `AcceptedPathWitness`, not a canonical guarantee.
 **Reviewed revision:** `f1d52e1` (`main`).
-**Complexity source of truth:** `oq4-complexity-adversarial-pass.md` revision 3. Where this document and the earlier revisions differ, revision 3 governs. **D2/D3/D4/D6 are polynomial; D5 is a proof sketch with named empirical obligations and is not certified until those obligations are met.**
+**Complexity source of truth:** `oq4-complexity-adversarial-pass.md` revision 3.1. Where this document and the earlier revisions differ, revision 3.1 governs. **D2/D3/D4/D6a/D6b are polynomial; D5 is a proof sketch with named empirical obligations and is not certified until those obligations are met.**
 **Companions:** `adversarial-review.md`, `remaining-owner-questions.md`, `oq4-complexity-adversarial-pass.md`.
 
 Each section follows the same shape: **exact statement → normative anchor → counterexample → proposed resolution → compatibility impact → closure evidence.**
@@ -104,9 +106,10 @@ After Lemma 1 (cycle preemption) every path that reaches assurance/closure class
 | D2 | path whose first non-satisfied edge has class X? | polynomial: `reach_{valid}(s,u)` + `reach_A(v,t)` for some `e*=(u→v) ∈ E_X`; proof in `oq4` §3 |
 | D3 | path touching a cyclic node? | **polynomial**: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; walk + loop erasure (`oq4` §4) |
 | D4 | all edges satisfied and closure fails? | polynomial: triple `(merge node m, path edge e, failing branch b)` + reachability; `oq4` §5 |
-| D6 | input-scoped mechanism? | polynomial: prechecks, or malformed assessments **and `reach_A(s,t)`** (a path that survives cycle preemption); no path-scoped class exists |
+| D6a | pre-discovery mechanism? | polynomial/constant: duplicate id, missing candidate, selector compilation, version-label validation; independent of reachability |
+| D6b | edge-evaluation mechanism? | polynomial: malformed assessments **and `reach_A(s,t)`** plus a path reaching `assessEdge`; no path-scoped class exists |
 
-**Evidence shape:** rejection returns the class witness required by L2 — for D2 the failing edge class, for D3 one witness path touching a cyclic node, for D4 the failing branch identity, for D6 the mechanism failure. A single failing edge is not a proof for a higher-precedence class.
+**Evidence shape:** rejection returns the class witness required by L2 — for D2 the failing edge class, for D3 one witness path touching a cyclic node, for D4 the failing branch identity, for D6a the precheck failure, for D6b the edge-evaluation mechanism failure. A single failing edge is not a proof for a higher-precedence class.
 
 ### 3.2 Normative anchor
 
@@ -221,7 +224,7 @@ A benchmark record for the validity path at `k=16`; a test that a diagnostics bo
 | --- | --- | --- |
 | 1 | L1/L2/L3 split and `acceptedPaths`/`perPath` as L3 under Reading B | proposed; corpus mapping in §1.4 |
 | 2 | Canonical witness = `pathKey` minimum | algorithm proven to be greedy; **empirical obligations** §2.4 |
-| 3 | D0/D2/D3/D4/D6 polynomial | **proven** (Lemma 1–6, `oq4` §2–§7) |
+| 3 | D0/D2/D3/D4/D6a/D6b polynomial | **proven** (Lemma 1–6, `oq4` §2–§7) |
 | 4 | D5 polynomial | **proof sketch**, qualified §2.4 |
 | 5 | A-8 untouched, precedence preserved | proposed implementation rule; A-8 OPEN |
 | 6 | Option 5.B versioned API | recommended; owner choice |

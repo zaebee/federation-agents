@@ -1,6 +1,6 @@
-# T18-09F — OQ-4 Complexity Analysis (revision 3)
+# T18-09F — OQ-4 Complexity Analysis (revision 3.1)
 
-**Status:** analysis only. **Supersedes revisions 1–2.** Revision 1 wrongly claimed NP-hardness for D2/D4/D6; revision 2 removed that but left D3 open and the mechanism class misclassified. This revision gives polynomial algorithms for **all** classes, marks the one remaining proof obligation (D5 empirical validation), and keeps `T18-DEC-18` PROPOSED / OPEN.
+**Status:** analysis only. **Supersedes revisions 1–2.** Revision 1 wrongly claimed NP-hardness for D2/D4/D6; revision 2 removed that but left D3 open and the mechanism class misclassified. Revision 3 gives polynomial algorithms for **all** classes; revision 3.1 splits mechanism into D6a (pre-discovery) and D6b (edge-evaluation), correcting the overbroad claim that every mechanism outcome requires `reach_A(s,t)`. D5 remains a proof sketch; `T18-DEC-18` stays PROPOSED / OPEN.
 **Normative claim:** none. This is an analysis of the current implementation's decision problems.
 
 ## 0. Environment assumptions (required for every equivalence claim)
@@ -21,7 +21,8 @@ Graph `G`, traversal scope `σ`, scoped edges `E_σ`, candidate `s`, origin `t`.
 | **D3** | Does a simple path exist that touches a node of `C`? (`CYCLE_DETECTED` class) |
 | **D4** | Does a simple path exist whose edges are all satisfied and whose closure fails? (`ERR_MERGE_BRANCH_UNSATISFIED`) |
 | **D5** | What is the canonical (minimum `pathKey`) fully valid simple path? (acceptance witness) |
-| **D6** | Does an input-scoped mechanism failure apply before/at the first edge evaluation of a path that survives cycle preemption? |
+| **D6a** | Does a pre-discovery mechanism failure apply independently of graph reachability? (duplicate descriptor id, missing candidate, selector compilation, version-label validation) |
+| **D6b** | Does an edge-evaluation mechanism failure apply on a path that survives cycle preemption and reaches `assessEdge` with malformed data? |
 
 ## 2. Lemma 1 — cycle preemption
 
@@ -84,9 +85,24 @@ Valid paths lie in `A` (Lemma 1) and are all-edge-satisfied. Define `H` on edges
 
 **Proof obligations still open (qualified claim):** a written proof of the lexicographic induction for the exact `pathKey` string encoding, oracle tests against exhaustive enumeration on small generated DAGs, and invariance tests under storage/adjacency permutations. Until those tests exist the polynomial claim is a proof sketch, not an empirical certification.
 
-## 7. D6 — input-scoped mechanism failures (condition corrected)
+## 7. D6a/D6b — input-scoped mechanism failures
 
-The only reachable `MECHANISM` results are input-scoped: prechecks before discovery (selector compilation, candidate lookup, duplicated descriptor id) and candidate-array validation inside `assessEdge`. A throwing `Policy` hook is **not** caught and propagates; it is not a mechanism outcome and creates no path-scoped class.
+The reachable `MECHANISM` results split into two classes.
+
+### D6a — pre-discovery mechanism failures
+
+`evaluateBinding()` runs these before `discoverPaths()`:
+
+- duplicate descriptor id;
+- candidate descriptor not supplied;
+- selector compilation failure;
+- version-label validation failure.
+
+They are independent of graph reachability. A `MECHANISM` is returned even when the candidate cannot reach the origin. This class is constant-time/polynomial by construction and must not be conditioned on `reach_A(s,t)`.
+
+### D6b — edge-evaluation mechanism failures
+
+Candidate-array validation inside `assessEdge` is reached only while evaluating an edge of a path. A throwing `Policy` hook is **not** caught and propagates; it is not a mechanism outcome and creates no path-scoped class.
 
 **The earlier condition "malformed assessments and at least one path exists (D1)" is wrong.** `evaluateBinding` evaluates discovered paths one by one; `validatePathWithIndex` returns `CYCLE_DETECTED` before `assessEdge` is called. If every existing path touches a cyclic SCC, a malformed assessment array never reaches validation and the observable result is a cycle outcome, not `MECHANISM`.
 
@@ -100,7 +116,7 @@ s ───► a ───► b ───► t
 
 D1 is true (`s→a→b→t` exists), but the only paths are preempted by the cycle check; malformed assessments do not produce `MECHANISM`.
 
-**Correct condition:** prechecks pass, the assessment array is malformed, and **`reach_A(s,t)`** holds — at least one simple path avoids every cyclic SCC and therefore reaches `assessEdge`. If no such path exists, the cycle (or no-path) outcome wins. `reach_A` is a reachability query on the acyclic induced subgraph (Lemma 2), so D6 remains polynomial.
+**Correct condition for D6b:** prechecks pass, the assessment array is malformed, **`reach_A(s,t)`** holds, and at least one simple path that avoids every cyclic SCC reaches an edge where `assessEdge` consults the malformed data. If no such path exists, the cycle (or no-path, or ordinary assurance) outcome wins. `reach_A` is a reachability query on the acyclic induced subgraph (Lemma 2); locating a path that reaches a malformed edge is another reachability query on the same subgraph. D6b remains polynomial.
 
 ## 8. Result table
 
@@ -112,7 +128,8 @@ D1 is true (`s→a→b→t` exists), but the only paths are preempted by the cyc
 | D3 | polynomial (Lemma 4; walk + loop erasure) |
 | D4 | polynomial (Lemma 5–6; triple scan + reachability) |
 | D5 | polynomial **proof sketch**; empirical obligations listed in §6 |
-| D6 | polynomial: prechecks; malformed assessments require `reach_A(s,t)` |
+| D6a | polynomial/constant: pre-discovery prechecks, independent of reachability |
+| D6b | polynomial: malformed assessments require `reach_A(s,t)` and a path reaching `assessEdge` |
 
 **Consequence for N-176:** a compact exact algorithm exists for all classes; the exponential output is not required. Reading B is no longer blocked by a complexity barrier; the remaining choice is normative/API (Reading A vs B, replace vs version).
 
@@ -135,6 +152,7 @@ D1 is true (`s→a→b→t` exists), but the only paths are preempted by the cyc
 | 1 | D3 reduction from 2-disjoint paths | **withdrawn** (unsound: hard instances carry cycles that preempt) |
 | 2 | D2/D4/D5 polynomial; D3 open; D6 non-existent | mostly correct, D3 left open |
 | **3** | all classes polynomial (D5 proof sketch) | current |
+| **3.1** | D6 split into D6a (pre-discovery, independent of reachability) and D6b (edge-evaluation, requires `reach_A(s,t)` and a path reaching `assessEdge`) | corrects the overbroad claim that every mechanism outcome requires `reach_A(s,t)` |
 
 ## 11. Limits
 
