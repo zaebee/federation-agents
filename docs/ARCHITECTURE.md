@@ -76,8 +76,8 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/sha256.ts`          | §7.2     | Implemented | Pure TypeScript SHA-256                                                |
 | `core/entities.ts`        | §3.2, §4.2, §5.2 | Partial | Descriptor slice: types and structural validation. Full record model and constructors are Task 6 |
 | `core/hashing.ts`         | §7.1     | Implemented | Explicit 8-field descriptor projection, `urn:hash:sha256:…`, pinned known-answer test |
-| `core/version-scheme.ts`  | §3.2     | Planned     | `SEMVER_2`, `CONTENT_HASH`, `OPAQUE_TAG` comparison rules              |
-| `core/selector.ts`        | §3.2, §8.2 | Planned   | Minimal, versioned selector mechanism                                  |
+| `core/version-scheme.ts`  | §3.2     | Implemented | `SEMVER_2` validation, `CONTENT_HASH`/`OPAQUE_TAG` non-empty rules, SemVer parsing and precedence |
+| `core/selector.ts`        | §3.2, §8.2 | Implemented | Versioned `uia-ref-selector@1` mechanism with compiled-selector provenance |
 | `core/credential.ts`      | §4, §10  | Planned     | Credential usage, revocation reasons, historical signature semantics    |
 | `core/lineage.ts`         | §5, §11  | Planned     | Graph construction, cardinality, cycles, delayed parents               |
 | `core/assessment.ts`      | §6       | Planned     | Edge applicability, supersession, assurance evaluation                  |
@@ -163,7 +163,7 @@ A2 does not require enumerating all paths: memoization and dynamic programming a
 
 `ERR_INVALID_RELATION`, `ERR_INVALID_CARDINALITY`, `ERR_NO_TRAVERSAL_PATH`, `ERR_MERGE_BRANCH_UNSATISFIED`, `ERR_ASSURANCE_PREDICATE_UNSATISFIED`, `ERR_AUTHORITY_BINDING_MISMATCH`, `CYCLE_DETECTED`, `PARENT_UNRESOLVED`.
 
-**Mechanism codes** (`ImplementationErrorCode`) describe implementation limits, currently including `S_SELECTOR_INCOMPATIBLE_SCHEME`, `E_APPLICABLE_ASSESSMENTS_UNBRANDED`, `E_TEMPORAL_FIELD_REF_INVALID`, `E_CANONICALIZATION_UNSUPPORTED`, `E_OWNERSHIP_UNSUPPORTED`, `E_JSON_VALUE_INVALID`, `E_UNKNOWN_BOUNDARY_REJECTED`.
+**Mechanism codes** (`ImplementationErrorCode`) describe implementation limits, currently including `S_SELECTOR_INCOMPATIBLE_SCHEME`, `E_VERSION_LABEL_INVALID`, `E_SELECTOR_SYNTAX_INVALID`, `E_APPLICABLE_ASSESSMENTS_UNBRANDED`, `E_TEMPORAL_FIELD_REF_INVALID`, `E_CANONICALIZATION_UNSUPPORTED`, `E_OWNERSHIP_UNSUPPORTED`, `E_JSON_VALUE_INVALID`, `E_UNKNOWN_BOUNDARY_REJECTED`.
 
 The split is architectural, not cosmetic: a wrong selector scheme is not a protocol rejection, and an unbranded assessment set is not a statement about a participant. Adding a mechanism code must never require changing `UiaErrorCode`.
 
@@ -230,8 +230,8 @@ A passing test suite does not establish production security or interoperability;
 
 ## 12. Status
 
-Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the IdentityVersion descriptor slice, and §7.1 descriptor hashing.
+Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the IdentityVersion descriptor slice, §7.1 descriptor hashing, version label validation, and the `uia-ref-selector@1` mechanism.
 
-Planned: the full entity model, version schemes and selectors, credentials, lineage, assessments, traversal, acceptance, ledger.
+Planned: the full entity model, credentials, lineage, assessments, traversal, acceptance, ledger.
 
 Ordering and exit criteria are tracked in [`ROADMAP.md`](./ROADMAP.md) and in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md).

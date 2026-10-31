@@ -133,7 +133,7 @@ An attacker is **not** assumed to:
 
 **T-16 Untrusted input reaching a domain record.** An adapter passes raw JSON, a class instance, or `unknown` straight into a constructor.
 *Mitigation:* `validateUnknown` / `validateJsonValue` at the boundary, plus `validateIdentityVersionDescriptor` for the descriptor boundary; typed public API with no `any`; records reject unsupported structures instead of coercing them.
-*Status:* implemented for the descriptor boundary; other record boundaries and adapters are planned, so the end-to-end path is not yet exercised.
+*Status:* implemented for descriptors, version labels and selectors; other record boundaries and adapters are planned, so the end-to-end path is not yet exercised.
 
 ### E. Availability and integration
 
@@ -144,6 +144,10 @@ An attacker is **not** assumed to:
 **T-18 Policy hook abuse.** A caller-supplied hook returns assessments that do not apply to the edge, or a forged "applicable" set.
 *Mitigation:* applicable sets are constructed only by `assessEdge` and carry a module-private runtime brand; `evaluateAssurance` rejects unbranded input with `E_APPLICABLE_ASSESSMENTS_UNBRANDED`; hook output is intersected with the applicable set and non-members are discarded and reported.
 *Status:* planned. Residual risk: if the brand check is bypassed by a future refactor, nominal binding silently degrades into a convention.
+
+**T-19 Type confusion through a forged compiled selector.** An integrator passes a plain object, a spread copy, an inheriting object, or a Proxy where `selectorMatches` expects a selector produced by `compileSelector`, hoping to steer matching.
+*Mitigation:* compiled selectors carry a module-private symbol brand for nominal typing and are registered in a module-private `WeakSet` only after construction and deep freezing; `selectorMatches` accepts a selector by identity in that set, not by property lookup, so inherited brands and Proxies are rejected. Invalid input raises `InvalidCompiledSelectorError` and is never treated as a wildcard.
+*Status:* implemented and regression-tested (inheritance, field overrides, Proxy with traps, spread copy, plain forgery). Residual risk: the check is in-process only; it prevents misuse, not a compromised host.
 
 ## 5. Security assumptions
 
