@@ -70,7 +70,7 @@ The project owner approved `T18-DEC-01 = REQ-LOCAL` and `T18-DEC-02 = OWN-ADAPTE
 
 ### T18-09E — C-2 subject model decision package (registered, not approved)
 
-Package: `decision-packages/T18-09E-c2-subject-model/`. Registers `T18-DEC-16` with sub-parts 16.a (subject model: closing edge, node, or SCC), 16.b (exact Assessment shape and provenance) and 16.c (publication/retention ownership). Reviewed recommendation: Option A, node- and relation-scoped. `T18-02B` unblocks when the owner approves 16.a/16.b; 16.c may remain OPEN for recording. No Task 17 status changes here.
+Package: `decision-packages/T18-09E-c2-subject-model/`. Registers `T18-DEC-16` with sub-parts 16.a (subject model: closing edge, node, or SCC), 16.b (exact Assessment shape and provenance) and 16.c (publication/retention ownership). Reviewed recommendation: Option D — one Assessment per affected lineage edge. `T18-02B` unblocks when the owner approves 16.a/16.b; 16.c may remain OPEN for recording. No Task 17 status changes here.
 
 ### T18-02A — C-1 adapter emission (implemented; acceptance evidence in AEBE)
 
