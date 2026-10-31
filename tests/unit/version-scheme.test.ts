@@ -105,58 +105,38 @@ describe('SEMVER_2 validation', () => {
   });
 });
 
-describe('CONTENT_HASH validation', () => {
-  test('accepts any non-empty label without inferring a format', () => {
-    for (const label of ['abc', 'sha256:abc', '0123deadbeef', 'not-a-hash', '1.2.3']) {
-      const result = validateVersionLabel(label, 'CONTENT_HASH');
+describe('CONTENT_HASH and OPAQUE_TAG validation', () => {
+  const nonSemverCases: ReadonlyArray<readonly [VersionScheme, readonly string[]]> = [
+    ['CONTENT_HASH', ['abc', 'sha256:abc', '0123deadbeef', 'not-a-hash', '1.2.3', '01.2.3', ' abc ']],
+    ['OPAQUE_TAG', ['release-2026', '2.0.0', '10.0.0', '01.2.3', ' tag ']],
+  ];
 
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
-      expect(result.value.scheme).toBe('CONTENT_HASH');
-      expect(result.value.label).toBe(label);
-    }
+  for (const [scheme, labels] of nonSemverCases) {
+    test(`${scheme} accepts any non-empty label and preserves it verbatim`, () => {
+      for (const value of labels) {
+        const result = validateVersionLabel(value, scheme);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.scheme).toBe(scheme);
+        expect(result.value.label).toBe(value);
+      }
+    });
+
+    test(`${scheme} rejects an empty label`, () => {
+      expect(failureCode(scheme, '')).toBe('E_VERSION_LABEL_INVALID');
+    });
+
+    test(`${scheme} rejects lone surrogates`, () => {
+      expect(failureCode(scheme, 'tag\uD800')).toBe('E_VERSION_LABEL_INVALID');
+    });
+  }
+
+  test('CONTENT_HASH does not treat a SemVer-shaped label as SemVer', () => {
+    expect(validateVersionLabel('01.2.3', 'CONTENT_HASH').ok).toBe(true);
   });
 
-  test('does not treat a SemVer-shaped label as SemVer', () => {
-    const result = validateVersionLabel('01.2.3', 'CONTENT_HASH');
-
-    expect(result.ok).toBe(true);
-  });
-
-  test('rejects an empty label', () => {
-    expect(failureCode('CONTENT_HASH', '')).toBe('E_VERSION_LABEL_INVALID');
-  });
-
-  test('rejects lone surrogates', () => {
-    expect(failureCode('CONTENT_HASH', 'abc\uDC00')).toBe('E_VERSION_LABEL_INVALID');
-  });
-
-  test('does not trim labels', () => {
-    const result = validateVersionLabel(' abc ', 'CONTENT_HASH');
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.label).toBe(' abc ');
-  });
-});
-
-describe('OPAQUE_TAG validation', () => {
-  test('accepts any non-empty label and preserves it verbatim', () => {
-    for (const label of ['release-2026', '2.0.0', '10.0.0', '01.2.3', ' tag ']) {
-      const result = validateVersionLabel(label, 'OPAQUE_TAG');
-
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
-      expect(result.value.scheme).toBe('OPAQUE_TAG');
-      expect(result.value.label).toBe(label);
-    }
-  });
-
-  test('rejects an empty label', () => {
-    expect(failureCode('OPAQUE_TAG', '')).toBe('E_VERSION_LABEL_INVALID');
-  });
-
-  test('rejects lone surrogates', () => {
-    expect(failureCode('OPAQUE_TAG', 'tag\uD800')).toBe('E_VERSION_LABEL_INVALID');
+  test('OPAQUE_TAG has no SemVer parsing either', () => {
+    expect(validateVersionLabel('v1.2.3', 'OPAQUE_TAG').ok).toBe(true);
   });
 });

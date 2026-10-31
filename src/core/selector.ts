@@ -44,7 +44,7 @@ export interface CompiledSelector {
 
 const OPERATORS: readonly SelectorOperator[] = ['>=', '<=', '=', '>', '<', '^', '~'];
 
-const RANGE_OPERATORS: readonly SelectorOperator[] = ['>', '>=', '<', '<=', '^', '~'];
+const RANGE_OPERATORS: ReadonlySet<SelectorOperator> = new Set(['>', '>=', '<', '<=', '^', '~']);
 
 function syntaxFailure(message: string): Result<never> {
   return { ok: false, error: mechanismFailure('E_SELECTOR_SYNTAX_INVALID', message) };
@@ -111,7 +111,7 @@ function parseComparatorSegment(segment: string, scheme: VersionScheme): Result<
   }
 
   if (scheme !== 'SEMVER_2') {
-    if (RANGE_OPERATORS.includes(op)) {
+    if (RANGE_OPERATORS.has(op)) {
       return incompatibleScheme(
         `Selector ${op} is not compatible with ${scheme}; only exact match and wildcard are supported`,
       );
@@ -233,7 +233,10 @@ export function selectorMatches(selector: CompiledSelector, label: VersionLabel)
 
   if (selector.scheme !== 'SEMVER_2') {
     const exact = selector.comparators[0];
-    return exact !== undefined && exact.op === '=' && label.label === exact.text;
+    if (exact?.op !== '=') {
+      return false;
+    }
+    return label.label === exact.text;
   }
 
   const labelVersion = parseSemVer(label.label);

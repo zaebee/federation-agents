@@ -136,8 +136,10 @@ function buildIdentifiersValid(value: string): boolean {
   return true;
 }
 
+type Comparison = -1 | 0 | 1;
+
 /** Compares two decimal digit strings (no leading zeros) without Number precision loss. */
-function compareNumericIdentifiers(a: string, b: string): -1 | 0 | 1 {
+function compareNumericIdentifiers(a: string, b: string): Comparison {
   if (a.length !== b.length) {
     return a.length < b.length ? -1 : 1;
   }
@@ -147,7 +149,7 @@ function compareNumericIdentifiers(a: string, b: string): -1 | 0 | 1 {
   return a < b ? -1 : 1;
 }
 
-function comparePrereleaseIdentifiers(a: string, b: string): -1 | 0 | 1 {
+function comparePrereleaseIdentifiers(a: string, b: string): Comparison {
   const aNumeric = DIGITS.test(a);
   const bNumeric = DIGITS.test(b);
 
@@ -166,7 +168,7 @@ function comparePrereleaseIdentifiers(a: string, b: string): -1 | 0 | 1 {
   return a < b ? -1 : 1;
 }
 
-function comparePrerelease(a: readonly string[], b: readonly string[]): -1 | 0 | 1 {
+function comparePrerelease(a: readonly string[], b: readonly string[]): Comparison {
   if (a.length === 0 && b.length === 0) {
     return 0;
   }
@@ -194,7 +196,7 @@ function comparePrerelease(a: readonly string[], b: readonly string[]): -1 | 0 |
  * SemVer 2.0.0 precedence. Build metadata is deliberately ignored, as the
  * specification requires.
  */
-export function compareSemVer(a: SemVer, b: SemVer): -1 | 0 | 1 {
+export function compareSemVer(a: SemVer, b: SemVer): Comparison {
   const majorOrder = compareNumericIdentifiers(a.major, b.major);
   if (majorOrder !== 0) return majorOrder;
 

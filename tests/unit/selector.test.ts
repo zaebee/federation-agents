@@ -92,62 +92,55 @@ describe('exact and wildcard', () => {
 });
 
 describe('comparators', () => {
-  test('supports >, >=, <, <=', () => {
-    expect(matches('>1.2.2', '1.2.3')).toBe(true);
-    expect(matches('>1.2.3', '1.2.3')).toBe(false);
-    expect(matches('>=1.2.3', '1.2.3')).toBe(true);
-    expect(matches('>=1.2.3', '1.2.2')).toBe(false);
-    expect(matches('<1.2.4', '1.2.3')).toBe(true);
-    expect(matches('<1.2.3', '1.2.3')).toBe(false);
-    expect(matches('<=1.2.3', '1.2.3')).toBe(true);
-    expect(matches('<=1.2.3', '1.2.4')).toBe(false);
+  const comparatorCases: ReadonlyArray<readonly [string, string, boolean]> = [
+    ['>1.2.2', '1.2.3', true],
+    ['>1.2.3', '1.2.3', false],
+    ['>=1.2.3', '1.2.3', true],
+    ['>=1.2.3', '1.2.2', false],
+    ['<1.2.4', '1.2.3', true],
+    ['<1.2.3', '1.2.3', false],
+    ['<=1.2.3', '1.2.3', true],
+    ['<=1.2.3', '1.2.4', false],
+    ['>1.9.0', '1.10.0', true],
+    ['<1.10.0', '1.9.0', true],
+    ['>1.0.9', '1.0.10', true],
+    ['>99999999999999999998.0.0', '99999999999999999999.0.0', true],
+    ['=99999999999999999999.0.0', '99999999999999999999.0.0', true],
+    ['<99999999999999999999.0.0', '99999999999999999998.0.0', true],
+    ['>=1.2.0&&<2.0.0', '1.9.9', true],
+    ['>=1.2.0&&<2.0.0', '2.0.0', false],
+    ['>=1.2.0&&<2.0.0', '1.1.9', false],
+    ['>1.2.3&&=1.2.3', '1.2.3', false],
+    ['  >=1.2.0 && <2.0.0  ', '1.5.0', true],
+  ];
+
+  test('evaluates comparators, composition and large identifiers', () => {
+    for (const [expression, value, expected] of comparatorCases) {
+      expect(matches(expression, value)).toBe(expected);
+    }
   });
 
-  test('compares numerically, not lexicographically', () => {
-    expect(matches('>1.9.0', '1.10.0')).toBe(true);
-    expect(matches('<1.10.0', '1.9.0')).toBe(true);
-    expect(matches('>1.0.9', '1.0.10')).toBe(true);
-  });
+  const rangeCases: ReadonlyArray<readonly [string, string, boolean]> = [
+    ['^1.2.3', '1.2.3', true],
+    ['^1.2.3', '1.9.9', true],
+    ['^1.2.3', '2.0.0', false],
+    ['^1.2.3', '1.2.2', false],
+    ['^0.2.3', '0.2.3', true],
+    ['^0.2.3', '0.2.9', true],
+    ['^0.2.3', '0.3.0', false],
+    ['^0.2.3', '0.2.2', false],
+    ['^0.0.3', '0.0.3', true],
+    ['^0.0.3', '0.0.4', false],
+    ['~1.2.3', '1.2.3', true],
+    ['~1.2.3', '1.2.9', true],
+    ['~1.2.3', '1.3.0', false],
+    ['~1.2.3', '1.2.2', false],
+  ];
 
-  test('compares arbitrarily large numeric identifiers without precision loss', () => {
-    expect(matches('>99999999999999999998.0.0', '99999999999999999999.0.0')).toBe(true);
-    expect(matches('=99999999999999999999.0.0', '99999999999999999999.0.0')).toBe(true);
-    expect(matches('<99999999999999999999.0.0', '99999999999999999998.0.0')).toBe(true);
-  });
-
-  test('supports && composition', () => {
-    expect(matches('>=1.2.0&&<2.0.0', '1.9.9')).toBe(true);
-    expect(matches('>=1.2.0&&<2.0.0', '2.0.0')).toBe(false);
-    expect(matches('>=1.2.0&&<2.0.0', '1.1.9')).toBe(false);
-    expect(matches('>1.2.3&&=1.2.3', '1.2.3')).toBe(false);
-  });
-
-  test('supports whitespace around the expression and segments', () => {
-    expect(matches('  >=1.2.0 && <2.0.0  ', '1.5.0')).toBe(true);
-  });
-
-  test('expands caret ranges for major versions', () => {
-    expect(matches('^1.2.3', '1.2.3')).toBe(true);
-    expect(matches('^1.2.3', '1.9.9')).toBe(true);
-    expect(matches('^1.2.3', '2.0.0')).toBe(false);
-    expect(matches('^1.2.3', '1.2.2')).toBe(false);
-  });
-
-  test('expands caret ranges for zero-major versions', () => {
-    expect(matches('^0.2.3', '0.2.3')).toBe(true);
-    expect(matches('^0.2.3', '0.2.9')).toBe(true);
-    expect(matches('^0.2.3', '0.3.0')).toBe(false);
-    expect(matches('^0.2.3', '0.2.2')).toBe(false);
-
-    expect(matches('^0.0.3', '0.0.3')).toBe(true);
-    expect(matches('^0.0.3', '0.0.4')).toBe(false);
-  });
-
-  test('expands tilde ranges', () => {
-    expect(matches('~1.2.3', '1.2.3')).toBe(true);
-    expect(matches('~1.2.3', '1.2.9')).toBe(true);
-    expect(matches('~1.2.3', '1.3.0')).toBe(false);
-    expect(matches('~1.2.3', '1.2.2')).toBe(false);
+  test('expands caret and tilde ranges', () => {
+    for (const [expression, value, expected] of rangeCases) {
+      expect(matches(expression, value)).toBe(expected);
+    }
   });
 });
 
@@ -163,37 +156,34 @@ describe('SemVer precedence', () => {
     '1.0.0',
   ];
 
-  for (let i = 0; i < chain.length - 1; i += 1) {
-    const lower = chain[i];
-    const higher = chain[i + 1];
+  test('orders the official prerelease chain', () => {
+    for (let i = 0; i < chain.length - 1; i += 1) {
+      const lower = chain[i];
+      const higher = chain[i + 1];
 
-    test(`${lower} < ${higher}`, () => {
       expect(matches(`>${lower}`, higher)).toBe(true);
       expect(matches(`<${higher}`, lower)).toBe(true);
       expect(matches(`>${higher}`, lower)).toBe(false);
       expect(matches(`<${lower}`, higher)).toBe(false);
-    });
-  }
-
-  test('numeric prerelease identifiers sort before alphanumeric ones', () => {
-    expect(matches('>1.0.0-1', '1.0.0-alpha')).toBe(true);
-    expect(matches('>1.0.0-alpha', '1.0.0-1')).toBe(false);
+    }
   });
 
-  test('prerelease sorts below the release', () => {
-    expect(matches('<1.0.0', '1.0.0-rc.1')).toBe(true);
-    expect(matches('>1.0.0-rc.1', '1.0.0')).toBe(true);
-  });
+  const precedenceCases: ReadonlyArray<readonly [string, string, boolean]> = [
+    ['>1.0.0-1', '1.0.0-alpha', true],
+    ['>1.0.0-alpha', '1.0.0-1', false],
+    ['<1.0.0', '1.0.0-rc.1', true],
+    ['>1.0.0-rc.1', '1.0.0', true],
+    ['>=1.0.0', '1.1.0-alpha', true],
+    ['<2.0.0', '2.0.0-alpha', true],
+    ['>=1.2.3', '1.2.3+build.5', true],
+    ['>1.2.3', '1.2.3+build.5', false],
+    ['<=1.2.3+build.5', '1.2.3', true],
+  ];
 
-  test('ranges do not gate out prereleases (no npm rule)', () => {
-    expect(matches('>=1.0.0', '1.1.0-alpha')).toBe(true);
-    expect(matches('<2.0.0', '2.0.0-alpha')).toBe(true);
-  });
-
-  test('build metadata does not affect precedence', () => {
-    expect(matches('>=1.2.3', '1.2.3+build.5')).toBe(true);
-    expect(matches('>1.2.3', '1.2.3+build.5')).toBe(false);
-    expect(matches('<=1.2.3+build.5', '1.2.3')).toBe(true);
+  test('orders identifiers, prerelease ranges and build metadata', () => {
+    for (const [expression, value, expected] of precedenceCases) {
+      expect(matches(expression, value)).toBe(expected);
+    }
   });
 });
 
