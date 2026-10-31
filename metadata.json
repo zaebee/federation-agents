@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M69NWKJKWB1B2KVPG9CM2BCA",
+  "strategy": "manual-commit",
+  "branch": "test/t18-03-d4-policy-evidence",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "docs/audits/2026-10-31-core-001-task-18/README.md",
+    "docs/audits/2026-10-31-core-001-task-18/disposition-matrix.md",
+    "docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md",
+    "tests/conformance/d.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 689966,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 28159488,
+    "output_tokens": 9602,
+    "api_call_count": 43
+  },
+  "redaction": {
+    "replacements": 8,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 8,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
