@@ -68,6 +68,8 @@ Who owns the bound, what is returned when it is reached, and is the diagnostics 
 
 ## OQ-11 — Is the terminal origin subject to merge closure?
 
+**Status: OPEN — owner/specification decision, not a prerequisite for merging this documentation package.** It is follow-up specification work; merging the package does not accept either semantics and does not authorise implementation.
+
 Closure runs for the `child` of each path edge; the origin is never a child, so a merge-node origin is not checked today. §8.6/§8.7 do not state whether the endpoint counts.
 
 - **Semantics E (current code):** origin is an endpoint, not a node the path passes through; excluded.
@@ -76,6 +78,8 @@ Closure runs for the `child` of each path edge; the origin is never a child, so 
 **Owner/spec-editor choice required.** Both are polynomial for D4; the proof and a conformance test must state the choice. This is a normative question, not an implementation detail.
 
 ## OQ-12 — Are Policy callbacks pure and deterministic?
+
+**Status: OPEN — owner/specification decision, not a prerequisite for merging this documentation package.** It is follow-up specification work; merging the package does not accept either contract and does not authorise implementation.
 
 The equivalence proofs (including D4's path-edge exclusion and any memoisation) assume `applicableAssessments` and `conflictPredicate` are pure: same inputs → same result, no side effects, no exceptions. The type does not enforce this, and a callback that depends on call order/state makes even the legacy traversal order-dependent.
 
@@ -97,7 +101,7 @@ The equivalence proofs (including D4's path-edge exclusion and any memoisation) 
 | **R3 — Reading B, semantic change** | Walk/state-based cycle class. | **Not needed**: D3 is polynomial under current semantics. |
 | **R4 — Defer** | Keep N-176 PARTIAL; clarify §8.8 and D4/§8.6 in `T18-SPEC-01`. | No decision now; honest fallback. |
 
-**Recommended: R2** (consistent with OQ-1), conditional on closing OQ-11 (terminal origin), OQ-12 (Policy purity) and the D5 proof obligations. **R1 is the fallback**; R3 is unnecessary; R4 if the owner wants spec clarification first.
+**Recommended: R2** (consistent with OQ-1). Implementation under R2 would first need OQ-11 (terminal origin), OQ-12 (Policy purity) and the D5 obligations resolved — but **merging this documentation package does not require or imply any of those resolutions**, and does not authorise implementation. **R1 is the fallback**; R3 is unnecessary; R4 if the owner wants spec clarification first.
 
 ---
 

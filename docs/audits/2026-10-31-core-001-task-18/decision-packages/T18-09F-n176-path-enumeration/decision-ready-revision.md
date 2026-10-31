@@ -228,5 +228,5 @@ A benchmark record for the validity path at `k=16`; a test that a diagnostics bo
 | 7 | D4 vs §8.6 | **spec clarification proposed**, no implementation change; owner/spec-editor decision |
 | 8 | Mechanism failures input-scoped; N176-13 withdrawn | analysis resolved; no owner choice |
 | 9 | Reading A vs B, diagnostics policy, benchmark, audit wording | owner choices (`remaining-owner-questions.md` OQ-1/OQ-7/OQ-8/OQ-9/OQ-10) |
-| 10 | Terminal origin in merge closure | **owner/spec-editor choice** (`OQ-11`); both E and I polynomial |
-| 11 | Policy callbacks pure/deterministic/no-throw | **assumption §0**, or owner/spec decision `OQ-12`; without it equivalence is undefined |
+| 10 | Terminal origin in merge closure | **OPEN**, owner/spec-editor choice (`OQ-11`); both E and I polynomial; not a merge prerequisite |
+| 11 | Policy callbacks pure/deterministic/no-throw | **OPEN**, owner/spec decision (`OQ-12`); assumption §0 is used by the proofs; not a merge prerequisite |
