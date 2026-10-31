@@ -14,8 +14,7 @@ import {
   validateLineageLink,
   validateParticipantRecord,
 } from '../../src/core/entities.js';
-import type { Registry, StructuralResult } from '../../src/core/lineage.js';
-import type { LineageGraph } from '../../src/core/lineage.js';
+import type { LineageGraph, Registry, StructuralResult } from '../../src/core/lineage.js';
 import type { DeepReadonly } from '../../src/core/ownership.js';
 import { credentialId, domainId, identityVersionId, participantId, timestamp } from '../../src/core/primitives.js';
 

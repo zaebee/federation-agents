@@ -232,7 +232,10 @@ function finishOrder(
     const stack: Array<{ node: IdentityVersionID; next: number }> = [{ node: start, next: 0 }];
 
     while (stack.length > 0) {
-      const frame = stack[stack.length - 1];
+      const frame = stack.at(-1);
+      if (frame === undefined) {
+        break;
+      }
       const parents = adjacency.get(frame.node) ?? [];
 
       if (frame.next >= parents.length) {
