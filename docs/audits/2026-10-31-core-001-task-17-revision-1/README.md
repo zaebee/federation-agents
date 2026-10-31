@@ -3,8 +3,8 @@
 **Revision of:** the Task 17 conformance audit at `9c38bbd` ([`../2026-10-31-core-001-task-17/`](../2026-10-31-core-001-task-17/)).
 **Evaluated at:** commit `1440ca4`.
 **Status:** revision 1. Task 17 artifacts are frozen and are **not** edited; this document supersedes their statuses only where listed below.
-**Scope:** two corrections that changed meaning after the Task 17 snapshot — §8.8 contained an uninventoried `MUST NOT` (#53 item 1), and C-1's evidence postdates the audit (T18-02A, #41). Because the C-1 case changes, its two dependent statuses are reclassified as a consequence: **N-143** (records `CYCLE_DETECTED`) and **N-168** (§16 "all Category C tests pass") move NOT COVERED → BLOCKED. They are named here because they feed the rollups in §4.
-**Out of scope:** the C-2 **case verdict** (it stays BLOCKED; only N-143/N-168 move, and only as a consequence of C-1), the D-1, D-2 and D-4 statuses, every other requirement ID, and source, tests, specification, lockfile and configuration. No code, test or spec change was made to produce this revision.
+**Scope:** two corrections that changed meaning after the Task 17 snapshot — §8.8 contained an uninventoried `MUST NOT` (#53 item 1), and C-1's evidence postdates the audit (T18-02A, #41). Reviewing Category C also resolves two rows that were left NOT COVERED: **N-143** (records `CYCLE_DETECTED`) and **N-168** (§16 "all Category C tests pass") move NOT COVERED → BLOCKED — in both cases **because C-2 is blocked**, not because C-1 changed. They are named here because they feed the rollups in §4.
+**Out of scope:** the C-2 **case verdict** (it stays BLOCKED; N-143/N-168 move only because C-2 is blocked), the D-1, D-2 and D-4 statuses, every other requirement ID, and source, tests, specification, lockfile and configuration. No code, test or spec change was made to produce this revision.
 
 ---
 
@@ -54,7 +54,7 @@ Addition to the requirement matrix (same columns as Task 17):
 **Named limits, so the PASS is not read as broader than it is:**
 
 - **Retention and publication** of the Assessment remain caller-managed; the publication-ownership question is OPEN and `T18-DEC-15` (parent-coverage semantics) is OPEN. §12 C-1's Expected Result does not require storage, so this does not block the case — but the evidence covers construction and admission, not persistence.
-- **The C-2 case verdict is untouched.** C-1 PASS does not imply that an Assessment records `CYCLE_DETECTED`; that case remains BLOCKED on the C-2 subject model and CORE-003 grant suppression. Only its dependent requirement rows move: **N-143** and **N-168** are reclassified in §4 because a blocked C-2 makes them unsatisfiable, not because C-2 was re-audited.
+- **The C-2 case verdict is untouched.** C-1 PASS does not imply that an Assessment records `CYCLE_DETECTED`; that case remains BLOCKED on the C-2 subject model and CORE-003 grant suppression. **N-143** and **N-168** move NOT COVERED → BLOCKED for one reason only: **C-2 is blocked**, which makes them unsatisfiable. C-1 PASS is not their trigger, and C-2 was not re-audited.
 - **N-143** (Assessment records `CYCLE_DETECTED`) is not closed by this revision: NOT COVERED → **BLOCKED**. **N-168** (§16 "all Category C tests pass") likewise NOT COVERED → **BLOCKED**, because C-2 cannot pass. **N-138** (Assessment records `PARENT_UNRESOLVED`) NOT COVERED → **PASS**.
 
 ---
