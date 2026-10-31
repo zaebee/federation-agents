@@ -1,0 +1,163 @@
+# CORE-001 Conformance Gap Disposition — Task 18
+
+**Status:** Planning and disposition artifact. No remediation implemented. No normative decision approved.
+**Audit base:** commit `2a83c65` (`main`, Task 17 merged).
+**Normative source:** `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3.
+**Task 17 inputs:** `docs/audits/2026-10-31-core-001-task-17/` (README, requirement matrix, conformance matrix, registers).
+**Task 18 artifacts:** this README, `disposition-matrix.md`, `remediation-roadmap.md`, `decision-register.md`, `reconciliation-notes.md`.
+
+## 1. Purpose and scope
+
+Task 17 established what the implementation proves, what it does not, and what remains normatively blocked. Task 18 answers the next question: for each of the 23 non-PASS items, what is missing, what kind of gap is it, what is the smallest valid next step, what must precede it, and what evidence would justify a status change?
+
+Task 18 does not:
+
+- change Task 17 statuses or findings;
+- modify `docs/CORE-001.md`, source, tests, or configuration;
+- implement remediation;
+- approve any decision in `T18-DEC-01…T18-DEC-14`;
+- claim that a plan closes a gap.
+
+## 2. Method
+
+1. Re-read the Task 17 requirement matrix, conformance matrix, and registers at `2a83c65`.
+2. Enumerated every non-PASS requirement directly from the matrix (not only from the summary rollup).
+3. Reconstructed the §12 non-PASS assertions and their evidence.
+4. Classified each item by primary disposition, secondary disposition, risk scope, and remediation priority.
+5. Separated normative decisions from implementation, test, documentation, cross-spec, and external work.
+6. Defined conditional tasks and independent closure evidence.
+7. Recorded Task 17 inconsistencies in `reconciliation-notes.md` without editing Task 17.
+
+## 3. Task 17 baseline (unchanged)
+
+| Status | Count |
+| --- | ---: |
+| PASS | 152 |
+| PARTIAL | 8 |
+| BLOCKED | 7 |
+| NOT COVERED | 8 |
+| FAIL | 0 |
+| **Total** | **175** |
+
+| §12 case status | Count |
+| --- | ---: |
+| PASS | 13 |
+| PARTIAL | 2 (D-1, D-4) |
+| BLOCKED | 2 (C-2, D-2) |
+| NOT COVERED | 1 (C-1) |
+
+Task 17 statuses are preserved exactly. Task 18 uses them as inputs and does not rewrite them.
+
+## 4. Non-PASS reconciliation
+
+23 items: 13 runtime, 4 cross-spec/external boundary, 6 §16 readiness.
+
+| Primary disposition | Count | Items |
+| --- | ---: | --- |
+| `SPECIFICATION_DECISION` | 11 | N-019, N-020, N-040, N-078, N-084, N-107, N-112, N-128, N-138, N-143, N-172 |
+| `TEST_GAP` | 2 | N-041, N-168 |
+| `CROSS_SPEC_DEPENDENCY` | 6 | N-026, N-079, N-145, N-156, N-169, N-174 |
+| `EXTERNAL_DEPENDENCY` | 2 | N-170, N-175 |
+| `INTENTIONAL_LIMITATION` | 2 | N-004, N-140 |
+| **Total** | **23** | |
+
+No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work is conditional on a decision that establishes CORE-001 ownership.
+
+| Risk scope | Count | Items |
+| --- | ---: | --- |
+| `CORE-001_RUNTIME` | 13 | N-004, N-019, N-020, N-040, N-041, N-078, N-084, N-107, N-112, N-138, N-140, N-143, N-172 |
+| `AUTHORITY_BOUNDARY` | 2 | N-079, N-145 |
+| `CROSS_SPEC` | 4 | N-026, N-156, N-169, N-174 |
+| `EXTERNAL_READINESS` | 4 | N-128, N-168, N-170, N-175 |
+| **Total** | **23** | |
+
+| Requirement priority | Count | Items |
+| --- | ---: | --- |
+| P1 | 6 | N-078, N-107, N-112, N-138, N-143, N-168 |
+| P2 | 5 | N-019, N-040, N-041, N-128, N-172 |
+| P3 | 12 | N-004, N-020, N-026, N-079, N-084, N-140, N-145, N-156, N-169, N-170, N-174, N-175 |
+| **Total** | **23** | |
+
+## 5. Roadmap overview
+
+| Task | Type | Priority | Risk scope |
+| --- | --- | --- | --- |
+| T18-01 Assessment-emission decision package | specification/design | P1 | `CORE-001_RUNTIME` |
+| T18-02A C-1 core emission (conditional) | implementation + tests | P1 | `CORE-001_RUNTIME` |
+| T18-02B C-2.a2 core emission (conditional) | implementation + tests | P1 | `CORE-001_RUNTIME` |
+| T18-02C Adapter emission evidence (conditional) | adapter contract + tests | P1 | `CORE-001_RUNTIME` |
+| T18-03 D-4 future-authorization evidence | test-only | P2 | `CORE-001_RUNTIME` |
+| T18-04 Version-label boundary (conditional) | decision + implementation/test or docs | P2 | `CORE-001_RUNTIME` |
+| T18-05 Digest verification (conditional) | decision + implementation/test or docs | P3 | `CORE-001_RUNTIME` |
+| T18-06 Signed-at trust precondition | specification decision + docs | P2 | `CORE-001_RUNTIME` |
+| T18-07 Runtime execution limitation | documentation-only | P3 | `CORE-001_RUNTIME` |
+| T18-08 Contested-claim gating boundary | cross-spec decision/docs | P3 | `AUTHORITY_BOUNDARY` |
+| T18-09A Assurance ambiguity decisions | specification decisions | P1 | `CORE-001_RUNTIME` |
+| T18-09B CONTENT_HASH decision | specification decision | P3 | `CORE-001_RUNTIME` |
+| T18-09C Trusted-time decision | specification decision | P2 | `EXTERNAL_READINESS` |
+| T18-09D N-172 readiness evidence decision | specification decision | P2 | `CORE-001_RUNTIME` |
+| T18-10 Cross-spec packages | cross-spec integration | P3 | `CROSS_SPEC` |
+| T18-11 External readiness | external dependency | P3 | `EXTERNAL_READINESS` |
+| T18-12 Documentation reconciliation | documentation-only | P3 | `CORE-001_RUNTIME` |
+| T18-13 Readiness closure evidence | readiness/test | P1 | `EXTERNAL_READINESS` |
+| T18-SPEC-01 Specification-change package (conditional) | specification | P2 | `CORE-001_RUNTIME` |
+
+Milestones:
+
+- **M0** — decisions registered and owners assigned (T18-DEC-01…14).
+- **M1** — CORE-001 implementation gaps resolved or explicitly dispositioned (T18-02A/B/C, T18-04, T18-05).
+- **M2** — evidence gaps closed (T18-03, T18-07).
+- **M3** — cross-spec packages accepted (T18-08, T18-10).
+- **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
+
+Critical path: T18-DEC-01/02 → T18-01 → T18-02A or T18-02C → AEBE → T18-13; C-2 additionally needs T18-DEC-13/T18-10 for `CASE-C-2.a3`; readiness additionally needs T18-11 for N-170/N-175. N-172 is tracked separately as T18-09D (P2).
+
+## 6. Key separations preserved
+
+### N-143 versus C-2
+
+- `N-143` (Assessment records `CYCLE_DETECTED`) can close independently when the claim is produced by the owning boundary.
+- `CASE-C-2.a2` can become PASS while `CASE-C-2.a3` (grant suppression) remains BLOCKED.
+- **C-2 case remains BLOCKED** until a3 is resolved. Implementing `CYCLE_DETECTED` does not close C-2.
+
+### N-168 readiness
+
+Readiness outcomes are Task 18 reporting labels: `READY`, `CONDITIONALLY_READY`, `NOT_READY`. They are not CORE-001 statuses. An accepted BLOCKED disposition does not imply readiness. `READY` requires T18-11 completion and confirmed N-170/N-175 evidence; `CONDITIONALLY_READY` requires explicit acceptance of the external dependency with its impact; `NOT_READY` applies when required compatibility evidence is absent and not accepted.
+
+### N-084 digest verification
+
+If `T18-DEC-05` assigns verification to callers, N-084 does not close on documentation alone. It requires an explicit caller contract, evidence that the caller boundary performs the comparison, and negative mismatch evidence.
+
+### Specification change boundary
+
+Decision packages may record decisions and prepare proposals. T18-06 in particular records the decision and proposed wording; it does not edit normative text. They cannot modify `docs/CORE-001.md`. Any normative amendment requires separately approved `T18-SPEC-01` and a re-audit of affected Task 17 items.
+
+## 7. Current readiness assessment
+
+**`NOT_READY`.** C-1 is NOT COVERED, C-2 is BLOCKED, D-2 is BLOCKED, D-1 and D-4 are PARTIAL, and independent implementation compatibility is not evidenced. This is a reporting label; it does not change Task 17 statuses.
+
+## 8. Known Task 17 inconsistencies
+
+Recorded in `reconciliation-notes.md`; Task 17 files are untouched.
+
+1. `N-169` text says “D-1, D-3, D-4 pass”, but D-1 and D-4 are PARTIAL. The conformance matrix is authoritative for case status.
+2. `N-140` is a MAY requirement marked NOT COVERED; absence of a MAY capability is an intentional limitation, not a conformance gap.
+3. `N-026` is a CORE-002 boundary requirement marked PARTIAL in a CORE-001 audit; it is a boundary, not a CORE-001 runtime defect.
+
+## 9. Artifact map
+
+| File | Contents |
+| --- | --- |
+| `README.md` | Purpose, method, reconciliation summary, roadmap overview, readiness, limits |
+| `disposition-matrix.md` | 23 rows with disposition, risk scope, priority, dependencies, closure evidence |
+| `remediation-roadmap.md` | Tasks, dependency graph, milestones, critical path, acceptance criteria |
+| `decision-register.md` | `T18-DEC-01…14`, all OPEN |
+| `reconciliation-notes.md` | N-169 erratum, N-140 reclassification proposal, traceability gaps |
+
+## 10. Limits
+
+- No decision in this package is approved.
+- No remediation task is implemented.
+- No Task 17 status is changed.
+- No CORE-001 normative text is amended.
+- A roadmap is not evidence; closure requires the evidence named in `disposition-matrix.md` and `remediation-roadmap.md`.
