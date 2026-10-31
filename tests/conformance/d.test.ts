@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import type { SignatureTemporalPolicy } from '../../src/core/credential.js';
+import { registerAssessment } from '../../src/core/assessment.js';
 import { evaluateCredentialUsage, evaluateHistoricalSignature } from '../../src/core/credential.js';
+import { appendAcceptance, createAcceptanceLedger } from '../../src/core/ledger.js';
 import { createRuntimeLifecycleEvent, createRuntimeRegistry, recordRuntimeEvent } from '../../src/core/runtime.js';
-import { runtimeInstanceId, timestamp } from '../../src/core/primitives.js';
+import { acceptanceId, assessmentId, runtimeInstanceId, timestamp } from '../../src/core/primitives.js';
 import { credential as credentialFixture, descriptor } from '../support/fixtures.js';
+import { acceptanceRecord } from '../support/acceptance.js';
 import {
   SIGNED_AT,
   contextFor,
@@ -17,6 +20,7 @@ import {
   staticVerifier,
   trustInput,
 } from '../support/credential.js';
+import { assessmentRecord } from '../support/traversal.js';
 import { runtimeDescriptor } from '../support/runtime.js';
 
 const credential = signingCredential();
@@ -160,5 +164,64 @@ describe('§12 Category D: runtime independence', () => {
     expect(JSON.stringify(identity)).toBe(identityBefore);
     expect(JSON.stringify(signing)).toBe(credentialBefore);
     expect(evaluateCredentialUsage(signing, 'SIGNING')).toEqual(usageBefore);
+  });
+});
+
+describe('§12 Category D: historical ruling preservation', () => {
+  test('D-2 later revocation and superseding assessment leave the ruling intact', () => {
+    const identity = descriptor({ id: 'iv-a-1', participant: 'participant-a', versionLabel: '1.0.0' });
+    const supporting = assessmentRecord({
+      id: 'a-1',
+      subject: 'iv-a-1',
+      parents: ['iv-parent'],
+      relation: 'CONTINUATION',
+      verified: ['OK'],
+    });
+    const acceptance = acceptanceRecord({
+      acceptance_id: acceptanceId('accept-d2'),
+      grounding_assessments: [assessmentId('a-1')],
+    });
+    const ledger = expectRuntimeOk(appendAcceptance(createAcceptanceLedger(), acceptance));
+
+    const acceptanceBefore = JSON.stringify(acceptance);
+    const supportingBefore = JSON.stringify(supporting);
+    const ledgerBefore = JSON.stringify({
+      acceptances: ledger.acceptances(),
+      events: ledger.lifecycleEvents(),
+    });
+    const identityBefore = JSON.stringify(identity);
+    const credentialBefore = JSON.stringify(credential);
+
+    // Later events: a revocation and a superseding assessment.
+    const fresh = expectOk(evaluate());
+    const superseding = {
+      ...assessmentRecord({
+        id: 'a-2',
+        subject: 'iv-a-1',
+        parents: ['iv-parent'],
+        relation: 'CONTINUATION',
+        unverified: ['OK'],
+      }),
+      supersedes_assessment_id: assessmentId('a-1'),
+    };
+    const history = expectRuntimeOk(registerAssessment([supporting], superseding));
+
+    expect(fresh.historical).toEqual({ status: 'INVALID' });
+    expect(history).toHaveLength(2);
+    expect(history[0]).toEqual(supporting);
+    expect(history[1]).toEqual(superseding);
+
+    expect(JSON.stringify(acceptance)).toBe(acceptanceBefore);
+    expect(JSON.stringify(supporting)).toBe(supportingBefore);
+    expect(
+      JSON.stringify({
+        acceptances: ledger.acceptances(),
+        events: ledger.lifecycleEvents(),
+      }),
+    ).toBe(ledgerBefore);
+    expect(ledger.acceptances()).toHaveLength(1);
+    expect(String(ledger.acceptances()[0]?.acceptance_id)).toBe('accept-d2');
+    expect(JSON.stringify(identity)).toBe(identityBefore);
+    expect(JSON.stringify(credential)).toBe(credentialBefore);
   });
 });
