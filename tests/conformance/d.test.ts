@@ -9,6 +9,7 @@ import { credential as credentialFixture, descriptor } from '../support/fixtures
 import { acceptanceRecord } from '../support/acceptance.js';
 import {
   SIGNED_AT,
+  compromiseSubject,
   contextFor,
   expectD3Invalid,
   expectOk,
@@ -167,8 +168,8 @@ describe('§12 Category D: runtime independence', () => {
   });
 });
 
-describe('§12 Category D: historical ruling preservation', () => {
-  test('D-2 later revocation and superseding assessment leave the ruling intact', () => {
+describe('§12 Category D: historical Local Acceptance preservation', () => {
+  test('D-2 later revocation and superseding assessment leave the Local Acceptance intact', () => {
     const identity = descriptor({ id: 'iv-a-1', participant: 'participant-a', versionLabel: '1.0.0' });
     const supporting = assessmentRecord({
       id: 'a-1',
@@ -192,8 +193,10 @@ describe('§12 Category D: historical ruling preservation', () => {
     const identityBefore = JSON.stringify(identity);
     const credentialBefore = JSON.stringify(credential);
 
-    // Later events: a revocation and a superseding assessment.
-    const fresh = expectOk(evaluate());
+    // Later, independent operations: validate a new revocation and register
+    // a superseding assessment. Task 13 evaluation consumes the revocation,
+    // not the ContinuityAssessment; the assessment history is preserved here.
+    const laterRevocation = revocationFixture({ evidence_refs: ['d2-later'] });
     const superseding = {
       ...assessmentRecord({
         id: 'a-2',
@@ -205,7 +208,22 @@ describe('§12 Category D: historical ruling preservation', () => {
       supersedes_assessment_id: assessmentId('a-1'),
     };
     const history = expectRuntimeOk(registerAssessment([supporting], superseding));
+    const fresh = expectOk(
+      evaluateHistoricalSignature(
+        {
+          credential,
+          requested_usage: 'SIGNING',
+          signed_at: timestamp(SIGNED_AT),
+          subject_binding: binding,
+          revocation: laterRevocation,
+          policy: signaturePolicy(),
+          ctx: contextFor({ compromiseKey: compromiseSubject(laterRevocation) }),
+        },
+        staticVerifier({ status: 'VERIFIED' }),
+      ),
+    );
 
+    expect(laterRevocation).not.toEqual(revocation);
     expect(fresh.historical).toEqual({ status: 'INVALID' });
     expect(history).toHaveLength(2);
     expect(history[0]).toEqual(supporting);
