@@ -97,11 +97,11 @@ An attacker is **not** assumed to:
 
 **T-08 Assessment supersession abused to rewrite history.** A new assessment is published to erase an inconvenient earlier one.
 *Mitigation:* assessments are immutable; supersession chains are acyclic; old assessments are preserved; earlier decisions are not rewritten (§6.3).
-*Status:* protocol + planned implementation.
+*Status:* protocol + implemented (immutable assessments, acyclic supersession, copy-on-write).
 
 **T-09 Cycle injection.** A publisher supplies a lineage cycle to make continuity appear provable or to crash the evaluator.
 *Mitigation:* cycles are detected and exposed as sorted graph components; declarations are preserved; a cycle is not usable as proof of succession; no global deletion or process abortion (§11.2).
-*Status:* graph-level detection implemented and tested. Recording `CYCLE_DETECTED` at the binding boundary and suppressing dependent grants belong to traversal integration (Tasks 9–10). Residual risk: availability — see T-17.
+*Status:* graph-level detection implemented and tested; `CYCLE_DETECTED` is surfaced at the binding boundary with per-path outcomes preserved (Tasks 9–10). Residual risk: availability — see T-17.
 
 **T-10 Delayed or unresolved parent.** A child arrives before its parent, and the domain treats the missing parent as acceptable.
 *Mitigation:* the declaration and the unresolved parent reference are preserved and exposed as `unresolvedParents`; recording `PARENT_UNRESOLVED` in an Assessment, and never treating missing evidence as success, belong to Task 8 (§11.1, §8.5).
@@ -138,7 +138,7 @@ An attacker is **not** assumed to:
 ### E. Availability and integration
 
 **T-17 Graph or payload exhaustion.** An attacker supplies a huge graph, a diamond explosion, or deeply nested JSON to exhaust CPU or memory during graph construction or traversal.
-*Mitigation (current):* graph construction and SCC detection run in O((N+E) log(N+E)) — nodes, the full declared edge list, adjacency lists and components are sorted — and duplicates are deduplicated only in the internal adjacency. Traversal mitigation is planned: memoization, cycles as dead ends, immediate closure bounds.
+*Mitigation (current):* graph construction and SCC detection run in O((N+E) log(N+E)) — nodes, the full declared edge list, adjacency lists and components are sorted — and duplicates are deduplicated only in the internal adjacency. Traversal uses deterministic, scope-filtered discovery with cycles as dead ends and immediate closure bounded to direct parent edges; input-size limits remain an adapter contract (R-5).
 *Status:* **unmitigated by design gap.** Rev 0.3.3 sets no input limits, and the library defines none. Deployments should enforce descriptor-count, graph-depth, and payload-size limits until an explicit resource-limit contract is defined. This should become an explicit adapter contract.
 
 **T-18 Policy hook abuse.** A caller-supplied hook returns assessments that do not apply to the edge, or a forged "applicable" set.

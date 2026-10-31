@@ -270,7 +270,7 @@ The implementation and future specifications should consider:
 - Attempts to inherit authority through lineage.
 - Ambiguous or untrusted timestamps.
 
-A complete threat model and security analysis remain future deliverables.
+A threat model exists in [`THREAT-MODEL.md`](./THREAT-MODEL.md); production security analysis and adapter-level attack surface remain future deliverables.
 
 ## 10. Explicit non-goals
 
