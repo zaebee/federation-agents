@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.3-nightly.202610300619.cea1b3cee",
+  "checkpoint_id": "01M68EVVNHDNJA7BRXTZWJCWK3",
+  "session_id": "ses_e6f615c5affeXmShrQYs2JOmPQ",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T07:48:04.042507621Z",
+  "branch": "docs/task-17-conformance-audit",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/audits/2026-10-31-core-001-task-17/README.md"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "8d53603626f6",
+  "checkpoint_transcript_start": 159,
+  "transcript_lines_at_start": 159,
+  "compact_transcript_start": 159,
+  "token_usage": {
+    "input_tokens": 135130,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 4660480,
+    "output_tokens": 4004,
+    "api_call_count": 12
+  },
+  "redaction": {
+    "replacements": 12,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 12,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 8
+  }
+}
