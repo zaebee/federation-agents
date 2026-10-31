@@ -360,6 +360,104 @@ test('ownership: STANDARD_TEMPORAL_FIELDS is frozen at runtime', () => {
   }).toThrow();
 });
 
+// Iterative traversal and memoisation (#45)
+test('ownership: deeply nested objects do not exhaust the stack', () => {
+  const depth = 20_000;
+  let nested: Record<string, unknown> = { leaf: true };
+  for (let i = 0; i < depth; i += 1) nested = { next: nested };
+
+  expect(validateJsonValue(nested).ok).toBe(true);
+
+  const copied = deepCopy(nested);
+  expect(copied.ok).toBe(true);
+  const frozen = deepFreeze(copied.ok ? copied.value : {});
+
+  let node: unknown = frozen;
+  let steps = 0;
+  while (typeof node === 'object' && node !== null && 'next' in node) {
+    node = (node as Record<string, unknown>).next;
+    steps += 1;
+  }
+  expect(steps).toBe(depth);
+  expect(Object.isFrozen(node)).toBe(true);
+});
+
+test('ownership: deeply nested arrays do not exhaust the stack', () => {
+  const depth = 20_000;
+  let nested: unknown[] = [1];
+  for (let i = 0; i < depth; i += 1) nested = [nested];
+
+  expect(validateJsonValue(nested).ok).toBe(true);
+  const copied = deepCopy(nested);
+  expect(copied.ok).toBe(true);
+
+  let node: unknown = copied.ok ? copied.value : null;
+  let steps = 0;
+  while (Array.isArray(node) && Array.isArray(node[0])) {
+    node = node[0];
+    steps += 1;
+  }
+  expect(steps).toBe(depth);
+});
+
+test('ownership: a stateful ownKeys cannot put an unvalidated key into the result', () => {
+  let ownKeysCalls = 0;
+  const proxy = new Proxy(
+    {},
+    {
+      ownKeys: () => {
+        ownKeysCalls += 1;
+        return ownKeysCalls === 1 ? [] : ['\ud800'];
+      },
+      get: (_target, key) => (key === '\ud800' ? 1 : undefined),
+      getOwnPropertyDescriptor: (_target, key) =>
+        key === '\ud800' ? { value: 1, enumerable: true, configurable: true, writable: true } : undefined,
+    },
+  );
+
+  const result = validateJsonValue(proxy);
+  // Either the value is rejected, or the result contains exactly the keys the
+  // validator checked — never a key that appeared only on a later enumeration.
+  if (result.ok) {
+    expect(Object.getOwnPropertyNames(result.value)).toEqual([]);
+  } else {
+    expect(result.error.code).toBe('E_JSON_VALUE_INVALID');
+  }
+});
+
+test('ownership: a huge sparse array is rejected without materialising its indices', () => {
+  const sparse = new Array(10_000_000);
+  const validated = validateJsonValue(sparse);
+  expect(validated.ok).toBe(false);
+  if (!validated.ok) expect(validated.error.code).toBe('E_JSON_VALUE_INVALID');
+
+  const copied = deepCopy(sparse);
+  expect(copied.ok).toBe(false);
+});
+
+test('ownership: shared subtrees cost work linear in distinct nodes, not in paths', () => {
+  const depth = 24;
+  let shared: Record<string, unknown> = { leaf: true };
+  for (let i = 0; i < depth; i += 1) shared = { left: shared, right: shared };
+
+  const copied = deepCopy(shared);
+  const validated = validateJsonValue(shared);
+
+  expect(copied.ok).toBe(true);
+  expect(validated.ok).toBe(true);
+
+  const seen = new Set<unknown>();
+  const stack: unknown[] = copied.ok ? [copied.value] : [];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (typeof current !== 'object' || current === null || seen.has(current)) continue;
+    seen.add(current);
+    for (const value of Object.values(current)) stack.push(value);
+  }
+  expect(seen.size).toBeGreaterThanOrEqual(depth + 1);
+  expect(seen.size).toBeLessThanOrEqual(2 * depth + 2);
+});
+
 // Type-level: DeepReadonly applies recursively (compile-time check).
 const _typeCheck: DeepReadonly<{ a: { b: number[] } }> = { a: { b: [1, 2] } };
 void _typeCheck;

@@ -7,10 +7,17 @@
 // validation. Strict JSON validation is provided separately by
 // validateJsonValue (below) and must be invoked where the specification
 // requires a JSON value. Do not conflate the two.
+//
+// All three walks are iterative. A boundary that accepts untrusted input is
+// exactly where deeply nested values arrive, so nesting depth must not be able
+// to exhaust the call stack: depth is data, not control flow. Completed
+// sub-results are memoised by source identity, so a subtree shared between
+// several parents is copied/validated once rather than once per path to it;
+// a back edge to a node on the current path is still rejected as a cycle.
 
 import type { JsonValue } from './primitives.js';
 import { hasLoneSurrogate } from './primitives.js';
-import type { Result } from './errors.js';
+import type { Failure, Result } from './errors.js';
 import { mechanismFailure } from './errors.js';
 
 // Primitive types (including branded strings and numbers) are returned as-is;
@@ -26,37 +33,56 @@ export type DeepReadonly<T> = T extends string | number | boolean | bigint | sym
 const OWNERSHIP_UNSUPPORTED = 'E_OWNERSHIP_UNSUPPORTED' as const;
 const UNKNOWN_BOUNDARY_REJECTED = 'E_UNKNOWN_BOUNDARY_REJECTED' as const;
 
+function ownershipFailure(message: string): Failure {
+  return mechanismFailure(OWNERSHIP_UNSUPPORTED, message);
+}
+
 function rejectUnsupported(message: string): Result<never> {
-  return { ok: false, error: mechanismFailure(OWNERSHIP_UNSUPPORTED, message) };
+  return { ok: false, error: ownershipFailure(message) };
+}
+
+function jsonFailure(message: string): Failure {
+  return mechanismFailure('E_JSON_VALUE_INVALID', message);
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && Object.getPrototypeOf(value) === Object.prototype;
 }
 
-export function deepCopy<T>(value: T): Result<T> {
-  const result = copyValue(value, new WeakSet<object>());
-  if (!result.ok) return result as Result<T>;
-  return { ok: true, value: result.value as T };
+// ---------------------------------------------------------------------------
+// Iterative deep copy
+// ---------------------------------------------------------------------------
+
+interface CopyFrame {
+  readonly source: object;
+  readonly target: Record<string, unknown> | unknown[];
+  // Null for arrays: their keys are the index range, consumed lazily, so a
+  // huge sparse array never materialises its indices.
+  readonly keys: readonly string[] | null;
+  readonly length: number;
+  next: number;
 }
 
-function copyValue(input: unknown, seen: WeakSet<object>): Result<unknown> {
-  if (input === null) return { ok: true, value: null };
-  const t = typeof input;
-  if (t === 'undefined' || t === 'string' || t === 'number' || t === 'boolean') {
-    return { ok: true, value: input };
-  }
-  if (t === 'bigint' || t === 'symbol' || t === 'function') {
-    return rejectUnsupported(`Unsupported value type: ${t}`);
-  }
-  if (Array.isArray(input)) {
-    return copyArray(input, seen);
-  }
-  if (isPlainObject(input)) {
-    return copyObject(input, seen);
-  }
-  return rejectUnsupported('Unsupported object: prototype must be Object.prototype');
+interface FrameCursor {
+  readonly keys: readonly string[] | null;
+  readonly length: number;
+  next: number;
 }
+
+function frameHasNext(frame: FrameCursor): boolean {
+  return frame.keys === null ? frame.next < frame.length : frame.next < frame.keys.length;
+}
+
+function frameKey(frame: FrameCursor): string {
+  return frame.keys === null ? String(frame.next) : (frame.keys[frame.next] as string);
+}
+
+// A value that has already been resolved: a finished copy, a frame that still
+// needs its children appended, or a rejection.
+type PreparedCopy =
+  | { readonly kind: 'value'; readonly value: unknown }
+  | { readonly kind: 'frame'; readonly frame: CopyFrame }
+  | { readonly kind: 'error'; readonly error: Failure };
 
 function validateArrayOwnKeys(input: unknown[]): Result<void> {
   const symbols = Object.getOwnPropertySymbols(input);
@@ -87,81 +113,143 @@ function validateArrayOwnKeys(input: unknown[]): Result<void> {
   return { ok: true, value: undefined };
 }
 
-function copyArray(input: unknown[], seen: WeakSet<object>): Result<unknown> {
-  if (Object.getPrototypeOf(input) !== Array.prototype) {
+function arrayCopyFrame(source: unknown[]): Result<CopyFrame> {
+  if (Object.getPrototypeOf(source) !== Array.prototype) {
     return rejectUnsupported('Array must have Array.prototype');
   }
-  const keyResult = validateArrayOwnKeys(input);
-  if (!keyResult.ok) return keyResult as Result<unknown>;
-  if (seen.has(input)) {
-    return rejectUnsupported('Cyclic reference detected');
-  }
-  seen.add(input);
-  const out: unknown[] = [];
-  for (let i = 0; i < input.length; i++) {
-    const r = copyValue(input[i], seen);
-    if (!r.ok) {
-      seen.delete(input);
-      return r;
-    }
-    out[i] = r.value;
-  }
-  seen.delete(input);
-  return { ok: true, value: out };
+  const keyResult = validateArrayOwnKeys(source);
+  if (!keyResult.ok) return keyResult as Result<CopyFrame>;
+  return { ok: true, value: { source, target: [], keys: null, length: source.length, next: 0 } };
 }
 
-function copyObject(input: Record<string, unknown>, seen: WeakSet<object>): Result<unknown> {
-  const ownKeys = Object.getOwnPropertyNames(input);
-  const symbols = Object.getOwnPropertySymbols(input);
-  if (symbols.length > 0) {
+function objectCopyFrame(source: Record<string, unknown>): Result<CopyFrame> {
+  if (Object.getOwnPropertySymbols(source).length > 0) {
     return rejectUnsupported('Object must not have symbol-keyed properties');
   }
-  for (const key of ownKeys) {
-    const desc = Object.getOwnPropertyDescriptor(input, key);
-    if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
+  const keys = Object.getOwnPropertyNames(source);
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(source, key);
+    if (!descriptor || descriptor.get !== undefined || descriptor.set !== undefined || !descriptor.enumerable) {
       return rejectUnsupported(`Invalid property descriptor: ${key}`);
     }
   }
-  if (seen.has(input)) {
-    return rejectUnsupported('Cyclic reference detected');
-  }
-  seen.add(input);
-  const out: Record<string, unknown> = {};
-  for (const key of ownKeys) {
-    const r = copyValue(input[key], seen);
-    if (!r.ok) {
-      seen.delete(input);
-      return r;
-    }
-    Object.defineProperty(out, key, {
-      value: r.value,
-      writable: true,
-      enumerable: true,
-      configurable: true,
-    });
-  }
-  seen.delete(input);
-  return { ok: true, value: out };
+  return { ok: true, value: { source, target: {}, keys, length: 0, next: 0 } };
 }
 
-export function deepFreeze<T>(value: T): DeepReadonly<T> {
-  const seen = new WeakSet<object>();
-
-  function freeze(val: unknown): void {
-    if (val === null || typeof val !== 'object') {
-      return;
-    }
-    if (seen.has(val)) {
-      return;
-    }
-    seen.add(val);
-    for (const key of Reflect.ownKeys(val as object)) {
-      freeze((val as Record<string | symbol, unknown>)[key]);
-    }
-    Object.freeze(val);
+function prepareCopy(input: unknown, active: Set<object>, memo: Map<object, unknown>): PreparedCopy {
+  if (input === null) return { kind: 'value', value: null };
+  const type = typeof input;
+  if (type === 'undefined' || type === 'string' || type === 'number' || type === 'boolean') {
+    return { kind: 'value', value: input };
+  }
+  if (type !== 'object') {
+    return { kind: 'error', error: ownershipFailure(`Unsupported value type: ${type}`) };
   }
 
-  freeze(value);
+  const source = input as object;
+  // A node reaches `active` or `memo` only after its frame was built, so a hit
+  // is already validated and its checks need not run again.
+  if (active.has(source)) {
+    return { kind: 'error', error: ownershipFailure('Cyclic reference detected') };
+  }
+  if (memo.has(source)) {
+    return { kind: 'value', value: memo.get(source) };
+  }
+
+  let frame: Result<CopyFrame>;
+  if (Array.isArray(source)) {
+    frame = arrayCopyFrame(source);
+  } else if (isPlainObject(source)) {
+    frame = objectCopyFrame(source);
+  } else {
+    return { kind: 'error', error: ownershipFailure('Unsupported object: prototype must be Object.prototype') };
+  }
+  if (!frame.ok) return { kind: 'error', error: frame.error };
+
+  active.add(source);
+  return { kind: 'frame', frame: frame.value };
+}
+
+function assignEntry(
+  target: Record<string, unknown> | unknown[] | Record<string, JsonValue> | JsonValue[],
+  key: string,
+  value: unknown,
+): void {
+  if (Array.isArray(target)) {
+    (target as unknown[])[Number(key)] = value;
+    return;
+  }
+  Object.defineProperty(target, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+function expandCopyFrame(
+  frame: CopyFrame,
+  active: Set<object>,
+  memo: Map<object, unknown>,
+  stack: CopyFrame[],
+): Failure | null {
+  const key = frameKey(frame);
+  frame.next += 1;
+  const child = prepareCopy((frame.source as Record<string, unknown>)[key], active, memo);
+  if (child.kind === 'error') return child.error;
+  assignEntry(frame.target, key, child.kind === 'value' ? child.value : child.frame.target);
+  if (child.kind === 'frame') stack.push(child.frame);
+  return null;
+}
+
+export function deepCopy<T>(value: T): Result<T> {
+  const active = new Set<object>();
+  const memo = new Map<object, unknown>();
+  const root = prepareCopy(value, active, memo);
+  if (root.kind === 'error') return { ok: false, error: root.error };
+  if (root.kind === 'value') return { ok: true, value: root.value as T };
+
+  const stack: CopyFrame[] = [root.frame];
+  while (stack.length > 0) {
+    const frame = stack.at(-1) as CopyFrame;
+    if (!frameHasNext(frame)) {
+      memo.set(frame.source, frame.target);
+      active.delete(frame.source);
+      stack.pop();
+      continue;
+    }
+    const failure = expandCopyFrame(frame, active, memo, stack);
+    if (failure !== null) return { ok: false, error: failure };
+  }
+  return { ok: true, value: root.frame.target as T };
+}
+
+// ---------------------------------------------------------------------------
+// Iterative deep freeze (order is irrelevant: Object.freeze is shallow)
+// ---------------------------------------------------------------------------
+
+export function deepFreeze<T>(value: T): DeepReadonly<T> {
+  const visited = new WeakSet<object>();
+  const pending: object[] = [];
+
+  const enqueue = (candidate: unknown): void => {
+    if (candidate === null || typeof candidate !== 'object' || visited.has(candidate)) return;
+    visited.add(candidate);
+    pending.push(candidate);
+  };
+
+  enqueue(value);
+  const reachable: object[] = [];
+  while (pending.length > 0) {
+    const current = pending.pop() as object;
+    reachable.push(current);
+    for (const key of Reflect.ownKeys(current)) {
+      enqueue((current as Record<string | symbol, unknown>)[key]);
+    }
+  }
+  for (const object of reachable) {
+    Object.freeze(object);
+  }
   return value as DeepReadonly<T>;
 }
 
@@ -185,13 +273,26 @@ export function validateUnknown<T>(value: unknown, guard: (v: unknown) => v is T
   return { ok: true, value: frozen as T };
 }
 
+// ---------------------------------------------------------------------------
 // Strict JSON validation (distinct from generic ownership copying).
 // Rejects undefined, NaN, Infinity, -Infinity, functions, symbols, non-plain
 // objects, sparse arrays, etc. Does not implement canonicalization (Task 3).
-export function validateJsonValue(value: unknown): Result<JsonValue> {
-  const seen = new WeakSet<object>();
-  return validateJsonValueInner(value, seen);
+// ---------------------------------------------------------------------------
+
+interface JsonFrame {
+  readonly kind: 'array' | 'object';
+  readonly source: object;
+  readonly target: Record<string, JsonValue> | JsonValue[];
+  // Null for arrays: keys are consumed lazily from the index range.
+  readonly keys: readonly string[] | null;
+  readonly length: number;
+  next: number;
 }
+
+type PreparedJson =
+  | { readonly kind: 'value'; readonly value: JsonValue }
+  | { readonly kind: 'frame'; readonly frame: JsonFrame }
+  | { readonly kind: 'error'; readonly error: Failure };
 
 function validateJsonPrimitive(val: unknown): Result<JsonValue> | null {
   if (val === null) return { ok: true, value: null };
@@ -199,125 +300,162 @@ function validateJsonPrimitive(val: unknown): Result<JsonValue> | null {
   if (t === 'boolean') return { ok: true, value: val as boolean };
   if (t === 'string') {
     if (hasLoneSurrogate(val as string)) {
-      return {
-        ok: false,
-        error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue string must not contain lone surrogates'),
-      };
+      return { ok: false, error: jsonFailure('JsonValue string must not contain lone surrogates') };
     }
     return { ok: true, value: val as string };
   }
   if (t === 'number') {
     const n = val as number;
     if (!Number.isFinite(n)) {
-      return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue number must be finite') };
+      return { ok: false, error: jsonFailure('JsonValue number must be finite') };
     }
     return { ok: true, value: n };
   }
   return null;
 }
 
-function validateJsonArray(val: unknown[], seen: WeakSet<object>): Result<JsonValue> {
-  if (Object.getPrototypeOf(val) !== Array.prototype) {
-    return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue array must have Array.prototype') };
-  }
-  if (seen.has(val)) {
-    return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', 'Cyclic reference detected in JsonValue') };
-  }
-  seen.add(val);
-  const out: JsonValue[] = [];
-  for (let i = 0; i < val.length; i++) {
-    const desc = Object.getOwnPropertyDescriptor(val, String(i));
-    if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable || !('value' in desc)) {
-      seen.delete(val);
-      return {
-        ok: false,
-        error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue sparse/invalid array at index ${i}`),
-      };
-    }
-    const r = validateJsonValueInner(val[i], seen);
-    if (!r.ok) {
-      seen.delete(val);
-      return r as Result<JsonValue>;
-    }
-    out.push(r.value);
-  }
-  for (const key of Object.getOwnPropertyNames(val)) {
-    if (key === 'length') continue;
-    const num = Number(key);
-    if (!/^\d+$/.test(key) || String(num) !== key || num >= val.length) {
-      seen.delete(val);
-      return {
-        ok: false,
-        error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue array must not have extra property: ${key}`),
-      };
-    }
-  }
-  if (Object.getOwnPropertySymbols(val).length > 0) {
-    seen.delete(val);
-    return {
-      ok: false,
-      error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue array must not have symbol properties'),
-    };
-  }
-  seen.delete(val);
-  return { ok: true, value: out };
+interface JsonObjectCheck {
+  readonly failure: Failure | null;
+  // The list this check validated. The frame must consume exactly this list:
+  // a stateful Proxy can answer a second `ownKeys` call differently, which
+  // would put an unvalidated key into the validated result.
+  readonly keys: readonly string[];
 }
 
-function validateJsonObject(val: Record<string, unknown>, seen: WeakSet<object>): Result<JsonValue> {
-  if (seen.has(val)) {
-    return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', 'Cyclic reference detected in JsonValue') };
-  }
-  seen.add(val);
-  const ownKeys = Object.getOwnPropertyNames(val);
-  for (const key of ownKeys) {
+function checkJsonObject(source: Record<string, unknown>): JsonObjectCheck {
+  const keys = Object.getOwnPropertyNames(source);
+  for (const key of keys) {
     if (hasLoneSurrogate(key)) {
-      seen.delete(val);
-      return {
-        ok: false,
-        error: mechanismFailure(
-          'E_JSON_VALUE_INVALID',
-          `JsonValue object key must not contain lone surrogates: ${key}`,
-        ),
-      };
+      return { failure: jsonFailure(`JsonValue object key must not contain lone surrogates: ${key}`), keys };
     }
-    const desc = Object.getOwnPropertyDescriptor(val, key);
+    const desc = Object.getOwnPropertyDescriptor(source, key);
     if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
-      seen.delete(val);
-      return {
-        ok: false,
-        error: mechanismFailure('E_JSON_VALUE_INVALID', `JsonValue object has invalid property: ${key}`),
-      };
+      return { failure: jsonFailure(`JsonValue object has invalid property: ${key}`), keys };
     }
   }
-  if (Object.getOwnPropertySymbols(val).length > 0) {
-    seen.delete(val);
-    return {
-      ok: false,
-      error: mechanismFailure('E_JSON_VALUE_INVALID', 'JsonValue object must not have symbol properties'),
-    };
+  if (Object.getOwnPropertySymbols(source).length > 0) {
+    return { failure: jsonFailure('JsonValue object must not have symbol properties'), keys };
   }
-  const out: { [key: string]: JsonValue } = {};
-  for (const key of ownKeys) {
-    const r = validateJsonValueInner(val[key], seen);
-    if (!r.ok) {
-      seen.delete(val);
-      return r as Result<JsonValue>;
-    }
-    Object.defineProperty(out, key, {
-      value: r.value,
-      writable: true,
-      enumerable: true,
-      configurable: true,
-    });
-  }
-  seen.delete(val);
-  return { ok: true, value: out };
+  return { failure: null, keys };
 }
 
-function validateJsonValueInner(value: unknown, seen: WeakSet<object>): Result<JsonValue> {
-  const prim = validateJsonPrimitive(value);
-  if (prim !== null) return prim;
-  if (Array.isArray(value)) return validateJsonArray(value, seen);
-  if (isPlainObject(value)) return validateJsonObject(value, seen);
-  return { ok: false, error: mechanismFailure('E_JSON_VALUE_INVALID', `Unsupported JsonValue type: ${typeof value}`) };
+function jsonArrayExtraFailure(source: unknown[]): Failure | null {
+  for (const key of Object.getOwnPropertyNames(source)) {
+    if (key === 'length') continue;
+    const index = Number(key);
+    if (!/^\d+$/.test(key) || String(index) !== key || index >= source.length) {
+      return jsonFailure(`JsonValue array must not have extra property: ${key}`);
+    }
+  }
+  if (Object.getOwnPropertySymbols(source).length > 0) {
+    return jsonFailure('JsonValue array must not have symbol properties');
+  }
+  return null;
+}
+
+function jsonArrayFrame(source: unknown[]): JsonFrame {
+  return { kind: 'array', source, target: [], keys: null, length: source.length, next: 0 };
+}
+
+function prepareJson(input: unknown, active: Set<object>, memo: Map<object, JsonValue>): PreparedJson {
+  const primitive = validateJsonPrimitive(input);
+  if (primitive !== null) {
+    return primitive.ok ? { kind: 'value', value: primitive.value } : { kind: 'error', error: primitive.error };
+  }
+  if (typeof input !== 'object' || input === null) {
+    return { kind: 'error', error: jsonFailure(`Unsupported JsonValue type: ${typeof input}`) };
+  }
+
+  const source = input as object;
+  // Same ordering as prepareCopy: a hit is already validated, so the
+  // prototype and key checks are not repeated.
+  if (active.has(source)) {
+    return { kind: 'error', error: jsonFailure('Cyclic reference detected in JsonValue') };
+  }
+  if (memo.has(source)) {
+    return { kind: 'value', value: memo.get(source) as JsonValue };
+  }
+
+  const isArray = Array.isArray(source);
+  if (isArray) {
+    if (Object.getPrototypeOf(source) !== Array.prototype) {
+      return { kind: 'error', error: jsonFailure('JsonValue array must have Array.prototype') };
+    }
+  } else if (!isPlainObject(source)) {
+    return { kind: 'error', error: jsonFailure(`Unsupported JsonValue type: ${typeof input}`) };
+  }
+  let objectKeys: readonly string[] = [];
+  if (!isArray) {
+    const objectCheck = checkJsonObject(source as Record<string, unknown>);
+    if (objectCheck.failure !== null) return { kind: 'error', error: objectCheck.failure };
+    objectKeys = objectCheck.keys;
+  }
+  active.add(source);
+  const frame: JsonFrame = isArray
+    ? jsonArrayFrame(source as unknown[])
+    : { kind: 'object', source, target: {}, keys: objectKeys, length: 0, next: 0 };
+  return { kind: 'frame', frame };
+}
+
+function prepareJsonChild(
+  frame: JsonFrame,
+  key: string,
+  active: Set<object>,
+  memo: Map<object, JsonValue>,
+): PreparedJson {
+  if (frame.kind === 'array') {
+    const desc = Object.getOwnPropertyDescriptor(frame.source, key);
+    if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable || !('value' in desc)) {
+      return { kind: 'error', error: jsonFailure(`JsonValue sparse/invalid array at index ${key}`) };
+    }
+    return prepareJson(desc.value, active, memo);
+  }
+  return prepareJson((frame.source as Record<string, unknown>)[key], active, memo);
+}
+
+function completeJsonFrame(frame: JsonFrame, active: Set<object>, memo: Map<object, JsonValue>): Failure | null {
+  if (frame.kind === 'array') {
+    const extraFailure = jsonArrayExtraFailure(frame.source as unknown[]);
+    if (extraFailure !== null) return extraFailure;
+  }
+  memo.set(frame.source, frame.target as JsonValue);
+  active.delete(frame.source);
+  return null;
+}
+
+function expandJsonFrame(
+  frame: JsonFrame,
+  active: Set<object>,
+  memo: Map<object, JsonValue>,
+  stack: JsonFrame[],
+): Failure | null {
+  const key = frameKey(frame);
+  frame.next += 1;
+  const child = prepareJsonChild(frame, key, active, memo);
+  if (child.kind === 'error') return child.error;
+  assignEntry(frame.target, key, child.kind === 'value' ? child.value : child.frame.target);
+  if (child.kind === 'frame') stack.push(child.frame);
+  return null;
+}
+
+export function validateJsonValue(value: unknown): Result<JsonValue> {
+  const active = new Set<object>();
+  const memo = new Map<object, JsonValue>();
+  const root = prepareJson(value, active, memo);
+  if (root.kind === 'error') return { ok: false, error: root.error };
+  if (root.kind === 'value') return { ok: true, value: root.value };
+
+  const stack: JsonFrame[] = [root.frame];
+  while (stack.length > 0) {
+    const frame = stack.at(-1) as JsonFrame;
+    if (!frameHasNext(frame)) {
+      const failure = completeJsonFrame(frame, active, memo);
+      if (failure !== null) return { ok: false, error: failure };
+      stack.pop();
+      continue;
+    }
+    const failure = expandJsonFrame(frame, active, memo, stack);
+    if (failure !== null) return { ok: false, error: failure };
+  }
+  return { ok: true, value: root.frame.target as JsonValue };
 }
