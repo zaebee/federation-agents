@@ -95,6 +95,7 @@ No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work
 | T18-09A Assurance ambiguity decisions | specification decisions | P1 | `CORE-001_RUNTIME` |
 | T18-09B CONTENT_HASH decision | specification decision | P3 | `CORE-001_RUNTIME` |
 | T18-09C Trusted-time decision | specification decision | P2 | `EXTERNAL_READINESS` |
+| T18-09D N-172 readiness evidence decision | specification decision | P2 | `CORE-001_RUNTIME` |
 | T18-10 Cross-spec packages | cross-spec integration | P3 | `CROSS_SPEC` |
 | T18-11 External readiness | external dependency | P3 | `EXTERNAL_READINESS` |
 | T18-12 Documentation reconciliation | documentation-only | P3 | `CORE-001_RUNTIME` |
@@ -109,7 +110,7 @@ Milestones:
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
 
-Critical path: T18-DEC-01/02 → T18-01 → T18-02A or T18-02C → AEBE → T18-13; C-2 additionally needs T18-DEC-13/T18-10 for `CASE-C-2.a3`.
+Critical path: T18-DEC-01/02 → T18-01 → T18-02A or T18-02C → AEBE → T18-13; C-2 additionally needs T18-DEC-13/T18-10 for `CASE-C-2.a3`; readiness additionally needs T18-11 for N-170/N-175. N-172 is tracked separately as T18-09D (P2).
 
 ## 6. Key separations preserved
 
@@ -121,7 +122,7 @@ Critical path: T18-DEC-01/02 → T18-01 → T18-02A or T18-02C → AEBE → T18-
 
 ### N-168 readiness
 
-Readiness outcomes are Task 18 reporting labels: `READY`, `CONDITIONALLY_READY`, `NOT_READY`. They are not CORE-001 statuses. An accepted BLOCKED disposition does not imply readiness. `CONDITIONALLY_READY` requires enumerated accepted limitations, unresolved dependencies and their impact.
+Readiness outcomes are Task 18 reporting labels: `READY`, `CONDITIONALLY_READY`, `NOT_READY`. They are not CORE-001 statuses. An accepted BLOCKED disposition does not imply readiness. `READY` requires T18-11 completion and confirmed N-170/N-175 evidence; `CONDITIONALLY_READY` requires explicit acceptance of the external dependency with its impact; `NOT_READY` applies when required compatibility evidence is absent and not accepted.
 
 ### N-084 digest verification
 
@@ -129,7 +130,7 @@ If `T18-DEC-05` assigns verification to callers, N-084 does not close on documen
 
 ### Specification change boundary
 
-Decision packages may record decisions and prepare proposals. They cannot modify `docs/CORE-001.md`. Any normative amendment requires separately approved `T18-SPEC-01` and a re-audit of affected Task 17 items.
+Decision packages may record decisions and prepare proposals. T18-06 in particular records the decision and proposed wording; it does not edit normative text. They cannot modify `docs/CORE-001.md`. Any normative amendment requires separately approved `T18-SPEC-01` and a re-audit of affected Task 17 items.
 
 ## 7. Current readiness assessment
 
