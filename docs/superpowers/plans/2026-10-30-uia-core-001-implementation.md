@@ -485,7 +485,19 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
   7. DAG generator with merge probability p>0: **memoized result == brute-force full path enumeration (≤ 7 nodes) for the IMMEDIATE-closure contract** — including the no-path / assurance / closure code distinction and GC-18 aggregation; extended beyond depth-1 branches is **excluded** (BLOCKED A-5);
   8. cyclic segments never yield `eligible:true`;
   9. static invariant: no `src/core/` module exposes grant-producing API.
-- [ ] **Step 2: Run**; fix genuine bugs; document interpretation discoveries. **Step 3: Commit** `test(property): invariance, immediate-closure brute-force equivalence, immutability`.
+- [ ] **Step 2: Run**; fix genuine bugs; document interpretation discoveries. **Step 3: Commit** `test(property): invariance and immediate-closure brute-force equivalence`.
+
+**Task 12 implementation notes (2026-10-31):**
+
+- **P1–P3:** generated DAG cases are rebuilt with reversed registry/node storage, reversed descriptor `lineage` arrays (edges only, same semantic relations), and reversed assessment arrays; normalized results and canonical closure-failure order are compared.
+- **P4:** targeted cases assert that a missing path-edge assessment stays INVALID, a missing closure branch stays `ERR_MERGE_BRANCH_UNSATISFIED`, and an alternative valid path can remain eligible while the failing path is retained in `details.perPath`.
+- **P5 partial:** caller mutation after `validateIdentityVersionDescriptor`, graph construction, assessment evaluation and traversal cannot change stored descriptors or assessments. Revocation and Local Acceptance coverage is deferred to Tasks 13–15.
+- **P6 partial:** `registerAssessment` copy-on-write and supersession-cycle rejection are covered; lifecycle/acceptance supersession is deferred until those mechanisms exist.
+- **P7:** independent brute-force oracle in `tests/property/support/merge-oracle.ts`; it does not call `discoverPaths`, `validatePath`, `validateMergeClosure` or `evaluateBinding`, but reuses Task 8 `assessEdge`/`evaluateAssurance`. DAG only (≤7 nodes); immediate closure only; origin excluded (A-11); aggregation mirrors implementation behavior without resolving A-8.
+- **P8:** targeted cycle cases plus a bounded cycle-placement generator; the claim is limited to the generated model (cycle as a separate component / path intersecting a cycle), not an arbitrary-SCC theorem.
+- **P9:** AST guard traces `export *`/named re-exports from `src/index.ts`; it checks exported names and the public surface, not implementation bodies.
+- **Distribution:** merge nodes, mixed-relation nodes, closure-only branches, multi-path cases and assessment-state coverage are reported; `numRuns` alone is not treated as completeness.
+- No production changes were required.
 
 ### Task 13: Credentials — usage, temporal trust separation (4 input states, subject binding) — D-3, D-4
 
