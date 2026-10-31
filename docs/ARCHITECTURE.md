@@ -44,8 +44,9 @@ The architecture must remain useful **without** CORE-002/003/004: identity, prov
 │  no node:*, no bun:*, no filesystem, network, process, env, clock     │
 └──────────────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Adapters — planned, outside src/core/                                 │
-│  signature verification • ledger persistence • transport • storage     │
+│ Adapters — outside src/core/                                          │
+│  one experimental reference adapter today (assessment emission)       │
+│  target: signature verification • transport • storage • ledger        │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -88,6 +89,8 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/ledger.ts`          | —        | Implemented | Copy-on-write in-memory acceptance/event store — a **mechanism**, not protocol semantics |
 
 `src/index.ts` exports `UIA_CORE_001_REVISION` and re-exports the core barrel. The `ApplicableAssessments` and `CompiledSelector` brands remain module-private and are not exported through `src/index.ts`.
+
+`src/adapters/orphan-assessment.ts` is an **experimental reference adapter**, not a protocol API: it constructs a `PARENT_UNRESOLVED` Assessment from a graph with an unresolved parent (T18-02A, §12 C-1). It sits outside `src/core/` because construction of an Assessment is a boundary concern; Core owns validation and admission.
 
 ## 4. Data flow
 
@@ -154,8 +157,8 @@ The table separates guarantees the repository already provides from properties r
 | A4  | Error separation       | Implemented  | `errors.ts` type split, asserted in `tests/unit/entities.test.ts`            |
 | A5  | Explicit context       | Implemented | `Policy` and `TemporalContext` are explicit parameters of `assessEdge`, `evaluateAssurance`, `validatePath` and `evaluateBinding` |
 | A6  | Edge-bound assessments | Implemented  | `ApplicableAssessments` brand plus `WeakSet` provenance, validated by `evaluateAssurance` |
-| A7  | Four trust outcomes    | Target       | Planned `credential.ts` and temporal model                                   |
-| A8  | Unknown boundary       | Implemented  | `validateUnknown`, `validateJsonValue` and the §3–§5 entity constructors; adapters are not written yet |
+| A7  | Four trust outcomes    | Implemented | `temporal.ts` derives `TRUSTED` / `UNTRUSTED` / `UNASSESSED` / `TRUST_ASSESSMENT_UNAVAILABLE` and never collapses them |
+| A8  | Unknown boundary       | Implemented  | `validateUnknown`, `validateJsonValue` and the §3–§5 entity constructors; the reference adapter constructs only through Core validation and admission |
 
 A2 does not require enumerating all paths: memoization and dynamic programming are allowed, provided the result is identical.
 
@@ -186,9 +189,9 @@ Phase 3 implements **immediate closure** only — §8.6's literal text about the
 
 Scope governs discovery only. A mixed-relation merge node can be reached through a scope-permitted edge, and immediate closure still checks all its direct parent edges — including relations excluded from discovery. The terminal origin is not closed (A-11).
 
-## 8. Temporal model (target)
+## 8. Temporal model (implemented)
 
-Timestamp **selection** and timestamp **trust** are separate in the design; the implementation of this model is planned with the credential module.
+Timestamp **selection** and timestamp **trust** are separate. The model is implemented in `core/temporal.ts` and consumed by `core/credential.ts`; trust itself is never derived here.
 
 - `TemporalContext.basis` selects which declared field governs an operation (domain policy, §10.2).
 - Trust arrives only as an externally assessed `TemporalTrustInput`, bound to a specific `(subject_ref, field, timestamp_value)` triple.
@@ -203,7 +206,7 @@ There is no clock in the core. Whether "now" matters is a question for the host 
 | Applicable assessments | `Policy.applicableAssessments(edgeRef, assessments, ctx)`           | May narrow, never expand; items outside the edge are discarded and reported |
 | Contradiction rule     | `Policy.conflictPredicate`                                          | Undefined by default; Rev 0.3.3 does not define contradiction (BLOCKED A-4b) |
 | Signature verification | `SignatureVerifier.evaluate(signature, credential)`                 | Injectable; crypto outcome is reported separately from temporal validity |
-| Ledger persistence     | Adapter, or the planned in-memory `core/ledger.ts`                  | Mechanism only; must not alter historical records                 |
+| Ledger persistence     | Adapter, or the in-memory `core/ledger.ts`                          | Mechanism only; must not alter historical records                 |
 | Evidence               | Referenced by id (`evidence_refs`)                                  | Full model belongs to CORE-004                                    |
 
 ## 10. Deliberate absences
@@ -224,7 +227,7 @@ The architecture omits these on purpose; each omission is a boundary, not an unf
 | Suite                     | Purpose                                                             | Exists | Conformance claim |
 | ------------------------- | ------------------------------------------------------------------- | ------ | ----------------- |
 | `tests/unit/`             | Module behavior, rejection cases, ownership, canonicalization vectors | Yes    | Yes              |
-| `tests/conformance/`      | The §12 corpus A-1…D-4, exact fixtures and side-effect contracts       | Partial (A, B, D-1/D-2/D-3/D-4) | Yes, once present |
+| `tests/conformance/`      | The §12 corpus A-1…D-4, exact fixtures and side-effect contracts       | Yes — all cases except C-2 | Yes — except C-2 (BLOCKED) |
 | `tests/property/`         | Determinism and brute-force equivalence (fast-check)                   | Yes    | Yes, for immediate closure |
 | `tests/experimental/`     | BLOCKED interpretations (recursive closure, origin closure)            | Yes    | **No** — excluded |
 
@@ -234,6 +237,10 @@ A passing test suite does not establish production security or interoperability;
 
 Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, temporal contracts with four-outcome trust derivation, §8 conditional version binding with three-phase traversal and immediate merge closure, credential usage/revocation/historical evaluation (D-3/D-4), runtime lifecycle decomposition (D-1), Local Acceptance with explicit policy-driven lifecycle (D-2), the in-memory acceptance ledger, and property-based invariance with an independent immediate-closure oracle.
 
-Planned: the full C-1/C-2 conformance cases (assessment recording of `PARENT_UNRESOLVED`/`CYCLE_DETECTED`).
+Implemented at the boundary: the experimental reference adapter emits a `PARENT_UNRESOLVED` Assessment (T18-02A, §12 C-1); Core validates and admits that Assessment and owns the immutable registered representation. Retention and publication remain caller-managed and are OPEN (`T18-DEC-15` and the publication-ownership question).
+
+Not implemented: an Assessment recording `CYCLE_DETECTED` (C-2), which also needs grant suppression owned by CORE-003, so the case stays BLOCKED.
+
+Conformance **status** is not the same as implementation: the assertion-level audit (Task 17) found no normative violation, yet several requirements and §12 cases are not PASS, for reasons recorded in the decision register. Counts, per-case results and the readiness label are maintained in [`STATUS.md`](../STATUS.md); the evidence is in [`audits/`](./audits/). This section describes what exists in the code, not what has been certified.
 
 Ordering and exit criteria are tracked in [`ROADMAP.md`](./ROADMAP.md) and in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md).

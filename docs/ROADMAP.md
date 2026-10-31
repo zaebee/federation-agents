@@ -1,12 +1,14 @@
 # UIA — Roadmap
 
 **Status:** Working Draft.
-**As of:** 2026-10-30.
+**As of:** 2026-10-31, reconciled with the Task 17 conformance audit and the Task 18 disposition.
 **Scope:** the `UIA-CORE-001` protocol module and its reference implementation in this repository.
+
+Current counts and the readiness label are maintained in [`STATUS.md`](../STATUS.md); this roadmap answers *in what order*, not *how far*.
 
 This roadmap is ordered by dependency and correctness, not by calendar. It deliberately contains no dates: a phase is done when its exit criteria are met and the evidence is in the repository, not when a date arrives.
 
-Status here is derived from code and tests. The task checkboxes in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md) are not authoritative.
+Status here is derived from code and tests. The [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md) is a **historical tracker** of how each task was closed (task → PR); its checkboxes are not authoritative.
 
 ## 1. Status legend
 
@@ -23,14 +25,16 @@ Status here is derived from code and tests. The task checkboxes in the [implemen
 | Phase | Theme                              | Plan tasks | Status  |
 | ----- | ---------------------------------- | ---------- | ------- |
 | P0    | Foundations                        | 1–3        | Done    |
-| P1    | Identity, lineage, assessment, traversal | 4–11  | Next    |
-| P2    | Credentials, runtime, acceptance   | 13–15      | Planned |
-| P3    | Verification hardening             | 12, 17     | Planned |
-| P4    | Mechanism documentation            | 16         | Planned |
+| P1    | Identity, lineage, assessment, traversal | 4–11  | In progress |
+| P2    | Credentials, runtime, acceptance   | 13–15      | In progress |
+| P3    | Verification hardening             | 12, 17     | In progress |
+| P4    | Mechanism documentation            | 16         | Done    |
 | P5    | Interoperability demonstration     | —          | Planned |
 | P6    | Independent validation & security profile | —   | Deferred |
 
 Phases are sequential at the level of dependencies, not of effort: P1 and P4 can overlap, but no phase may claim conformance for a module that does not exist.
+
+**Why P1–P3 are not Done.** Implementation is complete through immediate merge closure, and the suites are green, but phase exit is a conformance question. The Task 17 audit keeps §12 C-1 as NOT COVERED (evidence postdates it), C-2 and D-2 as BLOCKED, and D-1/D-4 as PARTIAL; P3's exit criteria ("every §12 case passes") therefore cannot be met yet. Implementation completion and conformance are separate axes, and this roadmap tracks both.
 
 ## 3. P0 — Foundations (Done)
 
@@ -48,7 +52,7 @@ Phases are sequential at the level of dependencies, not of effort: P1 and P4 can
 
 ## 4. P1 — Identity, lineage, assessment, traversal (In progress)
 
-The protocol core is implemented through immediate merge closure and scope × closure consistency. P1 remains open only for the C-1/C-2 binding-level conformance cases.
+The protocol core is implemented through immediate merge closure and scope × closure consistency. P1 remains open only for the C-series cases: C-1 has passing tests since T18-02A but still carries a NOT COVERED audit status pending a re-audit, while C-2 is BLOCKED on the C-2 subject-model decision and on grant suppression, which belongs to CORE-003.
 
 | Task | Status  | Deliverable                                                          | Exit criterion |
 | ---- | ------- | -------------------------------------------------------------------- | -------------- |
@@ -70,13 +74,13 @@ The protocol core is implemented through immediate merge closure and scope × cl
 
 **Deliberately excluded from P1:** recursive merge closure, contradiction detection, and merge-typed origin closure — see §8.
 
-## 5. P2 — Credentials, runtime, acceptance (Done)
+## 5. P2 — Credentials, runtime, acceptance (In progress — D-2 BLOCKED)
 
 | Task | Status | Deliverable                                                          | Exit criterion |
 | ---- | ------ | -------------------------------------------------------------------- | -------------- |
-| 13   | Done   | Credential usage, revocation reasons, historical signature semantics  | Corpus D-3, D-4 pass; the four temporal trust outcomes stay distinct |
-| 14   | Done   | Runtime instance lifecycle                                           | Corpus D-1 passes; restart does not create a version |
-| 15   | Done   | Local Acceptance and lifecycle                                       | Corpus D-2 passes; earlier rulings survive new events |
+| 13   | Done   | Credential usage, revocation reasons, historical signature semantics  | Corpus D-3 passes; D-4 is PARTIAL in the audit (contested result proven, the second MUST is not asserted); the four temporal trust outcomes stay distinct |
+| 14   | Done   | Runtime instance lifecycle                                           | Corpus D-1 is PARTIAL in the audit (event separation proven; independent execution is not observable within CORE-001) |
+| 15   | Done   | Local Acceptance and lifecycle                                       | Corpus D-2 is BLOCKED: the normative object is a Ruling (CORE-004), and the test substitutes a Local Acceptance record |
 
 **Exit criteria for P2:**
 
@@ -89,7 +93,9 @@ The protocol core is implemented through immediate merge closure and scope × cl
 | Task | Status | Deliverable                                                          |
 | ---- | ------ | -------------------------------------------------------------------- |
 | 12   | Done   | Property-based tests: determinism, order independence, brute-force equivalence |
-| 17   | Next   | Full conformance run with assertion-level verification                 |
+| 17   | Done (audit) | Assertion-level conformance audit recorded in the audit trail; verdict `NOT_READY`. Counts and per-case status: [`STATUS.md`](../STATUS.md) |
+
+The audit replaced Task 17's planned "final report and tag": no `uia-core-001-refimpl-0.1.0` tag was created, and no full-conformance claim was made. Its findings were dispositioned in Task 18 (`docs/audits/2026-10-31-core-001-task-18/`), which is now the live remediation track.
 
 **Exit criteria for P3:**
 
@@ -98,7 +104,7 @@ The protocol core is implemented through immediate merge closure and scope × cl
 - Immediate closure agrees with a brute-force reference on random DAGs.
 - `format:check` is green, and `format` is never run as part of verification.
 
-## 7. P4 — Mechanism documentation (Planned)
+## 7. P4 — Mechanism documentation (Done)
 
 Task 16 in the plan: `docs/implementation.md`.
 
@@ -160,7 +166,7 @@ CORE-001 moves from Candidate Draft Normative to Frozen Baseline only when §16 
 | ---------------------------------------------------------- | ----- |
 | All Category A structural tests pass                       | P1    |
 | All Category B binding and traversal tests pass            | P1    |
-| All Category C federation tests pass                       | P1    |
+| All Category C federation tests pass                       | P1 (C-1 evidence pending re-audit; C-2 BLOCKED) |
 | All Category D cross-spec integration tests pass           | P2    |
 | Independent implementations agree on discovery and closure  | P6    |
 | Result independent of storage and delivery order            | P3    |

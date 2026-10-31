@@ -1,6 +1,7 @@
 # UIA-CORE-001 — Implementation Reference
 
-**Status:** Evidence-backed description of the repository as of commit `9425d3f` (plus the Task 16 documentation commit).
+**Status:** Evidence-backed description of the code, reconciled at commit `f478d5c`.
+**Repository state** — stage, conformance status, readiness and open decisions — is maintained in [`STATUS.md`](../STATUS.md); this document describes behavior, not progress.
 **Normative source:** [`CORE-001`](./CORE-001.md), UIA-CORE-001 Rev 0.3.3, Candidate Draft Normative.
 **Implementation plan:** [`2026-10-30-uia-core-001-implementation.md`](./superpowers/plans/2026-10-30-uia-core-001-implementation.md), Rev E.
 **Package:** `uia-core-001-refimpl` 0.1.0.
@@ -211,7 +212,7 @@ Normative codes (`UiaErrorCode`, exactly eight):
 Mechanism codes (`ImplementationErrorCode`, nine):
 `S_SELECTOR_INCOMPATIBLE_SCHEME`, `E_VERSION_LABEL_INVALID`, `E_SELECTOR_SYNTAX_INVALID`, `E_APPLICABLE_ASSESSMENTS_UNBRANDED`, `E_TEMPORAL_FIELD_REF_INVALID`, `E_CANONICALIZATION_UNSUPPORTED`, `E_OWNERSHIP_UNSUPPORTED`, `E_JSON_VALUE_INVALID`, `E_UNKNOWN_BOUNDARY_REJECTED`.
 
-The split is architectural: a wrong selector scheme is not a statement about a participant, and an unbranded assessment set is not a protocol state. Helpers `isOk`, `isFailure`, `specFailure` and `mechanismFailure` are exported. `PARENT_UNRESOLVED` and `CYCLE_DETECTED` exist as normative codes. After T18-02A, `PARENT_UNRESOLVED` is emitted by the experimental reference adapter and admitted by Core; `CYCLE_DETECTED` remains unemitted because C-2 is BLOCKED.
+The split is architectural: a wrong selector scheme is not a statement about a participant, and an unbranded assessment set is not a protocol state. Helpers `isOk`, `isFailure`, `specFailure` and `mechanismFailure` are exported. `PARENT_UNRESOLVED` and `CYCLE_DETECTED` exist as normative codes. After T18-02A, `PARENT_UNRESOLVED` is emitted by the experimental reference adapter and admitted by Core. `CYCLE_DETECTED` is emitted at the binding level (any path through a cyclic strongly connected component fails validation), but no Assessment records that claim, because C-2 is BLOCKED.
 
 ### 1.9 Runtime portability
 
@@ -1479,7 +1480,7 @@ Recursive closure — applying `ALL_BRANCHES_MUST_SATISFY` transitively inside p
 
 The §12 corpus has 18 cases: A-1…A-5, B-1…B-7, C-1, C-2, D-1…D-4.
 
-**Current status: 16 cases are implemented and passing; 2 cases (C-1, C-2) are `test.todo` and are not conformance evidence.** No document, commit message or report may claim full §12 conformance.
+**Current status: 17 cases are implemented and passing; 1 case (C-2) is `test.todo` and is not conformance evidence.** C-1's assessment emission exists since T18-02A (`src/adapters/orphan-assessment.ts`) and its two tests pass; the Task 17 audit still records C-1 as NOT COVERED, and a re-audit is required before that status changes — see [`STATUS.md`](../STATUS.md). No document, commit message or report may claim full §12 conformance.
 
 ### 4.2 Category A — `tests/conformance/a.test.ts`
 
@@ -1512,30 +1513,36 @@ Describe blocks: `§12 Category B: conditional binding and traversal (Task 9 sub
 
 ### 4.4 Category C — `tests/conformance/c.test.ts`
 
-| Case | Spec | Test | Status |
-| --- | --- | --- | --- |
-| C-1 | §11.1, §12 C-1 | `test.todo('C-1 orphan ingestion records PARENT_UNRESOLVED in an Assessment (Task 8)')`; :10 | **todo — not conformance evidence** |
-| C-2 | §11.2, §12 C-2 | `test.todo('C-2 cycle detection records CYCLE_DETECTED and suppresses dependent grants (Tasks 8–9)')`; :11 | **todo — not conformance evidence** |
+| Case | Spec | Test (name; line) | Behaviour asserted | Status |
+| --- | --- | --- | --- | --- |
+| C-1 | §11.1, §12 C-1 | `C-1 orphan ingestion records PARENT_UNRESOLVED in an Assessment`; :38 | `emitOrphanAssessment` registers exactly one Assessment whose `unverified_claims` is `['PARENT_UNRESOLVED']` and whose `parent_version_ids` is the full declared set `['iv-a','iv-b']`; the graph's `unresolvedParents` still reports `iv-b`; the graph JSON is byte-identical after emission; the registered array is frozen | pass |
+| C-1 (resolved) | §12 C-1 | `C-1 resolved parent produces no PARENT_UNRESOLVED Assessment`; :54 | a graph with both parents present registers no Assessment and reports no unresolved parent | pass |
+| C-2 | §11.2, §12 C-2 | `test.todo('C-2 cycle detection records CYCLE_DETECTED and suppresses dependent grants (Tasks 8–9)')`; :66 | **todo — not conformance evidence** | todo |
 
-Why they remain open: §12 C-1 requires an Assessment that records `PARENT_UNRESOLVED`, and C-2 requires an Assessment that records `CYCLE_DETECTED` plus suppression of dependent grants. The repository has no API that creates such an Assessment from graph state, and it has no grant API by design, so "suppresses dependent grants" has no referent yet. This needs a design decision, not a test edit.
+**Audit status (Task 17).** The two C-1 tests exist and pass, but Task 17 recorded C-1 as NOT COVERED because at that commit no Assessment recorded `PARENT_UNRESOLVED`. The evidence postdates the audit (T18-02A, `docs/audits/2026-10-31-core-001-task-18/aebe/C-1.md`), so the case awaits a re-audit revision; this table describes the tests, not the audit status.
+
+Why C-2 remains open: §12 C-2 requires an Assessment that records `CYCLE_DETECTED` **and** suppression of dependent grants. Binding-level traversal already reports `CYCLE_DETECTED`, but no Assessment records the claim, and the repository has no grant API by design, so "suppresses dependent grants" has no referent yet. This needs a normative decision on the C-2 subject model, not a test edit.
 
 **Partial, non-substitute coverage.** `tests/unit/lineage-graph.test.ts` asserts graph-level facts that C-1/C-2 depend on:
 
 - `delayed parents (graph-level C-1)` → `preserves an orphan and resolves it in a newly built graph` (:144): the orphan is preserved, the link is retained, `unresolvedParents` is populated, and a later graph resolves it.
 - `cycles (graph-level C-2)` → `detects V1 <-> V2 and keeps declarations readable` (:173): the cycle is detected exactly, declarations are preserved, no throw, and structural queries still answer.
 
-These are **not** C-1/C-2 conformance assertions: they do not create an Assessment, do not record a claim, and do not exercise grant suppression. They must never be cited as closing C-1 or C-2.
+These are **not** C-2 conformance assertions, and they are not C-1 evidence either: they do not create an Assessment and do not record a claim. C-1's evidence is the adapter test above; the graph-level facts here are supporting context only.
 
 ### 4.5 Category D — `tests/conformance/d.test.ts`
 
 | Case | Spec | Test (name; line) | Behaviour asserted | Status |
 | --- | --- | --- | --- | --- |
-| D-1 | §1.3, §3.3, §13 #5, §12 D-1 | `D-1 rt-1 failure is separate and rt-2 continues RUNNING`; :141 | `rt-1` failure recorded as a separate event; `rt-2` `RUNNING`; registry and descriptors byte-identical; identity and credential unchanged; usage result unchanged; `rt-1` state still `RUNNING` | pass |
-| D-2 | §6.3, §9, §13 #8, §12 D-2 | `D-2 later revocation and superseding assessment leave the Local Acceptance intact`; :172 | acceptance and supporting assessment byte-identical; ledger snapshot unchanged; supersession history keeps both records in order; fresh evaluation returns `INVALID` while the stored Local Acceptance record, its supporting assessment and the ledger remain unchanged; descriptor and credential unchanged | pass |
-| D-3 | §4.4.1, §10.2, §12 D-3 | `D-3 retrospective confirmed compromise invalidates only the compromised claim`; :48 | `VERIFIED`, `PERMITTED`, historical `INVALID`, `claim_status: CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE`; credential and revocation byte-identical and frozen | pass |
-| D-3 (untrusted) | §4.4.1, §10.1 | `D-3 does not infer invalidity when either timestamp is untrusted`; :64 | `TEMPORAL_TRUST_UNTRUSTED` with `fields:['SIGNED_AT']`; no `claim_status`; not `INVALID` | pass |
-| D-3 (evidence gate) | §4.4.1 | `D-3 evidence gate rejection yields CONTESTED_COMPROMISED, not INVALID`; :96 | `CONTESTED_COMPROMISED`; no `claim_status` | pass |
-| D-4 | §4.4.1, §12 D-4 | `D-4 unknown compromise time is contested and never inferred from revoked_at`; :103 | `CONTESTED_COMPROMISED`; no claim status; no `compromise_effective_at` in `temporal`; acceptance policy not called; record has no inferred time | pass |
+| D-1 | §1.3, §3.3, §13 #5, §12 D-1 | `D-1 rt-1 failure is separate and rt-2 continues RUNNING`; :198 | `rt-1` failure recorded as a separate event; `rt-2` `RUNNING`; registry and descriptors byte-identical; identity and credential unchanged; usage result unchanged; `rt-1` state still `RUNNING` | pass |
+| D-2 | §6.3, §9, §13 #8, §12 D-2 | `D-2 later revocation and superseding assessment leave the Local Acceptance intact`; :229 | acceptance and supporting assessment byte-identical; ledger snapshot unchanged; supersession history keeps both records in order; fresh evaluation returns `INVALID` while the stored Local Acceptance record, its supporting assessment and the ledger remain unchanged; descriptor and credential unchanged | pass |
+| D-3 | §4.4.1, §10.2, §12 D-3 | `D-3 retrospective confirmed compromise invalidates only the compromised claim`; :49 | `VERIFIED`, `PERMITTED`, historical `INVALID`, `claim_status: CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE`; credential and revocation byte-identical and frozen | pass |
+| D-3 (untrusted) | §4.4.1, §10.1 | `D-3 does not infer invalidity when either timestamp is untrusted`; :65 | `TEMPORAL_TRUST_UNTRUSTED` with `fields:['SIGNED_AT']`; no `claim_status`; not `INVALID` | pass |
+| D-3 (evidence gate) | §4.4.1 | `D-3 evidence gate rejection yields CONTESTED_COMPROMISED, not INVALID`; :97 | `CONTESTED_COMPROMISED`; no `claim_status` | pass |
+| D-4 | §4.4.1, §12 D-4 | `D-4 unknown compromise time is contested and never inferred from revoked_at`; :104 | `CONTESTED_COMPROMISED`; no `claim_status`; no `compromise_effective_at` in `temporal`; acceptance policy not called; record has no inferred time | pass |
+| D-4 (future authorization) | §4.4.1 | `D-4 contested history does not become an automatic future authorization decision`; :159 | the policy callback is invoked once with the historical context; `REQUIRES_ASSESSMENT` is returned as a policy outcome, not as a grant; no `grant` property | pass |
+
+**Audit status (Task 17), which this table does not replace.** D-3 is PASS. D-1 and D-4 are PARTIAL: D-1's event separation and descriptor immutability are proven, but independent execution is not observable within CORE-001; for D-4 the contested result and the policy-callback boundary are proven, but §12 D-4's second MUST (that a contested history is not a sufficient basis for future authorization) is not asserted — the test proves only that a policy outcome is not an execution authorization. D-2 is BLOCKED because the normative object is a Ruling owned by CORE-004 and the test substitutes a Local Acceptance record. The assertions above are what the tests prove; they do not upgrade a case to PASS.
 
 ### 4.6 Property tests
 
@@ -1816,17 +1823,19 @@ Run from the repository root:
 
 | Command | Result |
 | --- | --- |
-| `bun test` (`npm test`) | 511 tests across 24 files: **507 pass, 4 todo, 0 fail**, 3283 `expect()` calls |
+| `bun test` (`npm test`) | all suites green; test counts belong to a commit, not to this document — run it, and see [`STATUS.md`](../STATUS.md) for the count recorded at the last reconciliation |
 | `npm run lint` | pass (no output) |
 | `npm run typecheck` | pass (`tsc --noEmit` for `tsconfig.json` and `tsconfig.core.json`) |
 | `npm run build` | pass (`tsc -p tsconfig.build.json`) |
 | `npm run format:check` | pass |
 
-The four todos are: C-1 and C-2 in `tests/conformance/c.test.ts`, and one recursive-closure expectation plus one origin-closure expectation in `tests/experimental/`.
+The three todos are: C-2 in `tests/conformance/c.test.ts`, and one recursive-closure expectation plus one origin-closure expectation in `tests/experimental/`.
 
 ### 9.2 `format:check` does not cover this file
 
 `.prettierignore` contains `docs/`, so `prettier --check .` does not inspect `docs/implementation.md` (or any other document under `docs/`). A passing `format:check` therefore says nothing about the formatting of this document. There is no Markdown linter configured in the repository. The document was written to the repository's existing Markdown style by hand.
+
+Test line references in §4 (`:38`, `:198`, …) are relative to the commit stated in the header and are not machine-checked: inserting one test shifts every later reference. Treat the test **name** as the anchor and the line as navigation. The same applies to line references in the audit artifacts, which are anchored to their own audited commit.
 
 ### 9.3 Discrepancies between the approved plan and the merged code
 
@@ -1847,20 +1856,13 @@ These are reported, not reconciled by changing code or this document's descripti
 13. `ImplementationErrorCode` has nine codes; `canonical.ts` also exports `canonicalSha256`.
 14. The plan's Task 12 lists properties 1–9 while its coverage map says "Properties 1–8". The code implements P1–P9.
 
-### 9.4 Repository documentation drift (follow-up, not fixed here)
+### 9.4 Repository documentation drift
 
-At the PR base commit `9425d3f`, `docs/ARCHITECTURE.md` is internally inconsistent about modules that already exist:
-
-- §3 module map lists `core/temporal.ts` and `core/ledger.ts` as **Implemented** (lines 84 and 88), and §4.1 states that temporal trust and the in-memory ledger already exist.
-- §5 row A7 still says four trust outcomes are **Target / Planned `credential.ts` and temporal model** (line 157).
-- §8 is still titled **Temporal model (target)** and says the model "is planned with the credential module" (lines 189–191).
-- §9 still lists "the planned in-memory `core/ledger.ts`" (line 206).
-
-So the module map and §4.1 are current, while A7, §8 and one §9 row were not updated. Updating that overview is a separate documentation task. It is not part of Task 16, and this document does not silently substitute for it.
+Recorded as `D-007` in the Task 17 register and dispositioned as `T18-12` (documentation reconciliation); `docs/ARCHITECTURE.md` is the reconciled description.
 
 ### 9.5 What remains unverified
 
-- C-1 and C-2 have no assertion-level conformance evidence.
+- C-2 has no assertion-level conformance evidence. C-1 now has two passing tests (T18-02A), but its audit status is still NOT COVERED pending a re-audit revision; C-1's retention/publication ownership is also unresolved.
 - Recursive closure and origin closure are blocked interpretations.
 - Default conflict detection is absent.
 - Timestamp trust has no in-repo mechanism.

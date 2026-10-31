@@ -104,7 +104,7 @@ Implemented so far:
 - IdentityVersion descriptor types with structural validation: required fields and enum values, strict JSON, unknown-field rejection, and an owned, deep-frozen copy.
 - Entity constructors for §3–§5 — Participant, IdentityVersion, RuntimeInstance, Credential and Lineage records — all owned and deeply frozen.
 - Structural lineage validation (§5.2): per-relation cardinality, distinct merge parents, the `CONTINUATION` same-participant constraint, and self-parent rejection, covered by the A-1…A-5 conformance cases.
-- Lineage graph construction: preserved declarations, delayed-parent resolution with `unresolvedParents`, and deterministic strongly connected component cycle detection (graph-level C-1/C-2; binding-level recording remains open).
+- Lineage graph construction: preserved declarations, delayed-parent resolution with `unresolvedParents`, and deterministic strongly connected component cycle detection (graph-level C-1/C-2 facts; an Assessment recording `PARENT_UNRESOLVED` is emitted by the experimental reference adapter, while an Assessment recording `CYCLE_DETECTED` remains BLOCKED with C-2).
 - Continuity assessments: edge-bound applicability, policy narrowing without expansion, trusted-assessor filtering, spec-literal unverified-claim semantics, explicit-only `CONTESTED`, and copy-on-write supersession.
 - Conditional version binding and three-phase traversal (§8): scope-filtered path discovery, per-path validation, and immediate merge closure over every direct parent edge of merge nodes on a path.
 - §12 B-series conformance (B-1…B-7), including per-path outcomes and the trusted-assessor refusal in B-5.
@@ -116,11 +116,12 @@ Implemented so far:
 - Version label validation: strict SemVer 2.0.0 for `SEMVER_2`, non-empty labels for `CONTENT_HASH` and `OPAQUE_TAG` (no format or ordering inferred).
 - The versioned `uia-ref-selector@1` mechanism — exact match, wildcard, comparators, `&&` composition — with factory-provenance checks on compiled selectors.
 
-Still to come:
+Still open:
 
-- The remaining §12 conformance corpus (C-1/C-2).
+- §12 C-2: an Assessment recording `CYCLE_DETECTED`, plus grant suppression. Grant suppression belongs to CORE-003 and is BLOCKED, so the case cannot close here.
+- The normative questions that the audits record as OPEN or BLOCKED (`A-4b`, `A-5`, `A-9`, `A-11`) — see `STATUS.md`.
 
-Implementation progress is tracked task by task in the implementation plan. Not every capability described in the specification is necessarily implemented in the current repository state.
+Current conformance status, readiness and the open decisions are maintained in [`STATUS.md`](STATUS.md); the audit trail behind those numbers is in [`docs/audits/`](docs/audits/). Not every capability described in the specification is implemented in the current repository state.
 
 ## Getting started
 
@@ -129,7 +130,7 @@ Requirements: Bun 1.4.x.
 ```bash
 bun install
 
-bun test              # unit tests (bun:test)
+bun test              # all suites: unit, conformance, property, experimental (bun:test)
 bun run typecheck     # tsc, including the runtime-free core configuration
 bun run lint          # eslint
 bun run format:check  # prettier, check only (bun run format writes)
@@ -138,12 +139,15 @@ bun run build         # emit ./build
 
 Repository layout:
 
-| Path           | Contents                                                          |
-| -------------- | ----------------------------------------------------------------- |
-| `src/core/`    | Runtime-independent domain core — no `node:*`, no `bun:*` imports |
-| `src/index.ts` | Public API barrel                                                 |
-| `tests/unit/`  | Unit suites (`bun:test`)                                          |
-| `docs/`        | Normative specification, PRD, implementation plan                 |
+| Path            | Contents                                                                      |
+| --------------- | ----------------------------------------------------------------------------- |
+| `src/core/`     | Runtime-independent domain core — no `node:*`, no `bun:*` imports             |
+| `src/adapters/` | Experimental reference adapters, outside the core semantics                   |
+| `src/index.ts`  | Public API barrel                                                             |
+| `tests/`        | Unit, conformance (§12), property and experimental suites (`bun:test`)        |
+| `docs/`         | Normative specification, PRD, architecture, roadmap, implementation reference |
+| `docs/audits/`  | Dated conformance audits, dispositions and decision registers                 |
+| `STATUS.md`     | Current stage, conformance status, readiness and open decisions               |
 
 ## Technology
 
@@ -163,15 +167,17 @@ Runtime dependencies: none.
 
 ## Documentation
 
-| Document                                                                                | Question it answers                                                        |
-| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `README.md`                                                                             | What is this project and why does it exist?                                |
-| `docs/PRD.md`                                                                           | What problem are we solving, for whom, and what should the project become? |
-| `docs/CORE-001.md`                                                                      | Which semantic and technical contracts are implemented?                    |
-| `docs/ARCHITECTURE.md`                                                                  | How is the implementation structured, and where are its boundaries?        |
-| `docs/THREAT-MODEL.md`                                                                  | What do we protect, from whom, and what remains unmitigated?               |
-| `docs/ROADMAP.md`                                                                       | In what order do the protocol and the implementation develop?              |
-| [Implementation plan](docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md) | Which implementation tasks remain?                                         |
+| Document                                                                                | Question it answers                                                                     |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `README.md`                                                                             | What is this project and why does it exist?                                             |
+| `STATUS.md`                                                                             | Where is the project today — stage, conformance status, readiness, open decisions?      |
+| `docs/PRD.md`                                                                           | What problem are we solving, for whom, and what should the project become?              |
+| `docs/CORE-001.md`                                                                      | Which semantic and technical contracts are implemented?                                 |
+| `docs/ARCHITECTURE.md`                                                                  | How is the implementation structured, and where are its boundaries?                     |
+| `docs/THREAT-MODEL.md`                                                                  | What do we protect, from whom, and what remains unmitigated?                            |
+| `docs/ROADMAP.md`                                                                       | In what order do the protocol and the implementation develop?                           |
+| `docs/audits/`                                                                          | What was audited at which commit, what was found, and how is each gap dispositioned?    |
+| [Implementation plan](docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md) | Which implementation tasks were planned, and which PR closed each (historical tracker)? |
 
 The normative specification and implementation are deliberately kept separate.
 
@@ -199,7 +205,11 @@ Related concerns may be addressed by separate specifications.
 
 The normative specification is currently a Candidate Draft Normative document.
 
-The reference implementation is being developed incrementally. Unit, A/B/D conformance and property suites exist today; the C-1/C-2 conformance cases are not yet present. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
+The reference implementation is built incrementally and passes its own unit, conformance and property suites; the §12 corpus is implemented except C-2, which is BLOCKED.
+
+Conformance is **not** established as a whole, and the repository is **NOT READY** for a frozen baseline. The assertion-level audit found no normative violation, but not every requirement passed: Task 18 dispositioned the non-PASS items into decisions, evidence tasks and cross-spec boundaries, and most of those decisions are still OPEN. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
+
+Current numbers, readiness and the open decisions live in [`STATUS.md`](STATUS.md). This README deliberately does not duplicate them: a count that appears in two places is a count that will be wrong in one of them. The evidence behind the verdicts is in [`docs/audits/`](docs/audits/).
 
 ## Design philosophy
 
