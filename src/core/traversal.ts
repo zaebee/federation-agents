@@ -169,10 +169,10 @@ function reachableToOrigin(
     if (!relationAllowed(scope, edge.relation)) {
       continue;
     }
+    // Duplicate entries are harmless: `reachable` prevents a node from being
+    // queued twice, and total work stays linear in the number of edges.
     const children = reverse.get(edge.parent) ?? [];
-    if (!children.includes(edge.child)) {
-      children.push(edge.child);
-    }
+    children.push(edge.child);
     reverse.set(edge.parent, children);
   }
 
@@ -345,20 +345,37 @@ function validationValue(value: PathValidation): Result<PathValidation> {
   return { ok: true, value: deepFreeze(value) as PathValidation };
 }
 
-function cycleForPath(path: Path, graph: LineageGraph): readonly IdentityVersionID[] | undefined {
-  const nodes = new Set<IdentityVersionID>();
+type CycleIndex = ReadonlyMap<IdentityVersionID, readonly IdentityVersionID[]>;
+
+function buildCycleIndex(graph: LineageGraph): CycleIndex {
+  const index = new Map<IdentityVersionID, readonly IdentityVersionID[]>();
+  for (const cycle of graph.cycles) {
+    for (const node of cycle) {
+      index.set(node, cycle);
+    }
+  }
+  return index;
+}
+
+function cycleForPath(path: Path, index: CycleIndex): readonly IdentityVersionID[] | undefined {
+  const cycles = new Set<readonly IdentityVersionID[]>();
   for (const edge of path.edges) {
-    nodes.add(edge.child);
-    nodes.add(edge.parent);
+    const childCycle = index.get(edge.child);
+    if (childCycle !== undefined) {
+      cycles.add(childCycle);
+    }
+    const parentCycle = index.get(edge.parent);
+    if (parentCycle !== undefined) {
+      cycles.add(parentCycle);
+    }
   }
 
-  const intersecting = graph.cycles.filter((cycle) => cycle.some((node) => nodes.has(node)));
-  if (intersecting.length === 0) {
+  if (cycles.size === 0) {
     return undefined;
   }
 
   const combined = new Set<IdentityVersionID>();
-  for (const cycle of intersecting) {
+  for (const cycle of cycles) {
     for (const node of cycle) {
       combined.add(node);
     }
@@ -379,12 +396,23 @@ export function validatePath(
   policy: Policy,
   ctx: TemporalContext,
 ): Result<PathValidation> {
+  return validatePathWithIndex(path, buildCycleIndex(graph), assessments, requirement, policy, ctx);
+}
+
+function validatePathWithIndex(
+  path: Path,
+  cycleIndex: CycleIndex,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<PathValidation> {
   const shape = validatePathShape(path);
   if (!shape.ok) {
     return shape;
   }
 
-  const cycle = cycleForPath(path, graph);
+  const cycle = cycleForPath(path, cycleIndex);
   if (cycle !== undefined) {
     return validationValue({ status: 'CYCLE_DETECTED', code: 'CYCLE_DETECTED', cycle });
   }
@@ -550,9 +578,17 @@ export function evaluateBinding(
 
   const accepted: Path[] = [];
   const outcomes: PathOutcome[] = [];
+  const cycleIndex = buildCycleIndex(state.graph);
 
   for (const path of discovered.value) {
-    const validation = validatePath(path, state.graph, state.assessments, binding.assurance_requirement, policy, ctx);
+    const validation = validatePathWithIndex(
+      path,
+      cycleIndex,
+      state.assessments,
+      binding.assurance_requirement,
+      policy,
+      ctx,
+    );
     if (!validation.ok) {
       return mechanismResult(asMechanism(validation.error));
     }

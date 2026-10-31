@@ -17,6 +17,7 @@ import {
   bindingFor,
   chainAssessment,
   chainState,
+  cyclePairState,
   diamondState,
   pathNodes,
   requirementFor,
@@ -35,6 +36,23 @@ function kindedFailure(result: BindingResult): Extract<BindingResult, { kind: 'M
     throw new Error('expected a kinded binding failure');
   }
   return result;
+}
+
+function cycleOutcome(result: BindingResult) {
+  expect(result.eligible).toBe(false);
+  if (result.eligible) {
+    throw new Error('expected a failed binding');
+  }
+  expect('code' in result).toBe(true);
+  if (!('code' in result)) {
+    throw new Error('expected a normative binding failure');
+  }
+  expect(result.code).toBe('CYCLE_DETECTED');
+  const outcome = result.details.perPath?.[0].outcome;
+  if (outcome?.status !== 'CYCLE_DETECTED') {
+    throw new Error('expected a CYCLE_DETECTED path outcome');
+  }
+  return outcome;
 }
 
 function diamondBinding(): ConditionalVersionBinding {
@@ -173,6 +191,25 @@ describe('discoverPaths (phase 1)', () => {
     expect(result.error.code).toBe('ERR_NO_TRAVERSAL_PATH');
   });
 
+  test('handles a high-degree reverse adjacency without quadratic deduplication', () => {
+    const origin = descriptor({ id: 'iv-origin', participant: 'participant-a', versionLabel: '1.0.0' });
+    const children = Array.from({ length: 200 }, (_, index) =>
+      descriptor({
+        id: `iv-c${index}`,
+        participant: 'participant-a',
+        versionLabel: '1.0.0',
+        lineage: [link('iv-origin', 'FORKED_FROM')],
+      }),
+    );
+    const graph = buildLineageGraph(registry([alice], [origin, ...children]));
+
+    const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId('iv-c199'), identityVersionId('iv-origin'));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(pathNodes(result.value[0])).toEqual(['iv-c199', 'iv-origin']);
+  });
+
   test('treats cycles as dead ends instead of crashing', () => {
     const v1 = descriptor({ id: 'iv-v1', participant: 'participant-a', lineage: [link('iv-v2', 'CONTINUATION')] });
     const v2 = descriptor({ id: 'iv-v2', participant: 'participant-a', lineage: [link('iv-v1', 'CONTINUATION')] });
@@ -277,6 +314,19 @@ describe('validatePath (phase 2)', () => {
     expect(result.error.code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
   });
 
+  test('detects a cycle in a standalone path through the cycle index', () => {
+    const { graph, path: cyclePath, assessment } = cyclePairState();
+
+    const result = validatePath(cyclePath, graph, [assessment], requirementFor(['OK']), EMPTY_POLICY, CTX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.status).toBe('CYCLE_DETECTED');
+    if (result.value.status !== 'CYCLE_DETECTED') return;
+    expect(result.value.code).toBe('CYCLE_DETECTED');
+    expect(result.value.cycle.map(String)).toEqual(['iv-v1', 'iv-v2']);
+  });
+
   test('rejects a non-contiguous path', () => {
     const broken: Path = {
       scope: 'FULL_ANCESTRY',
@@ -379,61 +429,45 @@ describe('evaluateBinding orchestration', () => {
     expect(result.details.perPath.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'VALID']);
   });
 
-  function cycleState() {
-    const v1 = descriptor({
-      id: 'iv-v1',
-      participant: 'participant-a',
-      versionLabel: '1.0.0',
-      lineage: [link('iv-v2', 'CONTINUATION')],
-    });
-    const v2 = descriptor({
-      id: 'iv-v2',
-      participant: 'participant-a',
-      versionLabel: '1.0.0',
-      lineage: [link('iv-v1', 'CONTINUATION')],
-    });
-    return {
-      graph: buildLineageGraph(registry([alice], [v1, v2])),
-      descriptors: [v1, v2],
-    };
-  }
-
   test('rejects a binding whose only path lies inside a cyclic SCC', () => {
-    const { graph, descriptors } = cycleState();
-    const assessments = [
-      assessmentRecord({
-        id: 'a-cycle',
-        subject: 'iv-v1',
-        parents: ['iv-v2'],
-        relation: 'CONTINUATION',
-        verified: ['OK'],
-      }),
-    ];
-    const binding = bindingFor({
-      origin: 'iv-v2',
-      selector: '>=1.0.0',
-      scope: 'CONTINUATION_ONLY',
-      claims: ['OK'],
-    });
+    const { graph, descriptors, assessment, binding } = cyclePairState();
 
     const result = evaluateBinding(
-      { graph, descriptors, assessments },
+      { graph, descriptors, assessments: [assessment] },
       binding,
       identityVersionId('iv-v1'),
       EMPTY_POLICY,
       CTX,
     );
 
-    expect(result.eligible).toBe(false);
-    if (result.eligible) return;
-    expect('code' in result).toBe(true);
-    if (!('code' in result)) return;
-    expect(result.code).toBe('CYCLE_DETECTED');
-    const outcome = result.details.perPath?.[0].outcome;
-    expect(outcome?.status).toBe('CYCLE_DETECTED');
-    if (outcome?.status !== 'CYCLE_DETECTED') return;
-    expect(outcome.code).toBe('CYCLE_DETECTED');
-    expect(outcome.cycle.map(String).sort()).toEqual(['iv-v1', 'iv-v2']);
+    expect(cycleOutcome(result).cycle.map(String).sort()).toEqual(['iv-v1', 'iv-v2']);
+  });
+
+  test('reports only the SCC that intersects the path', () => {
+    const pair = cyclePairState();
+    const v3 = descriptor({
+      id: 'iv-v3',
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-v4', 'CONTINUATION')],
+    });
+    const v4 = descriptor({
+      id: 'iv-v4',
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-v3', 'CONTINUATION')],
+    });
+    const graph = buildLineageGraph(registry([alice], [pair.v1, pair.v2, v3, v4]));
+
+    const result = evaluateBinding(
+      { graph, descriptors: [pair.v1, pair.v2, v3, v4], assessments: [pair.assessment] },
+      pair.binding,
+      identityVersionId('iv-v1'),
+      EMPTY_POLICY,
+      CTX,
+    );
+
+    expect(cycleOutcome(result).cycle.map(String)).toEqual(['iv-v1', 'iv-v2']);
   });
 
   test('aggregates mixed CYCLE_DETECTED and CONTESTED paths as CYCLE_DETECTED', () => {

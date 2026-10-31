@@ -170,3 +170,56 @@ export function diamondState(): {
     ],
   };
 }
+
+export function cyclePairState(): {
+  v1: ReturnType<typeof descriptor>;
+  v2: ReturnType<typeof descriptor>;
+  graph: LineageGraph;
+  descriptors: ReturnType<typeof descriptor>[];
+  assessment: ContinuityAssessment;
+  binding: ConditionalVersionBinding;
+  path: Path;
+} {
+  const alice = participant('participant-a');
+  const v1 = descriptor({
+    id: 'iv-v1',
+    participant: 'participant-a',
+    versionLabel: '1.0.0',
+    lineage: [link('iv-v2', 'CONTINUATION')],
+  });
+  const v2 = descriptor({
+    id: 'iv-v2',
+    participant: 'participant-a',
+    versionLabel: '1.0.0',
+    lineage: [link('iv-v1', 'CONTINUATION')],
+  });
+  return {
+    v1,
+    v2,
+    graph: buildLineageGraph(registry([alice], [v1, v2])),
+    descriptors: [v1, v2],
+    assessment: assessmentRecord({
+      id: 'a-cycle',
+      subject: 'iv-v1',
+      parents: ['iv-v2'],
+      relation: 'CONTINUATION',
+      verified: ['OK'],
+    }),
+    binding: bindingFor({
+      origin: 'iv-v2',
+      selector: '>=1.0.0',
+      scope: 'CONTINUATION_ONLY',
+      claims: ['OK'],
+    }),
+    path: {
+      scope: 'CONTINUATION_ONLY',
+      edges: [
+        {
+          child: identityVersionId('iv-v1'),
+          parent: identityVersionId('iv-v2'),
+          relation: 'CONTINUATION',
+        },
+      ],
+    },
+  };
+}
