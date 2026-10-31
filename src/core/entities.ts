@@ -94,7 +94,7 @@ const LINEAGE_FIELDS: readonly string[] = [
   'continuity_proof_ref',
 ];
 
-const VERSION_SCHEMES: readonly VersionScheme[] = ['SEMVER_2', 'CONTENT_HASH', 'OPAQUE_TAG'];
+export const VERSION_SCHEMES: readonly VersionScheme[] = ['SEMVER_2', 'CONTENT_HASH', 'OPAQUE_TAG'];
 
 const CREDENTIAL_USAGES: readonly CredentialUsage[] = ['AUTHENTICATION', 'SIGNING', 'ENCRYPTION'];
 

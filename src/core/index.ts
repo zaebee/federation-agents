@@ -8,3 +8,14 @@ export * from './canonical.js';
 export * from './sha256.js';
 export * from './entities.js';
 export * from './hashing.js';
+
+export { validateVersionLabel } from './version-scheme.js';
+export type { SemVer, VersionLabel } from './version-scheme.js';
+
+export {
+  InvalidCompiledSelectorError,
+  SELECTOR_MECHANISM_VERSION,
+  compileSelector,
+  selectorMatches,
+} from './selector.js';
+export type { CompiledSelector, SelectorComparator, SelectorOperator } from './selector.js';
