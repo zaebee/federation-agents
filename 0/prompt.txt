@@ -1,0 +1,192 @@
+Я уже проверил PR #41, оба коммита, полный список из 16 изменённых файлов, diff, обсуждения, review threads и AEBE.
+
+Текущий статус PR: открыт, mergeable, base main (f9b7749), head 5faa947. Gemini оставил два замечания — обработка исключения assessmentIdFor и запрет пустых строк в claims/evidence. Оба исправлены в последнем коммите, соответствующие threads закрыты. Sonar Quality Gate прошёл: 0 новых issues и 0 security hotspots. PR #41.
+
+Но успешные тесты и закрытые замечания ботов ещё не доказывают корректность admission boundary. Я проверяю именно её, а также ownership и immutability.
+Аудит PR #41 — T18-02A
+REQUEST CHANGES
+CI PASSED
+Sonar Quality Gate PASSED
+
+Общая оценка: архитектурно реализация хорошая. Большая часть утверждённого плана выполнена. Но я нашёл один дефект на границе владения состоянием и несколько замечаний к полноте audit evidence. До исправления я бы не рекомендовал merge.
+1. Findings
+F-01. No-op adapter path обходит Core admission и возвращает mutable state
+P2 — исправить до merge
+Файл: src/adapters/orphan-assessment.ts:127–128
+
+Сейчас:
+if (candidates.length === 0) {
+  return { ok: true, value: { assessments: [], registered: request.existing } };
+}
+
+
+Это обход Core admission.
+
+В результате:
+- registered ссылается непосредственно на массив вызывающей стороны;
+- массив и содержащиеся в нём объекты могут оставаться mutable;
+- исходный массив не копируется;
+- существующие записи не проходят даже проверку duplicate IDs;
+- поведение отличается от обычного успешного пути, где Core возвращает новую frozen representation.
+Причём тест явно закрепляет aliasing:
+expect(result.value.registered).toBe(existing);
+
+
+Это противоречит выбранной модели владения: Core должен возвращать immutable registered representation.
+
+Предлагаемое исправление:
+
+Не обходить Core при пустом batch. Вызвать:
+const admitted = registerOrphanAssessments(
+  candidates,
+  request.graph,
+  request.existing,
+);
+
+
+Даже когда candidates пустой. admitAssessments уже умеет копировать и замораживать существующее состояние.
+
+Дополнительно заморозить результирующий OrphanAssessmentEmission.
+
+Нужен тест:
+1. Передать mutable existing с mutable Assessment.
+2. Вызвать адаптер для графа без orphan.
+3. Изменить исходный массив и Assessment.
+4. Убедиться, что возвращённый registered не изменился.
+5. Проверить Object.isFrozen массива и вложенных объектов.
+Это не просто косметика: сейчас результат публичного API зависит от того, нашёл ли адаптер хотя бы один orphan.
+F-02. AEBE содержит устаревшие результаты тестирования
+P2 — исправить документацию
+Файл: aebe/C-1.md:135–147
+
+В AEBE записано:
+548 pass
+3 todo
+0 fail
+3395 expect() calls
+
+
+Но CI на актуальном merge commit 4ccf4bb сообщает:
+549 pass
+3 todo
+0 fail
+3400 expect() calls
+Ran 552 tests across 26 files.
+
+
+Это подтверждается GitHub Actions, а не только текстом PR.
+
+Похоже, после Gemini review добавились тесты, но AEBE не обновили.
+
+Исправление: зафиксировать актуальный HEAD 5faa947 и фактические результаты CI. AEBE должен однозначно указывать revision, на котором получены результаты.
+F-03. T18-DEC-15: поле Resolution всё ещё неудачно названо
+P3 — документационное уточнение
+Файл: decision-register.md:20,36
+
+В таблице по-прежнему есть колонка Resolution, а в ней:
+OPTION-B-LOCAL (local implementation choice/disposition)
+
+
+Статус правильно оставлен OPEN, а пояснение в §3 тоже правильное.
+
+Но мы специально договорились не использовать термин resolution для локального выбора, чтобы не создавать впечатление нормативного разрешения.
+
+Предлагаю для этой записи использовать Local implementation disposition либо изменить значение на OPTION-B-LOCAL (non-normative).
+
+Не блокирует реализацию, но лучше устранить неоднозначность сейчас.
+
+2. Проверка архитектуры
+Здесь результаты в основном положительные.
+Область	Результат	Комментарий
+Generic Assessment validation	PASS	Runtime validation, неизвестные поля, malformed structures
+Generic registration	PASS	PARENT_UNRESOLVED не проходит generic path
+C-1 contextual validation	PASS	Проверяется полный набор родителей и наличие unresolved
+MERGED_FROM mixed parents	PASS	Разрешённый и отсутствующий родитель корректно представлены вместе
+Declaration-scoped semantics	PASS	assessEdge не изменён; отдельный тест
+Graph provenance	PASS	WeakSet, builder-issued graph, manual graph rejected
+Registry limitation	PASS	Duplicate-ID поведение задокументировано
+Batch admission	PASS	Duplicate IDs, supersession targets, cycles
+Callback failure	PASS	Исключение обрабатывается, Core не вызывается
+Publication boundary	PASS	Не реализована, ownership остаётся OPEN
+Grant-producing API	PASS	Новые exports не добавляют grant API
+
+Особенно хорошо реализовано разделение трёх свойств графа:
+1. Builder provenance.
+2. Structural validity.
+3. Descriptor validity.
+isBuiltLineageGraph подтверждает только первое. И код, и документация не утверждают, что это автоматически доказывает нормативную корректность Registry.
+
+Это правильное решение.
+3. Отдельно о Core admission
+В assessment.ts я проверил:
+- validateContinuityAssessment;
+- validateOrphanAssessment;
+- registerOrphanAssessments;
+- admitAssessments;
+- сохранение supersession history.
+Основной алгоритм корректен:
+1. Все кандидаты проходят generic validation.
+2. Все кандидаты проходят C-1 contextual validation.
+3. Проверяются ID и supersession-связи на полном prospective state.
+4. Только после этого возвращается новая frozen representation.
+При ошибке исходный existing не изменяется.
+
+Есть одно архитектурное ограничение, которое стоит помнить: Core contextual validator проверяет именно C-1 семантику. Он не является универсальным валидатором всех возможных Claims в Assessment. Остальные Claims остаются частью модели доверия к Assessment и локальной политики. Это соответствует текущей архитектуре, но не следует описывать admission как полную семантическую верификацию документа.
+4. CI и Sonar
+GitHub Actions
+Workflow
+SUCCESS
+
+Run 41198781046 · Bun 1.4.2
+Проверка	Результат
+Lockfile	PASS
+Format	PASS
+Lint	PASS
+Typecheck	PASS
+Tests	549 PASS, 3 TODO
+Build	PASS
+
+
+Sonar Quality Gate
+Quality Gate
+PASSED
+
+- 0 новых issues
+- 0 accepted issues
+- 0 security hotspots
+- 0.0% coverage on new code
+- 0.0% duplication on new code
+
+Отдельно отмечу 0.0% coverage on new code: это метрика Sonar, а не утверждение, что тестов нет. В CI тесты есть и проходят. Но покрытие нового кода Sonar сейчас не подтверждает — вероятно, coverage report не интегрирован в анализ. Не стал бы трактовать Quality Gate как доказательство coverage.
+5. Scope и нормативная чистота
+PASS
+Проверил список изменённых файлов:
+- 16 файлов;
+- 1501 добавление;
+- 83 удаления.
+В изменениях отсутствуют:
+- docs/CORE-001.md;
+- файлы Task 17;
+- C-2 implementation;
+- публикация, outbox или delivery;
+- grant-producing API.
+T18-DEC-15 остался OPEN. Task 17 rollups не переписаны. AEBE явно отделяет новую реализационную evidence от исторического conformance audit.
+
+Это важно: реализация не пытается задним числом объявить C-1 закрытым в Task 17.
+
+6. Итоговый вердикт
+REQUEST CHANGES
+Я бы отправил Claude три замечания, из которых два требуют исправления до merge:
+Finding	Priority	Действие
+F-01 — no-op bypass / mutable alias	P2	Исправить код и добавить тест
+F-02 — устаревший AEBE count	P2	Обновить revision и результаты
+F-03 — Resolution terminology	P3	Уточнить документацию
+
+Моя оценка: архитектурная часть T18-02A реализована хорошо. Я не обнаружил нарушения выбранной модели ownership, автоматического наследования authority или изменения нормативного CORE-001. Но F-01 затрагивает Global Constraint 5 и контракт Core-owned immutable representation — оставлять его нельзя.
+
+Ссылки:
+- PR #41
+- Изменения adapter
+- Изменения Core Assessment
+- AEBE C-1
+Я не отправлял review в GitHub и ничего не менял в репозитории. Могу подготовить короткий corrective prompt для Claude, чтобы он исправил F-01–F-03 без повторного архитектурного планирования.
