@@ -1,0 +1,31 @@
+### Medium finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md:76-80`
+
+In the T18-01 package (`remediation-branch-map.md`), T18-02A/B are the PATH-A **Core** emission tasks and T18-02C is the PATH-B **adapter** task, which is the path that was approved. This Change reuses the IDs T18-02A/B for adapter work and retires T18-02C, claiming its scope 'has been split into T18-02A and T18-02B'. The same task ID now means different things in historical and current docs, and the selected path's own task is described as 'not selected'. Keep T18-02C as the adapter task (split it into C-1/C-2 sub-tasks if needed), or explicitly record the renumbering in the reconciliation notes. 
+---
+### Medium finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-register.md:48-56`
+
+The canonical record (register §3) says only that the adapter owns Assessment **construction**, and that publication/retention 'remain separate responsibilities'. Yet `remediation-roadmap.md` §2/§4 and `reconciliation-notes.md` §6 say the adapter 'constructs/registers', and the README says 'constructs' only. The register's own DEC-02 question asks about 'construction and registration/publication', so whether registration was decided is now ambiguous. Restate the scope once, precisely, and have the other files point to it instead of paraphrasing. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md:82-84`
+
+The validation-enforcement rule (enforced on every registration path, inside `registerAssessment` or a guarded API, old API not a bypass) and the PATH-B/`VAL-CORE-CONSTRUCTION` correction are each written out in full in several sections: register §3 and its 'Path correction' subsection, roadmap §2 and §4 'Validation enforcement', AEBE item 5, and reconciliation notes §6–§7. Meanwhile the notes declare register §3 the canonical record. This duplication already caused the drift flagged above. Keep the full text only in the register and use short cross-references elsewhere. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/README.md:81-86`
+
+The approval was propagated incompletely. README §3 (line 64) still says implementation work 'is conditional on a decision that establishes CORE-001 ownership', which contradicts the approved adapter ownership. `disposition-matrix.md` rows N-138/N-143 still say 'Decide emission requirement/owner; then … via core or adapter, or re-audit if no requirement'. Update these rows, or note them as superseded by register §3. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/README.md:95`
+
+T18-02C's status is described three different ways across the edited files: 'Not selected' (README table, roadmap header, mermaid, §7), 'inactive' (M1 milestones), and 'retired / superseded' (roadmap task table and §4). 'Not selected' implies an alternative path was rejected, while 'superseded' implies the work was split out. Pick one status value and use it everywhere. 
+---
+PTAL
