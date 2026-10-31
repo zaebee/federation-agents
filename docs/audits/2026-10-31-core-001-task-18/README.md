@@ -81,7 +81,7 @@ No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work
 ### 4.1 Approved decisions
 
 - **T18-DEC-01 — `REQ-LOCAL`:** CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` and `CYCLE_DETECTED`. This is a recording obligation; it does not assign construction/publication to Core.
-- **T18-DEC-02 — `OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation):** adapter constructs the Assessment; Core owns semantic validation and admission; the registered representation is immutable; persistent storage is caller-managed. Publication/retention remain OPEN. `T18-02A` is planning- and acceptance-eligible. See `decision-register.md` §3 for the canonical scope and enforcement.
+- **T18-DEC-02 — `OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation):** adapter constructs the Assessment; Core owns semantic validation and admission; the registered representation is immutable; persistent storage is caller-managed. DEC-02 left publication/retention **OPEN**; `T18-DEC-17` (approved 2026-10-31) subsequently assigned them to the caller boundary. `T18-02A` is planning- and acceptance-eligible. See `decision-register.md` §3 for the canonical scope and enforcement.
 - **T18-DEC-16 — C-2 subject model and Assessment shape/provenance (Option D, approved 2026-10-31):** one Assessment per affected lineage edge inside a cyclic SCC (`subject_version_id` = child, `declared_relation` = edge relation, `parent_version_ids` = `[parent]`, `CYCLE_DETECTED` in `unverified_claims`); adapter constructs, Core validates and admits, caller persists. Unblocks `T18-02B`; does not make the `T18-DEC-15` subset reading normative.
 - **T18-DEC-17 — publication and retention ownership (approved 2026-10-31):** the caller boundary owns persistence, publication and retention; the Core contract ends at the immutable admitted representation; publication/retention claims require caller evidence.
 
@@ -144,7 +144,7 @@ Decision packages may record decisions and prepare proposals. T18-06 in particul
 
 ## 7. Current readiness assessment
 
-**`NOT_READY`.** C-1 is NOT COVERED, C-2 is BLOCKED, D-2 is BLOCKED, D-1 and D-4 are PARTIAL, and independent implementation compatibility is not evidenced. This is a reporting label; it does not change Task 17 statuses.
+**`NOT_READY`.** C-1 is **PASS** (Task 17 audit revision 1, `docs/audits/2026-10-31-core-001-task-17-revision-1/`), C-2 is BLOCKED, D-2 is BLOCKED, D-1 and D-4 are PARTIAL, and independent implementation compatibility is not evidenced. This is a reporting label; it does not change Task 17 statuses.
 
 ## 8. Known Task 17 inconsistencies
 
