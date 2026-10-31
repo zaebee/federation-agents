@@ -78,10 +78,14 @@ function claimListsFailure(verified: readonly string[], unverified: readonly str
     }
   }
 
-  const verifiedSet = new Set(verified);
-  for (const claim of unverified) {
-    if (verifiedSet.has(claim)) {
-      return `Claim ${claim} must not be both verified and unverified`;
+  // Only an assessment with claims on both sides can overlap, so the Set is
+  // allocated only then (candidate validation runs per edge during traversal).
+  if (verified.length > 0 && unverified.length > 0) {
+    const verifiedSet = new Set(verified);
+    for (const claim of unverified) {
+      if (verifiedSet.has(claim)) {
+        return `Claim ${claim} must not be both verified and unverified`;
+      }
     }
   }
   return undefined;
