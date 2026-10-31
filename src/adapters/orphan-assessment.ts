@@ -124,15 +124,11 @@ export function emitOrphanAssessment(request: OrphanAssessmentRequest): Result<O
     candidates.push(buildCandidate(request, group, id.value));
   }
 
-  if (candidates.length === 0) {
-    return { ok: true, value: { assessments: [], registered: request.existing } };
-  }
-
   const admitted = registerOrphanAssessments(candidates, request.graph, request.existing);
   if (!admitted.ok) {
     return admitted;
   }
 
   const assessments = Object.freeze(admitted.value.slice(request.existing.length));
-  return { ok: true, value: { assessments, registered: admitted.value } };
+  return { ok: true, value: Object.freeze({ assessments, registered: admitted.value }) };
 }

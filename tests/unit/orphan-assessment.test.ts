@@ -94,14 +94,25 @@ describe('C-1 reference adapter', () => {
     expect(result.value.assessments[0].parent_version_ids.map(String)).toEqual(['iv-a', 'iv-b']);
   });
 
-  test('emits nothing when every declared parent is resolved', () => {
-    const existing = [assessment()];
+  test('routes an empty batch through Core admission and returns an immutable copy', () => {
+    const mutable = assessment();
+    const existing = [mutable];
     const result = emit(resolvedGraph, 'iv-d', existing, sequentialIds());
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.assessments).toEqual([]);
-    expect(result.value.registered).toBe(existing);
+    expect(result.value.registered).not.toBe(existing);
+    expect(result.value.registered).toEqual(existing);
+    expect(Object.isFrozen(result.value)).toBe(true);
+    expect(Object.isFrozen(result.value.registered)).toBe(true);
+    expect(Object.isFrozen(result.value.registered[0])).toBe(true);
+    expect(Object.isFrozen(result.value.assessments)).toBe(true);
+
+    const before = JSON.stringify(result.value.registered);
+    existing.push(assessment({ assessment_id: assessmentId('late-1') }));
+    (mutable as unknown as { unverified_claims: string[] }).unverified_claims.push('MUTATED');
+    expect(JSON.stringify(result.value.registered)).toBe(before);
   });
 
   test('emits separate assessments for the same parent in different relations', () => {
