@@ -13,7 +13,7 @@
 | A-3 | §12 A-3 | 4 | PASS | all assertions supported |
 | A-4 | §12 A-4 | 2 | PASS | all assertions supported |
 | A-5 | §12 A-5 | 3 | PASS | all assertions supported |
-| B-1 | §12 B-1 | 3 | PASS | result asserted; A-2 caveat on how `EXACT` is expressed |
+| B-1 | §12 B-1 | 3 | PASS | result asserted; AMBIG-A-2 caveat on how `EXACT` is expressed |
 | B-2 | §12 B-2 | 4 | PASS | all assertions supported |
 | B-3 | §12 B-3 | 4 | PASS | all assertions supported |
 | B-4 | §12 B-4 | 7 | PASS | closure code and per-path evidence asserted; two additional mixed-relation variants |
@@ -22,12 +22,12 @@
 | B-7 | §12 B-7 | 1 | PASS | all six permutations produce one result |
 | C-1 | §12 C-1 | 4 | NOT COVERED | Assessment with `PARENT_UNRESOLVED` absent; graph-level assertions pass separately |
 | C-2 | §12 C-2 | 5 | BLOCKED | Assessment with `CYCLE_DETECTED` absent; grant suppression is a CORE-003 boundary |
-| D-1 | §12 D-1 | 5 | PASS | all assertions supported |
+| D-1 | §12 D-1 | 5 | PARTIAL | event separation and descriptor immutability are proven; actual independent execution is not observable |
 | D-2 | §12 D-2 | 4 | BLOCKED | the normative object is a Ruling (CORE-004); the test substitutes Local Acceptance |
 | D-3 | §12 D-3 | 4 | PASS | all assertions supported; trust precondition noted in N-040 |
-| D-4 | §12 D-4 | 3 | PARTIAL | contested result and no-inference asserted; future-authorization sufficiency not asserted |
+| D-4 | §12 D-4 | 3 | PARTIAL | contested result and no-inference asserted; the mandatory policy callback is the additional assessment, but its outcome is not asserted |
 
-**Result: 14 PASS, 1 PARTIAL, 2 BLOCKED, 1 NOT COVERED.** Task 16 reported 16/18; the assertion-level audit does not support counting D-2 and D-4 as fully covered. See `registers.md` F-003 and T-004.
+**Result: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED.** Task 16 reported 16/18; the assertion-level audit does not support counting D-1, D-2 or D-4 as fully covered. See `registers.md` F-003, T-004 and T-014.
 
 Experimental tests are excluded from this matrix. `tests/experimental/nested-merge-recursion.test.ts` and `tests/experimental/origin-merge-closure.test.ts` pin BLOCKED interpretations and are not conformance evidence.
 
@@ -89,7 +89,7 @@ Test file: `tests/conformance/b.test.ts`.
 
 | Assertion | Normative expectation | Test | What the test proves | Gap | Status |
 | --- | --- | --- | --- | --- | --- |
-| `CASE-B-1.a1` | Candidate `A@1.1.0` is rejected with `ERR_AUTHORITY_BINDING_MISMATCH` | `B-1 exact anchoring rejects an otherwise bindable candidate` | exact result object | the binding is expressed as selector `=1.0.0`; A-2 remains OPEN on how `EXACT` is modelled | PASS |
+| `CASE-B-1.a1` | Candidate `A@1.1.0` is rejected with `ERR_AUTHORITY_BINDING_MISMATCH` | `B-1 exact anchoring rejects an otherwise bindable candidate` | exact result object | the binding is expressed as selector `=1.0.0`; AMBIG-A-2 remains OPEN on how `EXACT` is modelled | PASS |
 | `CASE-B-1.a2` | The original Grant is unchanged | same | state snapshot unchanged | no Grant type exists; property holds by absence within CORE-001 | PASS |
 | `CASE-B-1.a3` | No new Grant is created automatically | same | no `grant` substring; no grant API | negative surface | PASS |
 
@@ -147,7 +147,7 @@ Additional B-4-shaped tests:
 | `CASE-B-6.a2` | The failure code is the closure code, not `ERR_NO_TRAVERSAL_PATH` | same | `ERR_MERGE_BRANCH_UNSATISFIED` via helper | none | PASS |
 | `CASE-B-6.a3` | The non-origin branch is not ignored | same | exactly one failure, for `iv-c` | none | PASS |
 
-Note: the test also asserts no failure for `iv-x`, i.e. the deeper edge `C→X` is not checked. That is immediate-closure behavior, not an additional normative requirement; recursive depth is A-5 BLOCKED.
+Note: the test also asserts no failure for `iv-x`, i.e. the deeper edge `C→X` is not checked. That is immediate-closure behavior, not an additional normative requirement; recursive depth is AMBIG-A-5 BLOCKED.
 
 ### B-7 — Assessment Arrival Order Independence
 
@@ -195,7 +195,7 @@ Test file: `tests/conformance/d.test.ts`.
 | Assertion | Normative expectation | Test | What the test proves | Gap | Status |
 | --- | --- | --- | --- | --- | --- |
 | `CASE-D-1.a1` | The failure of `rt-1` is recorded separately | `D-1 rt-1 failure is separate and rt-2 continues RUNNING` | `updated.events()` contains exactly the failure event; original registry has none | none | PASS |
-| `CASE-D-1.a2` | `rt-2` continues independent execution | same | `stateOf('rt-2') === 'RUNNING'` | `RUNNING` is the only modelled state | PASS |
+| `CASE-D-1.a2` | `rt-2` continues independent execution | same | `stateOf('rt-2') === 'RUNNING'`; descriptors are unchanged | metadata-level independence only: `stateOf` returns `RUNNING` for every registered runtime, so actual execution is not observable in CORE-001 | PARTIAL |
 | `CASE-D-1.a3` | The IdentityVersion is not changed | same | identity JSON unchanged | none | PASS |
 | `CASE-D-1.a4` | `rt-2` is not declared failed | same | both runtime descriptors byte-identical | none | PASS |
 | `CASE-D-1.a5` | Authority is not automatically revoked | same | credential and usage unchanged; no grant API | negative surface | PASS |
@@ -229,7 +229,7 @@ Note: `stateOf('rt-1')` is also `RUNNING` after the failure event. That is the d
 | Assertion | Normative expectation | Test | What the test proves | Gap | Status |
 | --- | --- | --- | --- | --- | --- |
 | `CASE-D-4.a1` | The signature becomes `CONTESTED_COMPROMISED` | `D-4 unknown compromise time is contested and never inferred from revoked_at` | exact historical status; no claim status; no compromise time in `temporal` | none | PASS |
-| `CASE-D-4.a2` | The signature is not a sufficient basis for continuity or future authorization without additional normative assessment | same | only the historical result is asserted; `future_authorizable` is not asserted | future authorization is policy-supplied and independent of `historical`; the test does not exercise it | NOT COVERED |
+| `CASE-D-4.a2` | The signature is not a sufficient basis for continuity or future authorization without additional normative assessment | same | only the historical result is asserted; `future_authorizable` is not asserted | the mandatory `evaluateFutureAuthorization` callback receives revocation and temporal context and is the additional assessment; the test does not assert its outcome | NOT COVERED |
 | `CASE-D-4.a3` | The system does not infer compromise at `revoked_at` | same | acceptance policy is not called; no `compromise_effective_at` field | none | PASS |
 
 **Case status: PARTIAL.** The contested result is proven; the sufficiency limitation is not.
@@ -240,7 +240,7 @@ Note: `stateOf('rt-1')` is also `RUNNING` after the failure event. That is the d
 
 | File | Interpretation | Why excluded |
 | --- | --- | --- |
-| `tests/experimental/nested-merge-recursion.test.ts` | A-5: recursive closure inside a closure-only branch | Specification does not define closure depth |
-| `tests/experimental/origin-merge-closure.test.ts` | A-11: closure over a `MERGED_FROM` terminal origin | Specification does not define whether the origin is "passed through" |
+| `tests/experimental/nested-merge-recursion.test.ts` | AMBIG-A-5: recursive closure inside a closure-only branch | Specification does not define closure depth |
+| `tests/experimental/origin-merge-closure.test.ts` | AMBIG-A-11: closure over a `MERGED_FROM` terminal origin | Specification does not define whether the origin is "passed through" |
 
 Both run as internal consistency checks (1 pass, 1 todo each) and are not §12 evidence.

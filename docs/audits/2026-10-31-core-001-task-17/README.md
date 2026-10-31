@@ -7,23 +7,49 @@
 
 ## Executive summary
 
+### CORE-001 runtime conformance
+
+| Status | Count |
+| --- | --- |
+| PASS | 138 |
+| PARTIAL | 4 |
+| BLOCKED | 4 |
+| NOT COVERED | 5 |
+| FAIL | 0 |
+| **Total** | **151** |
+
+### Cross-spec and external boundaries
+
+| Status | Count |
+| --- | --- |
+| PASS | 10 |
+| PARTIAL | 1 |
+| BLOCKED | 3 |
+| NOT COVERED | 0 |
+| **Total** | **14** |
+
+### §16 readiness for Frozen Baseline
+
+| Status | Count |
+| --- | --- |
+| PASS | 4 |
+| PARTIAL | 3 |
+| BLOCKED | 0 |
+| NOT COVERED | 3 |
+| **Total** | **10** |
+
+### Overall
+
 | Measure | Result |
 | --- | --- |
-| Normative requirements inventoried | 175 (`N-001`…`N-175`) |
-| Requirements `PASS` | 154 |
-| Requirements `PARTIAL` | 7 |
-| Requirements `BLOCKED` | 8 |
-| Requirements `NOT COVERED` | 6 |
-| Requirements `FAIL` | 0 |
-| §12 cases `PASS` | 14 of 18 |
-| §12 cases `PARTIAL` | 1 (D-4) |
-| §12 cases `BLOCKED` | 2 (C-2, D-2) |
-| §12 cases `NOT COVERED` | 1 (C-1) |
-| Implementation findings | 7 (4 major, 3 minor) |
-| Test coverage gaps | 12 |
-| Documentation discrepancies | 7 |
+| Requirements inventoried | 175 (`N-001`…`N-175`) |
+| Requirements | 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL |
+| §12 cases | 13 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 1 NOT COVERED (C-1) |
+| Implementation findings | 6 (3 major, 3 minor) |
+| Test coverage gaps | 14 |
+| Documentation discrepancies | 8 |
 
-**Verdict: CORE-001 conformance is NOT established.** No normative violation was demonstrated (`FAIL = 0`), but 21 applicable requirements are `PARTIAL`, `BLOCKED` or `NOT COVERED`, and 4 of 18 §12 cases are not `PASS`. Under the audit rule, any non-`PASS` applicable requirement prevents a full-conformance claim.
+**Verdict: CORE-001 runtime conformance is NOT established, and freeze readiness is NOT READY.** No normative violation was demonstrated (`FAIL = 0`), but 23 applicable requirements are `PARTIAL`, `BLOCKED` or `NOT COVERED`, and 5 of 18 §12 cases are not `PASS`. Under the audit rule, any non-`PASS` applicable requirement prevents a full-conformance claim. Readiness gaps are counted separately and are not mixed into runtime conformance.
 
 ### What is supported by evidence
 
@@ -32,7 +58,7 @@
 - Deterministic path discovery, validation and immediate merge closure, including mixed-relation merge nodes and scope-independent closure.
 - Descriptor hashing over the exact §7.1 projection, RFC 8785 canonicalization and SHA-256.
 - Four-outcome temporal trust mapping with `(subject_ref, field, value)` binding and no collapsing of `UNTRUSTED`, `UNASSESSED` and `TRUST_ASSESSMENT_UNAVAILABLE`.
-- Credential usage denial, revocation reason matrix, D-1 runtime independence, D-3 confirmed compromise, D-4 contested result.
+- Credential usage denial, revocation reason matrix, D-1 event separation and descriptor immutability (metadata-level), D-3 confirmed compromise, D-4 contested result.
 - Local Acceptance record immutability, policy-driven lifecycle, contextual applicability and the in-memory acceptance ledger.
 - No grant-producing API, no authority inheritance through lineage, no automatic revocation, no global trusted time.
 
@@ -41,11 +67,14 @@
 - **C-1**: no assessment records `PARENT_UNRESOLVED`.
 - **C-2**: no assessment records `CYCLE_DETECTED`; grant suppression is a CORE-003 boundary and cannot be judged here.
 - **D-2**: the normative object is a Ruling (CORE-004); the test substitutes a Local Acceptance record.
-- **D-4**: the contested result is proven, but the "not sufficient for future authorization" sentence is not asserted or enforced.
-- **A-4b**: default conflict detection is absent; `CONTESTED` requires a caller-supplied predicate.
-- **A-5**: recursive merge closure is not implemented and not claimed.
-- **A-9**: timestamp trust has no in-repo mechanism; it is externally assessed.
-- **A-11**: closure over a `MERGED_FROM` origin is unresolved and pinned only by an experimental test.
+- **D-4**: the contested result is proven; the mandatory policy callback exists and receives revocation/temporal context, but its outcome is not asserted.
+- **D-1**: event separation and descriptor immutability are proven; actual independent execution is not observable in CORE-001.
+- **N-084**: digest computation exists, but no in-repo comparison against a claimed digest exists; verification is not covered.
+- **N-079**: no decision-gating layer exists for contested claims; the consequence is unverified.
+- **AMBIG-A-4b**: default conflict detection is absent; `CONTESTED` requires a caller-supplied predicate.
+- **AMBIG-A-5**: recursive merge closure is not implemented and not claimed.
+- **AMBIG-A-9**: timestamp trust has no in-repo mechanism; it is externally assessed.
+- **AMBIG-A-11**: closure over a `MERGED_FROM` origin is unresolved and pinned only by an experimental test.
 - **§16**: independent implementation compatibility has not been performed.
 
 ## Method
@@ -54,7 +83,7 @@
 2. **Assertion-level §12 decomposition.** Each of the 18 cases was split into Preconditions, Input, Expected Result, Expected State Effects and Forbidden Side Effects. Assertion IDs use `CASE-<case>.<n>`. A case is `PASS` only when every applicable assertion is supported.
 3. **Source traceability.** Each requirement was traced from public API through validation, mechanism, result construction and error behavior. Types alone were not treated as evidence; negative and adversarial branches were inspected.
 4. **Property and adversarial audit.** P1–P9, the DAG oracle, scope matrix, experimental files, credential/revocation, runtime and acceptance tests were inspected for generator coverage, oracle independence, shrinking and conformance counting.
-5. **Ambiguity preservation.** A-1…A-12 statuses were taken from the specification and the approved plan. No ambiguity was resolved through implementation behavior. New issues use `F-###`, `T-###`, `D-###`.
+5. **Ambiguity preservation.** AMBIG-A-1…AMBIG-A-12 statuses were taken from the specification and the approved plan. No ambiguity was resolved through implementation behavior. New issues use `F-###`, `T-###`, `D-###`.
 6. **Verification.** All repository scripts were discovered from `package.json` and `.github/workflows/ci.yml`, then run. Results are recorded below.
 
 ## §12 result detail
@@ -65,12 +94,12 @@
 | B-1…B-7 | PASS | `tests/conformance/b.test.ts`; B-4 closure evidence, B-5 adversarial hook, B-7 permutations |
 | C-1 | NOT COVERED | graph-level preservation passes; the `PARENT_UNRESOLVED` assessment assertion is absent |
 | C-2 | BLOCKED | graph-level cycle detection passes; the `CYCLE_DETECTED` assessment is absent; grant suppression is CORE-003 |
-| D-1 | PASS | `d.test.ts::D-1`; separate event, `RUNNING` state, byte-identical descriptors |
+| D-1 | PARTIAL | `d.test.ts::D-1`; separate event and byte-identical descriptors, but `stateOf` is a constant `RUNNING` and actual execution is not observable |
 | D-2 | BLOCKED | `d.test.ts::D-2` proves Local Acceptance preservation, not Ruling preservation |
 | D-3 | PASS | `d.test.ts::D-3`; `CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE`, frozen records |
-| D-4 | PARTIAL | contested result proven; future-authorization sufficiency not asserted |
+| D-4 | PARTIAL | contested result proven; the mandatory policy callback is the additional assessment, but its outcome is not asserted |
 
-Task 16 reported 16/18. This audit does not support that count: D-2 is a cross-spec Ruling case, and D-4's sufficiency sentence is not asserted. The correct statement is **14 PASS, 1 PARTIAL, 2 BLOCKED, 1 NOT COVERED**.
+Task 16 reported 16/18. This audit does not support that count: D-2 is a cross-spec Ruling case, and D-4's sufficiency sentence is not asserted. The correct statement is **13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED**.
 
 ## Verification log
 
@@ -104,7 +133,6 @@ Commands run from the repository root on `9c38bbd`:
 | F-001 | major | No assessment records `PARENT_UNRESOLVED` (§11.1, C-1) |
 | F-002 | major | No assessment records `CYCLE_DETECTED` (§11.2, C-2) |
 | F-003 | major | D-2 requires a Ruling; the test substitutes Local Acceptance |
-| F-007 | major | Future authorization is independent of the historical result; D-4 sufficiency is not enforced or asserted |
 | F-004 | minor | `ContinuityAssessment` has no runtime validator |
 | F-005 | minor | `SEMVER_2`/non-SemVer label rules are not enforced at descriptor acceptance |
 | F-006 | minor | D-3 adds a `signed_at` trust precondition not stated in §4.4.1 |
@@ -124,7 +152,7 @@ No finding is a demonstrated normative violation. Details, evidence and recommen
 
 - This is a static and test-evidence audit, not a formal proof.
 - No independent implementation exists for §16 cross-implementation compatibility.
-- C-1/C-2 need an implementation design decision; D-2 needs a cross-spec decision; A-4b/A-5/A-9/A-11 need normative clarification.
+- C-1/C-2 need an implementation design decision; D-2 needs a cross-spec decision; AMBIG-A-4b/AMBIG-A-5/AMBIG-A-9/AMBIG-A-11 need normative clarification.
 - The property oracle reuses `assessEdge` and `evaluateAssurance`, so P7 is not independent for assessment semantics.
 - P9 is a name-surface guard; it does not inspect function bodies for indirect authority minting.
 - A passing test is evidence for its assertions only; the matrix records where an assertion is narrower than the normative sentence.

@@ -25,7 +25,7 @@ Evidence shorthand: `C:` = source location; `T:` = test file and test name.
 | N-001 | §0.1 | Identity, Lineage, Assessment, Acceptance and Authority are distinct entities | INVARIANT | CORE-001 | separate modules and types; no authority type | PRESENT | C: `src/core/index.ts`; T: `export-surface.ts` via P9 | EVIDENCED | PASS |
 | N-002 | §1.1 | Participant kinds are HUMAN, AGENT, SERVICE, EXTERNAL_SYSTEM | MUST | CORE-001 | `ParticipantKind` union and validator | PRESENT | C: `entities.ts:33`, `entities.ts:431`; T: `entities.test.ts` | EVIDENCED | PASS |
 | N-003 | §1.2 | IdentityVersion is an immutable snapshot; a new version does not change earlier ones | MUST | CORE-001 | owned frozen descriptors; no mutation API | PRESENT | C: `entities.ts:366`; T: `ownership.test.ts`, A-1 | EVIDENCED | PASS |
-| N-004 | §1.3 | One IdentityVersion may have several RuntimeInstances; one failure does not change others | MUST | CORE-001 | runtime registry, separate events | PRESENT | C: `runtime.ts:133`, `runtime.ts:161`; T: `d.test.ts::D-1` | EVIDENCED | PASS |
+| N-004 | §1.3 | One IdentityVersion may have several RuntimeInstances; one failure does not change others | MUST | CORE-001 | metadata-level registry: separate events, immutable descriptors; `stateOf` returns `RUNNING` for every registered runtime | PARTIAL | C: `runtime.ts:115`, `runtime.ts:161`; T: `d.test.ts::D-1`; actual execution is not observable | PARTIAL | PARTIAL |
 | N-005 | §1.4 | IdentityVersion, Participant and RuntimeInstance do not become AuthorityPrincipal automatically | MUST NOT | CORE-003 boundary | no authority type or grant API | PRESENT | C: `src/core/index.ts`; T: P9 | EVIDENCED | PASS |
 | N-006 | §1.5 | Each IdentityVersion belongs to exactly one Participant | MUST | CORE-001 | single `participant_id` field | PRESENT | C: `entities.ts:84`; T: `entities.test.ts` | EVIDENCED | PASS |
 | N-007 | §1.5 | Lineage links IdentityVersions, not abstract Participants | MUST | CORE-001 | `parent_version_id` only | PRESENT | C: `entities.ts:74` | EVIDENCED | PASS |
@@ -50,8 +50,8 @@ Evidence shorthand: `C:` = source location; `T:` = test file and test name.
 | N-016 | §3 | Dynamic state (availability, runtime state, locks, current assessments) must not be written by mutating the original descriptor | MUST NOT | CORE-001 | records frozen; events separate | PRESENT | C: `ownership.ts:147`, `runtime.ts:161`; T: D-1 | EVIDENCED | PASS |
 | N-017 | §3.1 | ParticipantRecord has `id`, `kind`, `home_domain`, `registered_at` | MUST | CORE-001 | type and validator | PRESENT | C: `entities.ts:35`, `entities.ts:418`; T: `entities.test.ts` | EVIDENCED | PASS |
 | N-018 | §3.2 | IdentityVersionDescriptor has the eight declared fields | MUST | CORE-001 | type and validator | PRESENT | C: `entities.ts:84`, `entities.ts:366`; T: `entities.test.ts` | EVIDENCED | PASS |
-| N-019 | §3.2 | SEMVER_2 version labels correspond to Semantic Versioning 2.0.0 | MUST | CORE-001 | `parseSemVer`/`validateVersionLabel`; not enforced by the descriptor validator | PARTIAL | C: `version-scheme.ts:47`; T: `version-scheme.test.ts`; descriptor acceptance accepts any string label | PARTIAL | PARTIAL |
-| N-020 | §3.2 | CONTENT_HASH label contains a content hash identifier | MUST | CORE-001 | non-empty only; format unspecified (A-7) | PARTIAL | C: `version-scheme.ts:62`; T: `version-scheme.test.ts` | PARTIAL | BLOCKED |
+| N-019 | §3.2 | SEMVER_2 version labels correspond to Semantic Versioning 2.0.0 | MUST | CORE-001 | `validateVersionLabel` enforces the grammar; `validateIdentityVersionDescriptor` does not call it; binding precheck does | PARTIAL | C: `version-scheme.ts:47`, `entities.ts:366`, `traversal.ts:744`; T: `version-scheme.test.ts`; probe: descriptor with `not-semver` is accepted, label validator rejects it | PARTIAL | PARTIAL |
+| N-020 | §3.2 | CONTENT_HASH label contains a content hash identifier | MUST | CORE-001 | non-empty only; format unspecified (AMBIG-A-7) | PARTIAL | C: `version-scheme.ts:62`; T: `version-scheme.test.ts` | PARTIAL | BLOCKED |
 | N-021 | §3.2 | OPAQUE_TAG is an arbitrary string with no universal comparison semantics | MUST | CORE-001 | exact-match only; no ordering | PRESENT | C: `version-scheme.ts:62`, `selector.ts:185`; T: `selector.test.ts` | EVIDENCED | PASS |
 | N-022 | §3.2 | Range selector expressions use only compatible version schemes | MUST | CORE-001 | non-SemVer range prefixes rejected with `S_SELECTOR_INCOMPATIBLE_SCHEME` | PRESENT | C: `selector.ts:199`; T: `selector.test.ts` | EVIDENCED | PASS |
 | N-023 | §3.2 | OPAQUE_TAG permits exact matching only unless local policy defines another mechanism | MUST | CORE-001 | exact-match and wildcard only | PRESENT | C: `selector.ts:185`; T: `selector.test.ts` | EVIDENCED | PASS |
@@ -77,7 +77,7 @@ Evidence shorthand: `C:` = source location; `T:` = test file and test name.
 | N-038 | §4.4.1 | KEY_LOST: historical signatures require local policy and evidence interpretation | MUST | CORE-001 | distinct `KEY_LOST_POLICY_REQUIRED` outcome | PRESENT | C: `credential.ts:503`; T: `credential.test.ts` | EVIDENCED | PASS |
 | N-039 | §4.4.1 | SUSPECTED_COMPROMISE: dependent assessments should be marked for reassessment; suspicion is not proof | SHOULD | CORE-001 | `reassessment_required` flag; no invalidation | PRESENT | C: `credential.ts:689`, `credential.ts:506`; T: `credential.test.ts` | EVIDENCED | PASS |
 | N-040 | §4.4.1 | CONFIRMED_COMPROMISE with an accepted `compromise_effective_at`: signatures at or after that time are unusable | MUST | CORE-001 | implemented, but additionally requires both timestamps to be `TRUSTED` | PARTIAL | C: `credential.ts:441`; T: D-3, `credential.test.ts` | PARTIAL | PARTIAL |
-| N-041 | §4.4.1 | Unknown compromise time: historical signatures become `CONTESTED_COMPROMISED` and are not sufficient for continuity or future authorization | MUST | CORE-001 | explicit contested outcome; future outcome is policy-supplied | PRESENT | C: `credential.ts:448`; T: D-4, `credential.test.ts` | PARTIAL | PARTIAL |
+| N-041 | §4.4.1 | Unknown compromise time: historical signatures become `CONTESTED_COMPROMISED` and are not sufficient for continuity or future authorization | MUST | CORE-001 | explicit contested outcome; the mandatory `evaluateFutureAuthorization` callback receives revocation and temporal context | PRESENT | C: `credential.ts:448`, `credential.ts:597`; T: D-4 asserts the historical result only | PARTIAL | PARTIAL |
 | N-042 | §4.4.1 | `compromise_effective_at` is a claim requiring evidence; its presence does not make it trustworthy | MUST NOT | CORE-001 / external | trust supplied externally; acceptance policy required | PRESENT | C: `credential.ts:554`, `temporal.ts:55`; T: `credential.test.ts` | EVIDENCED | PASS |
 | N-043 | §4.4.1 | ADMINISTRATIVE does not imply prior signatures were compromised | MUST NOT | CORE-001 | no compromise path for ADMINISTRATIVE | PRESENT | C: `credential.ts:503`; T: `credential.test.ts` | EVIDENCED | PASS |
 | N-044 | §4.4.2 | Historical validity and future authorization are distinct results | MUST | CORE-001 | separate `historical` and `future_authorizable` fields | PRESENT | C: `credential.ts:122`; T: `credential.test.ts` | EVIDENCED | PASS |
@@ -125,7 +125,7 @@ Evidence shorthand: `C:` = source location; `T:` = test file and test name.
 | N-076 | §6.4 | `trusted_assessors` defines domains whose assessments count | MUST | CORE-001 | trusted set filtering | PRESENT | C: `assessment.ts:203`; T: `assessment.test.ts`, B-5 | EVIDENCED | PASS |
 | N-077 | §6.4 | The system must not automatically choose a winner by majority | MUST NOT | CORE-001 | no majority logic | PRESENT | C: `assessment.ts`; T: `assessment.test.ts` | EVIDENCED | PASS |
 | N-078 | §6.4 | Two applicable trusted assessments that contradict each other move the claim to `CONTESTED` | MUST | CORE-001 | reachable only via explicit `conflictPredicate`; no default predicate | PARTIAL | C: `assessment.ts:234`; T: `assessment.test.ts` | PARTIAL | BLOCKED |
-| N-079 | §6.4 | Decisions dependent on a contested claim cannot rely on it until local resolution | MUST NOT | CORE-001 | no decision engine; conflict detection blocked | ABSENT | none | NONE | BLOCKED |
+| N-079 | §6.4 | Decisions dependent on a contested claim cannot rely on it until local resolution | MUST NOT | CORE-001 | no decision engine or gating layer; conflict detection is separately blocked (N-078) | ABSENT | none | NONE | NOT COVERED |
 
 ## §7 — Canonicalization and descriptor hash
 
@@ -135,7 +135,7 @@ Evidence shorthand: `C:` = source location; `T:` = test file and test name.
 | N-081 | §7.1 | Envelope, signatures, delivery metadata, ledger metadata, lifecycle events, assessments, revocations and acceptance must not be hashed | MUST NOT | CORE-001 | projection excludes them | PRESENT | C: `hashing.ts:64`; T: `hashing.test.ts` | EVIDENCED | PASS |
 | N-082 | §7.2 | The descriptor is serialized with RFC 8785 JCS | MUST | CORE-001 | `canonicalize` | PRESENT | C: `canonical.ts:62`; T: `canonical.test.ts` | EVIDENCED | PASS |
 | N-083 | §7.2 | The canonical representation is the SHA-256 input | MUST | CORE-001 | `canonicalSha256` | PRESENT | C: `canonical.ts:69`; T: `sha256.test.ts` | EVIDENCED | PASS |
-| N-084 | §7.2 | The digest is compared with the claimed value; any byte mismatch means `DESCRIPTOR_HASH_CONFIRMED` is not confirmed | MUST | CORE-001 | digest computed; comparison is caller-side using `descriptorHash` | PRESENT | C: `hashing.ts:89`; T: `hashing.test.ts` | EVIDENCED | PASS |
+| N-084 | §7.2 | The digest is compared with the claimed value; any byte mismatch means `DESCRIPTOR_HASH_CONFIRMED` is not confirmed | MUST | CORE-001 | digest computation exists (N-083, N-085); comparison/verification of a claimed digest is not implemented in-repo and is an external/caller responsibility | ABSENT | C: `hashing.ts:89`; T: `hashing.test.ts` covers computed digests only | NONE | NOT COVERED |
 | N-085 | §7.2 | The hash identifier includes the algorithm as `urn:hash:<algorithm>:<digest>` | MUST | CORE-001 | `urn:hash:sha256:<hex>` | PRESENT | C: `hashing.ts:89`; T: `hashing.test.ts` | EVIDENCED | PASS |
 | N-086 | §7.2 | Credential revocation or a new assessment does not change the descriptor hash | MUST | CORE-001 | hash input excludes them | PRESENT | C: `hashing.ts:64`; T: `hashing.test.ts` | EVIDENCED | PASS |
 
@@ -168,7 +168,7 @@ Evidence shorthand: `C:` = source location; `T:` = test file and test name.
 | N-109 | §8.6 | For every merge node on the selected path, all direct parent edges are checked | MUST | CORE-001 | immediate closure | PRESENT | C: `traversal.ts:674`; T: B-4, B-6, `scope-matrix.test.ts` | EVIDENCED | PASS |
 | N-110 | §8.6 | Closure extends to branches that do not lead to the origin | MUST | CORE-001 | direct parent branches from full adjacency | PRESENT | C: `traversal.ts:527`; T: B-6 | EVIDENCED | PASS |
 | N-111 | §8.6 | A failing branch yields `ERR_MERGE_BRANCH_UNSATISFIED` | MUST | CORE-001 | closure failure | PRESENT | C: `traversal.ts:650`; T: B-4 | EVIDENCED | PASS |
-| N-112 | §8.6 | Closure depth inside parent branches is defined | MUST | CORE-001 | not defined by the specification (A-5) | PARTIAL | C: `traversal.ts:674`; experimental file excluded | NONE | BLOCKED |
+| N-112 | §8.6 | Closure depth inside parent branches is defined | MUST | CORE-001 | not defined by the specification (AMBIG-A-5) | PARTIAL | C: `traversal.ts:674`; experimental file excluded | NONE | BLOCKED |
 | N-113 | §8.7 | In a diamond, each path is validated independently and merge closure is applied per merge node | MUST | CORE-001 | per-path phases | PRESENT | C: `traversal.ts:801`; T: B-3, B-4 | EVIDENCED | PASS |
 | N-114 | §8.7 | A candidate is a successor if one fully valid path exists and all closure requirements on it are met | MUST | CORE-001 | accepted path rule | PRESENT | C: `traversal.ts:850`; T: B-3, B-4 | EVIDENCED | PASS |
 | N-115 | §8.8 | The same input set yields the same result | MUST | CORE-001 | canonical sorting | PRESENT | C: `traversal.ts:334`; T: B-7, P1–P3 | EVIDENCED | PASS |
@@ -194,7 +194,7 @@ Evidence shorthand: `C:` = source location; `T:` = test file and test name.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | N-126 | §10 | The five timestamp kinds are distinct and not interchangeable | MUST | CORE-001 | distinct field refs | PRESENT | C: `primitives.ts:64`; T: `ownership.test.ts`, `credential.test.ts` | EVIDENCED | PASS |
 | N-127 | §10.1 | `asserted_at` is a declared time and does not prove actual creation time | MUST NOT | CORE-001 | no trust inference | PRESENT | C: `temporal.ts`; T: `acceptance.test.ts` | EVIDENCED | PASS |
-| N-128 | §10.1 | `signed_at` may be considered attested only with an applicable trusted-time mechanism | MUST | external (A-9) | trust arrives only as external assessment | EXTERNAL | C: `temporal.ts:55`; T: `credential.test.ts` | PARTIAL | BLOCKED |
+| N-128 | §10.1 | `signed_at` may be considered attested only with an applicable trusted-time mechanism | MUST | external (AMBIG-A-9) | trust arrives only as external assessment | EXTERNAL | C: `temporal.ts:55`; T: `credential.test.ts` | PARTIAL | BLOCKED |
 | N-129 | §10.1 | `ingested_at` reflects a local receipt fact | MUST | CORE-001 | field ref only | PRESENT | C: `primitives.ts:64` | EVIDENCED | PASS |
 | N-130 | §10.1 | `assessed_at` and `decided_at` refer to actions of a specific domain | MUST | CORE-001 | field refs; records carry domain | PRESENT | C: `primitives.ts:64`, `assessment.ts:30` | EVIDENCED | PASS |
 | N-131 | §10.1 | UIA does not assume a single global trusted time | MUST NOT | CORE-001 | no clock; explicit context | PRESENT | C: `temporal.ts`; T: `traversal-phases.test.ts` | EVIDENCED | PASS |
@@ -253,20 +253,63 @@ Evidence shorthand: `C:` = source location; `T:` = test file and test name.
 | N-169 | §16 | All Cross-Spec Category D tests pass | READINESS | CORE-001 / CORE-004 | D-1, D-3, D-4 pass; D-2 uses Local Acceptance instead of a Ruling | PARTIAL | T: `d.test.ts` | PARTIAL | PARTIAL |
 | N-170 | §16 | Independent implementations produce the same Path Discovery and Merge Closure results | READINESS | external | no second implementation | ABSENT | none | NONE | NOT COVERED |
 | N-171 | §16 | Results do not depend on storage or delivery order | READINESS | CORE-001 | canonical sorting | PRESENT | T: B-7, P1–P3 | EVIDENCED | PASS |
-| N-172 | §16 | Missing and contradictory assessments have been checked | READINESS | CORE-001 | missing checked; contradiction blocked | PARTIAL | T: B-2, B-4; A-4b | PARTIAL | PARTIAL |
+| N-172 | §16 | Missing and contradictory assessments have been checked | READINESS | CORE-001 | missing checked; contradiction blocked | PARTIAL | T: B-2, B-4; AMBIG-A-4b | PARTIAL | PARTIAL |
 | N-173 | §16 | Temporal credential revocation cases have been checked | READINESS | CORE-001 | D-3, D-4 | PRESENT | T: `credential.test.ts`, D-3, D-4 | EVIDENCED | PASS |
 | N-174 | §16 | Immutability of historical descriptors, assessments and rulings has been checked | READINESS | CORE-001 / CORE-004 | descriptors and assessments checked; no Ruling | PARTIAL | T: P5, P6, D-2 | PARTIAL | PARTIAL |
 | N-175 | §16 | Independent semantic compatibility of two implementations has been checked | READINESS | external | not performed | ABSENT | none | NONE | NOT COVERED |
 
 ## Summary
 
+The rollups are separated so that runtime conformance is not mixed with cross-spec boundaries or freeze readiness.
+
+### CORE-001 implementation and runtime conformance
+
+Rows whose `Scope` is `CORE-001` or `CORE-001 / host` and whose `Strength` is not `READINESS`.
+
 | Status | Count |
 | --- | --- |
-| PASS | 154 |
-| PARTIAL | 7 |
-| BLOCKED | 8 |
-| NOT COVERED | 6 |
+| PASS | 138 |
+| PARTIAL | 4 |
+| BLOCKED | 4 |
+| NOT COVERED | 5 |
+| FAIL | 0 |
+| **Total** | **151** |
+
+### Cross-spec and external boundaries
+
+Rows whose `Scope` names a CORE-002, CORE-003 or CORE-004 boundary, an external mechanism, or `all`.
+
+| Status | Count |
+| --- | --- |
+| PASS | 10 |
+| PARTIAL | 1 |
+| BLOCKED | 3 |
+| NOT COVERED | 0 |
+| FAIL | 0 |
+| **Total** | **14** |
+
+### §16 readiness for Frozen Baseline
+
+Rows with `Strength = READINESS`. These are project acceptance criteria, not runtime conformance requirements.
+
+| Status | Count |
+| --- | --- |
+| PASS | 4 |
+| PARTIAL | 3 |
+| BLOCKED | 0 |
+| NOT COVERED | 3 |
+| FAIL | 0 |
+| **Total** | **10** |
+
+### Overall
+
+| Status | Count |
+| --- | --- |
+| PASS | 152 |
+| PARTIAL | 8 |
+| BLOCKED | 7 |
+| NOT COVERED | 8 |
 | FAIL | 0 |
 | **Total** | **175** |
 
-The counts are a rollup of the rows above. `PASS` includes boundary requirements that are satisfied by explicit absence of an out-of-scope mechanism; those rows state that evidence in the `Verification evidence` column. No requirement is marked `FAIL`: no normative violation was demonstrated. `PARTIAL`, `BLOCKED` and `NOT COVERED` prevent a full-conformance claim.
+`PASS` includes boundary requirements satisfied by explicit absence of an out-of-scope mechanism; those rows state that evidence in the `Verification evidence` column. No requirement is marked `FAIL`: no normative violation was demonstrated. `PARTIAL`, `BLOCKED` and `NOT COVERED` prevent a full-conformance claim, and the readiness gaps are reported separately from runtime conformance.
