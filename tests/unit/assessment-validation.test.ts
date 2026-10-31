@@ -302,3 +302,42 @@ describe('atomic batch admission', () => {
     expect(Object.isFrozen(existing)).toBe(false);
   });
 });
+
+describe('claim legality', () => {
+  test('rejects a claim that is both verified and unverified', () => {
+    const result = validateContinuityAssessment(assessment({ verified_claims: ['X'], unverified_claims: ['X'] }));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe('MECHANISM');
+    expect(result.error.code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
+    expect(result.error.message).toContain('must not be both verified and unverified');
+  });
+
+  test('a self-contradictory assessment cannot satisfy assurance', () => {
+    const registered = registerAssessment([], assessment({ verified_claims: ['X'], unverified_claims: ['X'] }));
+
+    expect(registered.ok).toBe(false);
+  });
+
+  test('CYCLE_DETECTED is rejected identically by both admission paths while C-2 is blocked', () => {
+    const cases: readonly { readonly name: string; readonly claims: Partial<ContinuityAssessment> }[] = [
+      { name: 'verified', claims: { verified_claims: ['CYCLE_DETECTED'] } },
+      { name: 'unverified', claims: { unverified_claims: ['CYCLE_DETECTED'] } },
+      {
+        name: 'overlapping',
+        claims: { verified_claims: ['CYCLE_DETECTED'], unverified_claims: ['CYCLE_DETECTED'] },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const generic = registerAssessment([], assessment(testCase.claims));
+      const contextual = registerOrphanAssessment(orphanAssessment(testCase.claims), mixedGraph, []);
+
+      expect(generic.ok).toBe(false);
+      expect(contextual.ok).toBe(false);
+      if (generic.ok || contextual.ok) continue;
+      expect(generic.error.message).toBe(contextual.error.message);
+    }
+  });
+});
