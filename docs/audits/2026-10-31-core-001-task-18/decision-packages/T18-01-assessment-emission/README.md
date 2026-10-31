@@ -70,4 +70,4 @@ These are historical facts. This package does not rewrite them.
 
 ## 8. No-change statement
 
-No source code, tests, `docs/CORE-001.md`, Task 17 audit artifacts, or existing Task 18 decision statuses were modified. No implementation, commit, branch, or PR was created.
+No source code, tests, `docs/CORE-001.md`, Task 17 audit artifacts, or existing Task 18 decision statuses were modified. No implementation commit or merge to `main` was made. The documentation package is proposed in PR #39 on branch `docs/t18-01-assessment-emission-package`.
