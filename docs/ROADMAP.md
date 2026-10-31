@@ -46,20 +46,20 @@ Phases are sequential at the level of dependencies, not of effort: P1 and P4 can
 
 **Evidence:** `tests/unit/{scaffold,canonical,sha256,ownership}.test.ts`, plus error-model and `DeepReadonly` type assertions in `entities.test.ts`.
 
-## 4. P1 — Identity, lineage, assessment, traversal (Next)
+## 4. P1 — Identity, lineage, assessment, traversal (In progress)
 
-This is the semantic core of CORE-001. Until it lands, the repository has foundations but no protocol.
+The protocol core is implemented through immediate merge closure; Task 11 closes P1 by asserting scope × closure consistency.
 
 | Task | Status  | Deliverable                                                          | Exit criterion |
 | ---- | ------- | -------------------------------------------------------------------- | -------------- |
 | 4    | Done    | Descriptor hashing with the explicit §7.1 projection                  | §7.1 key set asserted; wrappers cannot change the hash |
 | 5    | Done    | Version schemes and a versioned selector mechanism                    | SEMVER_2 / CONTENT_HASH / OPAQUE_TAG rules and exact-match fallback tested |
 | 6    | Done    | Entities and structural validation (§5)                               | Corpus A-1…A-5 pass |
-| 7    | Done    | Lineage graph: delayed parents, cycles (§11)                          | Graph-level C-1/C-2 behaviour; full conformance awaits traversal integration (Tasks 9–10) |
-| 8    | Done    | Assessments: edge binding, unverified-claim semantics (§6)             | Unit-level assessment semantics; B-5 conformance fixture remains Task 10 |
-| 9    | Next    | Traversal phases 1 and 2                                              | Corpus B-1…B-3 pass; phases testable in isolation |
-| 10   | Planned | Immediate merge closure                                               | Corpus B-4…B-7 pass; per-path outcomes preserved |
-| 11   | Planned | Scope × closure consistency                                           | Structural argument asserted by test |
+| 7    | Done    | Lineage graph: delayed parents, cycles (§11)                          | Graph-level C-1/C-2 behaviour; binding-level recording is a separate open item |
+| 8    | Done    | Assessments: edge binding, unverified-claim semantics (§6)             | Unit-level assessment semantics and the B-5 conformance refusal |
+| 9    | Done    | Traversal phases 1 and 2                                              | Corpus B-1…B-3 pass; phases testable in isolation |
+| 10   | Done    | Immediate merge closure                                               | Corpus B-4…B-7 pass; per-path outcomes preserved |
+| 11   | Next    | Scope × closure consistency                                           | Structural argument asserted by test |
 
 **Exit criteria for P1:**
 

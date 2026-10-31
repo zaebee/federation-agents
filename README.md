@@ -92,7 +92,7 @@ UIA aims to preserve these distinctions instead of collapsing them into a single
 
 ## Current implementation
 
-The implementation is developed incrementally against the normative specification, with a growing unit-test suite; a dedicated conformance corpus and property-based tests are part of the implementation plan.
+The implementation is developed incrementally against the normative specification, with unit and conformance suites; property-based tests are part of the implementation plan.
 
 Implemented so far:
 
@@ -104,8 +104,10 @@ Implemented so far:
 - IdentityVersion descriptor types with structural validation: required fields and enum values, strict JSON, unknown-field rejection, and an owned, deep-frozen copy.
 - Entity constructors for §3–§5 — Participant, IdentityVersion, RuntimeInstance, Credential and Lineage records — all owned and deeply frozen.
 - Structural lineage validation (§5.2): per-relation cardinality, distinct merge parents, the `CONTINUATION` same-participant constraint, and self-parent rejection, covered by the A-1…A-5 conformance cases.
-- Lineage graph construction: preserved declarations, delayed-parent resolution with `unresolvedParents`, and deterministic strongly connected component cycle detection (graph-level C-1/C-2; full conformance needs Assessments).
+- Lineage graph construction: preserved declarations, delayed-parent resolution with `unresolvedParents`, and deterministic strongly connected component cycle detection (graph-level C-1/C-2; binding-level recording remains open).
 - Continuity assessments: edge-bound applicability, policy narrowing without expansion, trusted-assessor filtering, spec-literal unverified-claim semantics, explicit-only `CONTESTED`, and copy-on-write supersession.
+- Conditional version binding and three-phase traversal (§8): scope-filtered path discovery, per-path validation, and immediate merge closure over every direct parent edge of merge nodes on a path.
+- §12 B-series conformance (B-1…B-7), including per-path outcomes and the trusted-assessor refusal in B-5.
 - Descriptor hashing over the explicit §7.1 projection, pinned by a known-answer test.
 - Version label validation: strict SemVer 2.0.0 for `SEMVER_2`, non-empty labels for `CONTENT_HASH` and `OPAQUE_TAG` (no format or ordering inferred).
 - The versioned `uia-ref-selector@1` mechanism — exact match, wildcard, comparators, `&&` composition — with factory-provenance checks on compiled selectors.
@@ -113,9 +115,8 @@ Implemented so far:
 Still to come:
 
 - Credential semantics and temporal validation.
-- Conditional version binding and graph traversal.
 - Local Acceptance and lifecycle semantics.
-- The remaining §12 conformance corpus (B, C, D; C-1/C-2 and the B-series need traversal integration) and property-based invariance tests.
+- The remaining §12 conformance corpus (C-1/C-2 and the D-series) and property-based invariance tests.
 
 Implementation progress is tracked task by task in the implementation plan. Not every capability described in the specification is necessarily implemented in the current repository state.
 
@@ -196,7 +197,7 @@ Related concerns may be addressed by separate specifications.
 
 The normative specification is currently a Candidate Draft Normative document.
 
-The reference implementation is being developed incrementally. Unit tests exist today; the conformance corpus and property-based tests are planned, not yet present. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
+The reference implementation is being developed incrementally. Unit tests and the A/B conformance suites exist today; the C/D conformance cases and property-based tests are not yet present. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
 
 ## Design philosophy
 

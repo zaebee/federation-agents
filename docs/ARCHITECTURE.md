@@ -59,7 +59,7 @@ The architecture must remain useful **without** CORE-002/003/004: identity, prov
 ### 2.1. Boundary rules
 
 1. **The core is runtime-free.** `src/core/` may not import `node:*`, `bun:*`, or Node core modules, and may not use the `process` or `Buffer` globals. This is enforced twice: `tsconfig.core.json` typechecks the core with `"types": []`, and ESLint restricts imports and globals under `src/core/`.
-2. **Policy arrives as an argument.** There is no global policy object and no implicit `now`. The planned evaluation API — `evaluateBinding`, `assessEdge`, `evaluateAssurance`, `evaluateHistoricalSignature` — will take `Policy` and `TemporalContext` explicitly; no module may read them from ambient state.
+2. **Policy arrives as an argument.** There is no global policy object and no implicit `now`. The evaluation API — `evaluateBinding`, `assessEdge`, `evaluateAssurance` — takes `Policy` and `TemporalContext` explicitly; `evaluateHistoricalSignature` (credentials) will follow the same rule. No module may read them from ambient state.
 3. **Adapters translate, they do not decide.** An adapter may parse JSON, verify a signature, or load a record, but it must hand validated domain values to the core — never raw transport objects.
 4. **No layer may invent authority.** No function in this repository returns a grant, capability, or permission. Those belong to CORE-003.
 
@@ -82,7 +82,7 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/lineage.ts`         | §5, §11  | Implemented | §5.2 structural validation, graph snapshots, delayed parents, deterministic SCC cycle detection |
 | `core/assessment.ts`      | §6       | Implemented | Edge applicability, policy narrowing, assurance evaluation, copy-on-write supersession |
 | `core/temporal.ts`        | §10      | Partial     | Type contracts only (`TemporalContext` and trust inputs); trust derivation is Task 13 |
-| `core/traversal.ts`       | §8       | Planned     | Path discovery, path validation, merge closure, binding evaluation      |
+| `core/traversal.ts`       | §8       | Implemented | Path discovery, path validation, immediate merge closure, binding evaluation |
 | `core/acceptance.ts`      | §9       | Planned     | `LocalAcceptanceRecord` and lifecycle transitions                       |
 | `core/ledger.ts`          | —        | Planned     | Append-only in-memory stores — a **mechanism**, not protocol semantics  |
 
@@ -92,7 +92,7 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 
 ### 4.1. Intake
 
-The validation and ownership steps exist today for every §3–§5 record: `validateJsonValue`, the entity constructors, and `validateIdentityVersionDescriptor`; each rejects unknown fields and returns an owned, deep-frozen copy. Structural lineage validation (`validateDescriptor`) and evaluation steps differ: structural validation exists, graph and assessment work is planned. The flow is the contract every future record constructor must follow.
+The validation and ownership steps exist today for every §3–§5 record: `validateJsonValue`, the entity constructors, and `validateIdentityVersionDescriptor`; each rejects unknown fields and returns an owned, deep-frozen copy. Structural lineage validation, lineage graph construction, assessment evaluation and traversal also exist; credentials, acceptance and ledger remain planned. The flow is the contract every future record constructor must follow.
 
 ```text
 untrusted input (JSON, transport, storage)
@@ -148,10 +148,10 @@ The table separates guarantees the repository already provides from properties r
 | #   | Invariant              | Status today | Where it is enforced / planned                                              |
 | --- | ---------------------- | ------------ | --------------------------------------------------------------------------- |
 | A1  | Purity                 | Implemented for existing primitives | `canonical.ts`, `sha256.ts`, `ownership.ts`; required of every future module |
-| A2  | Determinism            | Partial      | Canonicalization and SHA-256 are deterministic; graph and edge-order independence are planned with traversal |
+| A2  | Determinism            | Implemented for current modules | Canonicalization, SHA-256, graph construction and traversal are deterministic; B-7 covers assessment arrival permutations |
 | A3  | Ownership              | Implemented  | Every §3–§5 constructor copies and freezes; ownership helpers are unit-tested |
 | A4  | Error separation       | Implemented  | `errors.ts` type split, asserted in `tests/unit/entities.test.ts`            |
-| A5  | Explicit context       | Partial      | `Policy` and `TemporalContext` are explicit parameters of `assessEdge`/`evaluateAssurance`; traversal follows Task 9 |
+| A5  | Explicit context       | Implemented | `Policy` and `TemporalContext` are explicit parameters of `assessEdge`, `evaluateAssurance`, `validatePath` and `evaluateBinding` |
 | A6  | Edge-bound assessments | Implemented  | `ApplicableAssessments` brand plus `WeakSet` provenance, validated by `evaluateAssurance` |
 | A7  | Four trust outcomes    | Target       | Planned `credential.ts` and temporal model                                   |
 | A8  | Unknown boundary       | Implemented  | `validateUnknown`, `validateJsonValue` and the §3–§5 entity constructors; adapters are not written yet |
@@ -170,15 +170,15 @@ The split is architectural, not cosmetic: a wrong selector scheme is not a proto
 
 When several candidate paths fail for different reasons, per-path outcomes are preserved in `details.perPath`; the top-level code is an aggregation, not a normative precedence rule.
 
-## 7. Traversal pipeline (planned)
+## 7. Traversal pipeline
 
-Traversal is split into independently testable phases. None of the functions below exist yet; the split is an architectural decision that fixes their contracts before implementation.
+Traversal is split into independently testable phases. The functions below are implemented in `core/traversal.ts`.
 
 | Phase | Function                | Responsibility                                                                 |
 | ----- | ----------------------- | ------------------------------------------------------------------------------ |
 | 1     | `discoverPaths`         | Scope-permitted edges only; cycles are dead ends; no path → `ERR_NO_TRAVERSAL_PATH` |
 | 2     | `validatePath`          | For every edge of one path: `assessEdge`, then `evaluateAssurance`               |
-| 3     | `validateMergeClosure`  | For every `MERGED_FROM` node on the path, all direct parent edges                |
+| 3     | `validateMergeClosure`  | For every merge node on the path, every direct parent edge, whatever its relation |
 | 4     | `evaluateBinding`       | Aggregates per-path results into a `BindingResult`                               |
 
 Phase 3 implements **immediate closure** only — §8.6's literal text about the parent edges of a merge node. Recursive closure and closure over a merge-typed origin are **BLOCKED** in Rev 0.3.3 and are not claimed as conformance (see §9).
@@ -218,21 +218,21 @@ The architecture omits these on purpose; each omission is a boundary, not an unf
 
 ## 11. Testing architecture
 
-Only `tests/unit/` exists today; the other suites are planned (see [`ROADMAP.md`](./ROADMAP.md)).
+`tests/unit/`, `tests/conformance/` (A and B suites) and `tests/experimental/` exist today; `tests/property/` is planned (see [`ROADMAP.md`](./ROADMAP.md)).
 
 | Suite                     | Purpose                                                             | Exists | Conformance claim |
 | ------------------------- | ------------------------------------------------------------------- | ------ | ----------------- |
 | `tests/unit/`             | Module behavior, rejection cases, ownership, canonicalization vectors | Yes    | Yes              |
-| `tests/conformance/`      | The §12 corpus A-1…D-4, exact fixtures and side-effect contracts       | No     | Yes, once present |
+| `tests/conformance/`      | The §12 corpus A-1…D-4, exact fixtures and side-effect contracts       | Partial (A, B) | Yes, once present |
 | `tests/property/`         | Determinism and brute-force equivalence (fast-check)                   | No     | Yes, for immediate closure |
-| `tests/experimental/`     | BLOCKED interpretations (recursive closure, origin closure)            | No     | **No** — excluded |
+| `tests/experimental/`     | BLOCKED interpretations (recursive closure, origin closure)            | Yes    | **No** — excluded |
 
 A passing test suite does not establish production security or interoperability; see [`THREAT-MODEL.md`](./THREAT-MODEL.md).
 
 ## 12. Status
 
-Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, and the type-level temporal contracts.
+Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, the type-level temporal contracts, and §8 conditional version binding with three-phase traversal and immediate merge closure.
 
-Planned: temporal trust derivation (Task 13), credentials, traversal, acceptance, ledger. Full C-1/C-2 conformance (assessment recording `PARENT_UNRESOLVED`/`CYCLE_DETECTED`) follows with traversal integration in Tasks 9–10.
+Planned: temporal trust derivation (Task 13), credentials, acceptance, ledger, and the full C-1/C-2 conformance cases (assessment recording of `PARENT_UNRESOLVED`/`CYCLE_DETECTED`).
 
 Ordering and exit criteria are tracked in [`ROADMAP.md`](./ROADMAP.md) and in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md).
