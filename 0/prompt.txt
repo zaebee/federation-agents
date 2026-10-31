@@ -1,0 +1,141 @@
+Task 9 corrective commit ae29765 fixes both previous aggregation blockers. I independently reviewed the diff and confirmed those fixes.
+
+Before closing Task 9, two remaining findings need resolution.
+
+### 1. BLOCKER — cyclic SCC can produce a VALID binding
+
+Reproduction:
+
+```text
+V1 → V2
+↑    ↓
+└────┘
+
+candidate = V1
+origin = V2
+```
+
+`collectPaths()` stops as soon as it reaches origin and returns `[V1 → V2]`. `validatePath()` sees a simple, contiguous path and can return VALID, even though Task 7's `LineageGraph.cycles` contains the SCC `[V1, V2]`.
+
+This is not acceptable: a cyclic lineage structure must not establish valid continuity. The implementation plan explicitly says cycles are handled as structural conflicts, not as ordinary successful paths.
+
+`BindingFailureCode` already contains `CYCLE_DETECTED`, but Task 9 does not currently produce it.
+
+Do not patch this by merely mapping the cycle to `ERR_NO_TRAVERSAL_PATH`. Preserve the distinction between missing reachability and a detected cycle.
+
+First propose the smallest coherent API/data-flow adjustment. Consider:
+- Discovery must remain independent of Assessments.
+- Validation must remain independently callable.
+- Per-path outcomes must be preserved under GC-18.
+- `CYCLE_DETECTED` must remain distinguishable.
+- No new normative error codes.
+- Do not claim a cyclic path is valid just because origin was encountered before traversing the back-edge.
+
+The current `validatePath(path, assessments, requirement, policy, ctx)` has no graph input, so explain how cycle evidence reaches the validation/result boundary without hidden state.
+
+Add a regression test for the V1↔V2 SCC case, including the exact top-level result and per-path outcome.
+
+### 2. MEDIUM — exponential discovery on unreachable targets
+
+Current `collectPaths()` enumerates simple paths without reachability pruning.
+
+A chain of 30 diamonds with an unreachable origin can cause roughly 2^30 prefix explorations before returning `ERR_NO_TRAVERSAL_PATH`.
+
+The plan specifies memoized path discovery. At minimum, evaluate a deterministic reverse-reachability prepass from origin and prune every node that cannot reach origin. This should eliminate exponential exploration of dead-end subgraphs.
+
+Important distinction:
+- Reachability pruning can make the unreachable-target case O(V+E) before enumeration.
+- If the graph genuinely contains exponentially many valid paths, enumerating and returning all of them is inherently exponential because the current API exposes every Path and perPath outcome.
+
+Do not claim memoization eliminates that output lower bound.
+
+Provide a complexity analysis and a concrete test for a multi-diamond graph with an unreachable origin. If you propose a path/work cap, do not invent a new error code or silently alter the API; present the mechanism and its failure semantics for approval first.
+
+### Constraints
+- Do not modify CORE-001 normative text.
+- Do not introduce new UiaErrorCode values.
+- Preserve explicit Assessment inputs and Task 8 ownership of applicability.
+- Preserve deterministic ordering and deep immutability.
+- Preserve B-1, B-2, B-3 and the two previous aggregation fixes.
+- Keep merge closure / Task 10 out of scope.
+- Do not commit the cycle/API design before reporting it for review.
+
+First report the proposed cycle data-flow/API design and complexity approach. Wait for approval before implementing any signature change.
+
+---
+
+Approved. Proceed with the corrective Task 9 implementation.
+
+### Decision 1 — graph-aware path validation
+
+Adopt:
+
+```ts
+validatePath(
+  path: Path,
+  graph: LineageGraph,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<PathValidation>;
+```
+
+`evaluateBinding()` passes `state.graph`.
+
+Cycle evidence comes exclusively from `graph.cycles`, not from caller-supplied Path flags or hidden state.
+
+Add this PathValidation variant:
+
+```ts
+{
+  status: 'CYCLE_DETECTED';
+  code: 'CYCLE_DETECTED';
+  cycle: readonly IdentityVersionID[];
+}
+```
+
+A path is cycle-affected if any of its nodes belongs to a cyclic SCC (component size > 1 or a self-loop). Use Task 7's deterministic SCC ordering. If multiple SCCs intersect one path, select/report them deterministically without inventing additional normative semantics; preserve the complete relevant cycle evidence if the existing result model supports it.
+
+### Decision 2 — Task 9 aggregation
+
+Use this implementation-level aggregation order:
+
+1. At least one VALID path → `eligible: true`.
+2. No VALID path, but at least one CYCLE_DETECTED → normative `CYCLE_DETECTED`.
+3. No VALID or cyclic paths, but at least one CONTESTED → `kind: 'CONTESTED'`.
+4. Otherwise → ordinary normative assurance failure.
+
+This is not a normative precedence table. A-8 remains OPEN.
+
+Preserve every per-path outcome in `details.perPath` for every top-level result, including successful results and outcomes that did not determine the aggregate result.
+
+Add a mixed CYCLE_DETECTED + CONTESTED regression test.
+
+### Decision 3 — reverse-reachability pruning
+
+Add a deterministic reverse-reachability prepass from origin using only scope-permitted edges.
+
+- Compute `canReachOrigin` in O(V+E).
+- If candidate is not in the set, return `ERR_NO_TRAVERSAL_PATH` immediately.
+- Prune DFS adjacency to parents in `canReachOrigin`.
+- Preserve existing deterministic path ordering and immutable results.
+- Derive cycle membership once from `graph.cycles`.
+
+No path/work cap in this change. Do not invent a mechanism error or partial-result contract.
+
+Document the honest complexity boundary: unreachable-target dead-end explosion is pruned, but genuinely exponential numbers of valid paths still require exponential output because the public API returns every Path and every per-path outcome.
+
+### TDD and validation
+
+1. Add failing tests first:
+   - V1↔V2 SCC: candidate V1, origin V2; path must not become VALID.
+   - Mixed CYCLE_DETECTED + CONTESTED aggregation.
+   - 30 sequential diamonds with a disconnected origin; discovery must terminate via reachability pruning and return ERR_NO_TRAVERSAL_PATH.
+   - Retain all previous mixed and successful per-path aggregation tests.
+2. Implement the changes.
+3. Update the implementation plan, not CORE-001 normative text.
+4. Run full tests, typecheck, lint, format check, build.
+5. Report exact results, complexity analysis, changed files and commit SHA.
+
+Keep Task 10 / merge closure out of scope. Do not add normative error codes. Do not commit until all tests and checks pass.
