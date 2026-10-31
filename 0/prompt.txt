@@ -1,0 +1,125 @@
+### Low finding
+
+**Location:** `tests/unit/selector.test.ts:306-316`
+
+The provenance tests overlap and one name is misleading. `forged({ mechanism: 'uia-ref-selector@1' })` builds exactly the same object as `forged()` from the test above it. The 'unknown mechanism version' test also passes only because the brand is missing: `assertCompiledSelector` never checks `mechanism`. Remove the duplicate test, and either rename the mechanism test or add a branded selector with a bad mechanism to check against. 
+---
+# Task 5 — Final corrective pass: enforce CompiledSelector factory provenance
+
+## Context
+
+PR #12: `feat/task-5-version-schemes-selectors`
+
+Current head:
+`02949a4f8d13c7bb6b434c5533077624c37583f9`
+
+The implementation already has:
+- a module-private `unique symbol` brand;
+- `Object.defineProperty` for the brand;
+- deep freezing of compiled selectors and nested structures;
+- `InvalidCompiledSelectorError`;
+- tests rejecting plain structural forgeries, fake mechanisms, and spread copies.
+
+However, the current runtime check reads the private symbol property directly:
+
+```ts
+(selector as unknown as Record<symbol, unknown>)[COMPILED_SELECTOR_BRAND] === true
+```
+
+This accepts inherited brands. An object created with `Object.create(compiledSelector)` inherits the brand and can override selector fields while remaining mutable.
+
+## Required change
+
+Keep the existing private `unique symbol` brand. Add a module-private `WeakSet<object>` to enforce actual factory provenance at runtime.
+
+Expected behavior:
+
+1. A selector returned directly by `compileSelector()` is accepted by `selectorMatches()`.
+2. An ordinary structurally identical object is rejected.
+3. An object inheriting from a valid compiled selector via `Object.create(compiled)` is rejected.
+4. A Proxy wrapping a valid compiled selector is rejected.
+5. A spread copy of a valid compiled selector is rejected.
+6. A selector with a forged or unknown mechanism is rejected.
+7. Rejection continues to throw the existing `InvalidCompiledSelectorError`.
+8. No new public error code is introduced.
+
+Implementation guidance:
+
+- Declare a module-private `WeakSet<object>` in `selector.ts`.
+- Register only the actual selector object created inside `compileSelector()`.
+- Register it after the selector has been fully constructed and frozen.
+- In `assertCompiledSelector()`, use `WeakSet.has(selector)` as the runtime provenance check.
+- Do not use prototype-chain property lookup as the runtime authenticity check.
+- Keep the private symbol brand for compile-time nominal typing.
+- Do not export the WeakSet or expose a registration function.
+- Do not change the public API or selector semantics.
+
+Illustrative approach (adapt to the existing construction flow):
+
+```ts
+const compiledSelectors = new WeakSet<object>();
+
+function registerCompiledSelector<T extends object>(selector: T): T {
+  compiledSelectors.add(selector);
+  return selector;
+}
+
+function assertCompiledSelector(selector: CompiledSelector): void {
+  if (
+    selector === null ||
+    typeof selector !== 'object' ||
+    !compiledSelectors.has(selector)
+  ) {
+    throw new InvalidCompiledSelectorError();
+  }
+}
+```
+
+Ensure registration happens only after `deepFreeze()` has completed successfully.
+
+## Tests
+
+Add focused regression tests:
+
+- `Object.create(compiledSelector)` must be rejected, even if the derived object overrides `kind`, `scheme`, `mechanism`, or `comparators`.
+- `new Proxy(compiledSelector, {})` must be rejected.
+- A Proxy with traps must also be rejected without invoking selector field getters as part of the authenticity check.
+- The original compiled selector must still work after all these attempts.
+- Keep existing tests for plain-object forgery, fake/unknown mechanism, null and spread-copy rejection.
+
+Do not weaken or remove existing tests.
+
+## Scope restrictions
+
+- Task 5 only.
+- Do not start Task 6.
+- Do not modify `CORE-001.md`, the approved implementation plan, or normative semantics.
+- Do not add error codes.
+- Do not redesign the parser, SemVer implementation, or selector API.
+- Do not modify SonarCloud Quality Gate configuration or exclusions merely to make the gate pass.
+- Avoid unrelated changes.
+
+## Validation
+
+Run and report:
+
+```bash
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+bun run build
+```
+
+Also inspect the final diff for unintended changes.
+
+Report:
+1. branch name;
+2. commit SHA;
+3. changed files;
+4. exact runtime provenance mechanism;
+5. regression tests added;
+6. results of all validation commands;
+7. any deviations or unresolved issues.
+
+Do not merge PR #12. Stop after committing and reporting the result.
