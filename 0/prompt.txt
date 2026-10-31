@@ -1,0 +1,77 @@
+Проверил обновлённый PR #31 на commit abd9c93. Обе предыдущие P1-проблемы действительно исправлены. Повторно прошёлся по credential.ts, temporal.ts, тестам, conformance-тесту и публичным экспортам.
+
+P1 corrections verified
+ Мой вердикт: APPROVE по двум обязательным исправлениям. Но перед окончательным merge я бы обратил внимание ещё на один небольшой дефект runtime-валидации.
+1. Проверка двух P1-исправлений
+Предыдущая проблема	Проверка на abd9c93
+Некорректный результат verifier мог fail-open	Исправлено
+Revocation Record мог относиться к другому Credential	Исправлено
+
+Verifier output. Теперь runVerifier() возвращает Result, а не безусловно принимает ответ адаптера. Неизвестный discriminant, undefined, null и некорректный reason приводят к mechanism failure. Исключение verifier отдельно отображается как CRYPTO_UNAVAILABLE.
+
+Добавлены adversarial tests для:
+- undefined;
+- null;
+- неизвестного status;
+- некорректного типа reason;
+- пустого объекта;
+- всех четырёх допустимых исходов.
+Credential / Revocation correspondence. Перед вычислением usage и исторического результата проверяется точное равенство credential_id. Несовпадение возвращает mechanism failure. Есть тесты несовпадающей пары, совпадающей пары и отсутствующего revocation.
+
+Это закрывает оба найденных сценария. 
+2. Оставшееся замечание
+
+P2 — non-blocking
+ Runtime-валидатор verifier пока не проверяет точную форму объекта.
+Файл: src/core/credential.ts, isVerificationOutcome().
+
+Сейчас проверяется discriminant и тип reason, но допускаются, например:
+{ status: 'VERIFIED', reason: 'unexpected' }
+{ status: 'VERIFIED', extra: true }
+
+
+Хотя контракт SignatureVerificationOutcome разрешает reason только для CRYPTO_UNAVAILABLE и CRYPTO_UNSUPPORTED, а extra вообще не определён.
+
+Также проверка не требует plain object: массив с добавленным свойством status теоретически тоже может пройти.
+
+Рекомендация: сделать проверку строгой по вариантам union:
+Status	Разрешённые поля
+VERIFIED	status
+INVALID	status
+CRYPTO_UNAVAILABLE	status, optional reason
+CRYPTO_UNSUPPORTED	status, optional reason
+
+Отклонять неизвестные поля, массивы и объекты с неподходящей структурой.
+
+Это не возвращает прежний fail-open для неизвестного discriminant, но завершает обещанную runtime-валидацию контракта.
+3. Остальные архитектурные инварианты
+Повторно проверил наиболее важные места:
+- D-3: INVALID возникает только при двух доверенных temporal assessments, принятом evidence gate и signed_at >= compromise_effective_at.
+- D-4: отсутствие compromise_effective_at приводит к CONTESTED_COMPROMISED; revoked_at не подставляется.
+- claim_status появляется только при historical INVALID.
+- future_authorizable вычисляется независимо от historical.
+- Ошибки policy callbacks не дают частичного результата.
+- trustOutcome сохраняет точное сопоставление subject_ref, field, timestamp_value.
+- revocationSubjectRef остаётся content-derived.
+- CORE-001.md не менялся, grant API не появился.
+4. CI и approval trail
+По твоему отчёту:
+- Actions: pass.
+- SonarCloud: pass, 0 issues.
+- Entire: Checks, Findings, Up to date — pass.
+- Entire Gates блокирует только отсутствие reviewer approval.
+Я проверил GitHub-статусы и workflow runs через доступные мне источники: они не вернули записей для abd9c93. Поэтому CI здесь считаю подтверждённым твоим отчётом, но не собственной независимой проверкой.
+
+Approval trail #29 я не смог независимо проверить по содержимому.
+
+Итоговое решение
+Я снимаю предыдущий REQUEST CHANGES по двум P1.
+
+Моя оценка:
+- P1: закрыты.
+- P2: одна рекомендация по строгой runtime-валидации.
+- Нормативная семантика: существенных отклонений в проверенных местах не обнаружил.
+- CI: заявлен как успешный, независимо не подтверждён.
+Я бы не стал снова блокировать весь Task 13 из-за P2. Но если агенту несложно добавить строгую проверку формы verifier output и пару тестов, лучше сделать это сейчас, пока PR открыт.
+
+Итог: APPROVE WITH NON-BLOCKING NOTE. Это мой технический вердикт по коду, а не отправленный GitHub review.
