@@ -1,7 +1,7 @@
 # T18-09A — Assurance Semantics Decision Package
 
 **Status:** Supplemental evidence, alternatives and recommendations. **Neither decision is approved.**
-**Repository revision:** `454af8c` (`main`, T18-02A merged).
+**Repository revision:** `454af8c` (package base; the DEC-06 v2.5 addendum is layered on top and is tracked in PR #63).
 **Task 17:** historical evidence; unchanged by this package.
 **Package type:** documentation only. No source, test, specification, configuration or CI change.
 
@@ -56,6 +56,7 @@ Implementation behavior is never promoted to normative meaning. A passing test i
 | --- | --- |
 | `README.md` | Scope, status, source hierarchy, summary, invariants, validation |
 | `dec-06-contradictory-assessments.md` | T18-DEC-06 evidence, options, adversarial cases, recommendation, open sub-decisions |
+| `dec-06-owner-decision-addendum-v2.5.md` | DEC-06 owner-decision addendum v2.5: conformance layers, EvaluationRecord contract, pair coverage, predicate limits, OPEN register; PROPOSED, not approved |
 | `dec-07-closure-depth.md` | T18-DEC-07 evidence, options, adversarial graphs, recommendation, open sub-decisions |
 | `interaction-matrix.md` | 3×3 interaction matrix and cross-decision analysis |
 | `evidence-index.md` | Normative, implementation, test and Task 17 source index |
