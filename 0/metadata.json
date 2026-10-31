@@ -1,0 +1,44 @@
+{
+  "cli_version": "0.12.3-nightly.202610300619.cea1b3cee",
+  "checkpoint_id": "01M687G28Y3TF9C8V50ZVFJRXE",
+  "session_id": "ses_e7105d3e8ffeYfGlU43yND6dyG",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T05:39:43.047170218Z",
+  "branch": "docs/task-13-14-status",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "README.md",
+    "docs/ARCHITECTURE.md",
+    "docs/ROADMAP.md"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "331db6737029",
+  "checkpoint_transcript_start": 1279,
+  "transcript_lines_at_start": 1279,
+  "compact_transcript_start": 1279,
+  "token_usage": {
+    "input_tokens": 21891,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 8016256,
+    "output_tokens": 4274,
+    "api_call_count": 15
+  },
+  "redaction": {
+    "replacements": 62,
+    "layers": {
+      "betterleaks": 6,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 4,
+      "credentialed_uri": 0,
+      "entropy": 52,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 138
+  }
+}
