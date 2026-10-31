@@ -92,7 +92,7 @@ UIA aims to preserve these distinctions instead of collapsing them into a single
 
 ## Current implementation
 
-The implementation is developed incrementally against the normative specification, with unit and conformance suites; property-based tests are part of the implementation plan.
+The implementation is developed incrementally against the normative specification, with unit, conformance and property suites.
 
 Implemented so far:
 
@@ -108,6 +108,7 @@ Implemented so far:
 - Continuity assessments: edge-bound applicability, policy narrowing without expansion, trusted-assessor filtering, spec-literal unverified-claim semantics, explicit-only `CONTESTED`, and copy-on-write supersession.
 - Conditional version binding and three-phase traversal (§8): scope-filtered path discovery, per-path validation, and immediate merge closure over every direct parent edge of merge nodes on a path.
 - §12 B-series conformance (B-1…B-7), including per-path outcomes and the trusted-assessor refusal in B-5.
+- Property-based invariance for storage, lineage and assessment arrival order, plus an independent brute-force oracle for the immediate-closure contract on bounded DAGs.
 - Descriptor hashing over the explicit §7.1 projection, pinned by a known-answer test.
 - Version label validation: strict SemVer 2.0.0 for `SEMVER_2`, non-empty labels for `CONTENT_HASH` and `OPAQUE_TAG` (no format or ordering inferred).
 - The versioned `uia-ref-selector@1` mechanism — exact match, wildcard, comparators, `&&` composition — with factory-provenance checks on compiled selectors.
@@ -116,7 +117,7 @@ Still to come:
 
 - Credential semantics and temporal validation.
 - Local Acceptance and lifecycle semantics.
-- The remaining §12 conformance corpus (C-1/C-2 and the D-series) and property-based invariance tests.
+- The remaining §12 conformance corpus (C-1/C-2 and the D-series).
 
 Implementation progress is tracked task by task in the implementation plan. Not every capability described in the specification is necessarily implemented in the current repository state.
 
@@ -197,7 +198,7 @@ Related concerns may be addressed by separate specifications.
 
 The normative specification is currently a Candidate Draft Normative document.
 
-The reference implementation is being developed incrementally. Unit tests and the A/B conformance suites exist today; the C/D conformance cases and property-based tests are not yet present. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
+The reference implementation is being developed incrementally. Unit, A/B conformance and property suites exist today; the C/D conformance cases are not yet present. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
 
 ## Design philosophy
 
