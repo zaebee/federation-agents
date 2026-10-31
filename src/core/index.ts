@@ -41,6 +41,30 @@ export type {
 } from './traversal.js';
 
 export {
+  applyLifecycle,
+  createLocalAcceptanceLifecycleEvent,
+  createLocalAcceptanceRecord,
+  isAcceptable,
+} from './acceptance.js';
+export type {
+  AcceptanceApplicability,
+  AcceptanceApplicabilityPolicy,
+  AcceptanceApplicabilityPolicyInput,
+  AcceptanceDecision,
+  AcceptanceLifecycleState,
+  AcceptanceNotApplicableReason,
+  AcceptanceQuery,
+  LifecyclePolicy,
+  LifecyclePolicyInput,
+  LifecycleTransition,
+  LocalAcceptanceLifecycleEvent,
+  LocalAcceptanceRecord,
+} from './acceptance.js';
+
+export { appendAcceptance, appendLifecycleEvent, createAcceptanceLedger } from './ledger.js';
+export type { AcceptanceLedger } from './ledger.js';
+
+export {
   evaluateCredentialUsage,
   evaluateHistoricalSignature,
   revocationSubjectRef,
