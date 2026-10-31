@@ -1,0 +1,62 @@
+# PR #77 — Final documentation consistency pass
+
+The previous review's four findings are substantially addressed. Before merging, please make one focused consistency pass.
+
+## Required corrections
+
+### 1. [P1] Align the D5 proof-obligation count
+
+The documents currently disagree:
+
+- `complexity-proof.md` §9.3: three obligations.
+- `oq4-complexity-adversarial-pass.md` §6: three obligations.
+- `decision-ready-revision.md` §2.4: four obligations, including closure-constraint handling in H.
+
+Determine whether closure-constraint handling is an independent obligation or is already covered by the proof that H represents exactly the fully valid paths.
+
+Make the source-of-truth proof status and all references consistent. D5 must remain OPEN until its actual obligations are discharged.
+
+### 2. [P1] Fix the L2 accepted-witness terminology
+
+`decision-ready-revision.md` §1.1 currently calls the mandatory acceptance evidence a "canonical accepted witness", while OD-3 and `api-migration.md` permit `DETERMINISTIC_NON_MINIMUM` while D5 is OPEN.
+
+Use a neutral formulation:
+
+- L2 requires one deterministically selected accepted witness.
+- `PATH_KEY_MINIMUM` is available only after D5 closes.
+- `DETERMINISTIC_NON_MINIMUM` requires an explicit, storage/arrival/traversal-independent selection rule.
+
+Do not imply canonicality when the selected witness is not guaranteed to be pathKey-minimum.
+
+### 3. [P2] Refresh remaining-owner-questions.md
+
+Two stale references remain:
+
+- Basis still cites OQ4 revision 3 instead of revision 3.1.
+- OQ-8 says no executed benchmark record exists and cites the old scratch measurement (~2.7 s at k=16).
+
+The current `benchmark-record.md` contains the executed record: k=16 median 2305 ms, RSS delta 458 MiB. Update OQ-8 to reference that record and preserve the distinction between empirical evidence and a complexity proof.
+
+### 4. [P2] Clarify CycleWitness construction after loop erasure
+
+The D3 lemma guarantees that the loop-erased simple path touches some cyclic SCC node, but the originally selected reachability pivot `c` may itself be erased.
+
+Specify that `cyclicNode` is selected from the final loop-erased path, and `cycle` is the SCC containing that surviving node. Do not assume the original pivot necessarily survives.
+
+Keep the existing verification requirements: simple candidate→origin path, cyclic node on that path, and exact SCC evidence.
+
+### 5. [P2] Remove the constant-time ambiguity in D6a
+
+`duplicateDescriptorId`, selector compilation, and version-label validation depend on input size. Describe D6a as polynomial in input size; do not characterize it as constant-time.
+
+## Preserve these constraints
+
+- No source or test changes.
+- No changes to `CORE-001.md`, decision registers, or Task 17 statuses.
+- Do not approve or register `T18-DEC-18`.
+- Keep A-8 and A-14 OPEN.
+- Keep D5 OPEN.
+- No new normative error code.
+- Do not turn benchmark evidence into a complexity proof.
+
+After these edits, provide the exact new head SHA and a list of changed files. No broad rewrite is needed.
