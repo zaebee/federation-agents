@@ -1,0 +1,84 @@
+Сделал аудит PR #36 — UIA-CORE-001 Implementation Reference.
+REQUEST CHANGES
+3 замечания, из них 1 существенное
+
+Общий вывод: документ получился сильным по структуре и технической глубине. Это уже не просто README, а полноценный implementation reference: архитектура, API, фазы traversal, тестовое покрытие, механизмы и границы нормативной спецификации. Но в нём есть несколько противоречий, которые особенно нежелательны для документа, претендующего на роль evidence-backed описания реализации.
+1. Существенное: устаревший раздел о ARCHITECTURE.md
+Раздел 9.4 — Repository documentation drift.
+
+Документ утверждает, что docs/ARCHITECTURE.md всё ещё содержит три устаревших положения:
+- A7 — четыре trust outcomes помечены как Target / Planned;
+- §8 — Temporal model обозначена как target;
+- §9 — core/ledger.ts обозначен как planned.
+Но это уже не соответствует состоянию репозитория на базовом коммите PR #36 — 9425d3f.
+
+Я проверил именно docs/ARCHITECTURE.md на этом коммите. Там уже указано:
+- A7 — Implemented;
+- core/temporal.ts — Implemented;
+- core/ledger.ts — Implemented;
+- в §4.1 прямо сказано, что temporal и acceptance ledger уже существуют.
+То есть раздел 9.4 описывает состояние документации до обновления в PR #35, а не состояние на момент Task 16.
+
+Что исправить: удалить раздел 9.4 как устаревший либо заменить его реальными оставшимися расхождениями. Сам ARCHITECTURE.md менять не нужно.
+2. Противоречие в статусе A-5
+Разделы 6 и 8.2.
+
+В документе A-5 правильно фигурирует среди BLOCKED ambiguities: глубина рекурсивного merge closure нормативно не определена.
+
+Но в §8.2 написано:
+(a) matches current behavior and keeps A-5 closed as "spec-literal".
+
+Это противоречит остальному документу и текущему решению по A-5.
+
+Реализация действительно делает immediate closure. Но это не означает, что нормативная неоднозначность закрыта. Нельзя превращать выбранный implementation behavior в нормативное решение.
+
+Что исправить: заменить формулировку на что-то вроде:
+(a) preserves the current immediate-only implementation behavior while keeping A-5 BLOCKED pending normative clarification.
+
+Это важно: реализация может быть определённой, даже когда семантика спецификации остаётся открытой.
+3. Finding / Ruling: терминология D-2
+Раздел 2.19 и таблица D-2 в §4.5.
+
+Есть несколько формулировок:
+- historical ruling double;
+- stored rulings are untouched.
+При этом в том же документе совершенно правильно сказано:
+Neither exists as a type here.
+
+И это принципиально. LocalAcceptanceRecord не является Ruling. Он фиксирует локальный акт признания в домене. D-2 проверяет сохранность Local Acceptance и связанных исторических записей после последующей ревокации и superseding assessment.
+
+Называть это historical ruling double можно понять как тестовую аналогию, но в implementation reference такая метафора создаёт ненужное смешение двух разных сущностей.
+
+Что исправить:
+- historical ruling double → historical Local Acceptance preservation fixture;
+- stored rulings are untouched → stored Local Acceptance records and supporting assessments remain unchanged.
+Это не косметика: документ должен сохранять границу CORE-001 / CORE-004.
+
+Что проверил дополнительно
+Область	Результат
+Scope PR	PASS  Один файл docs/implementation.md, без production/test/spec изменений
+Архитектура и API	PASS  Структура соответствует заявленной задаче
+Traversal phases	PASS  Хорошо разделены discovery, validation и closure
+Conformance	PASS  Честно указано 16/18, C-1/C-2 остаются test.todo
+Property tests	PASS  Ограничения P7 и переиспользование oracle-компонентов раскрыты
+format:check	PASS  Ограничение .prettierignore явно раскрыто
+Normative boundaries	REVIEW  Нужно поправить A-5 и терминологию D-2
+
+Отдельно понравилось, что документ не выдаёт property-based testing за доказательство корректности для произвольных графов, признаёт ограничения oracle и не пытается закрыть C-1/C-2 частичными graph-level тестами.
+CI и состояние PR
+CI passed
+Я независимо проверил GitHub Checks на commit 8778ec3d5307de22b6af6d736e203b8d152ff410:
+- Format / lint / typecheck / test / build — успешно.
+- SonarCloud Quality Gate — успешно.
+- 0 новых issues, 0 Security Hotspots, 0% duplication.
+- Coverage on New Code — 0%, ожидаемо для документационного PR.
+Entire Gates пока красный только из-за отсутствия reviewer approval. Это не ошибка сборки.
+
+PR #36 всё ещё открыт. Review submissions пока отсутствуют; я ничего в GitHub не отправлял.
+
+Рекомендация агенту
+Я бы передал агенту короткую задачу на три точечных исправления, без переписывания документа и без изменения scope:
+1. Синхронизировать §9.4 с фактическим состоянием ARCHITECTURE.md на base commit.
+2. Убрать формулировку о том, что A-5 закрыт.
+3. Устранить смешение Local Acceptance и Ruling в описании D-2.
+После этих трёх исправлений я ожидаю APPROVE. Архитектурно документ уже выглядит зрелым; сейчас проблема не в недостатке содержания, а в точности нескольких утверждений.
