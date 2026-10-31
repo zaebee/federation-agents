@@ -81,7 +81,7 @@ No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work
 ### 4.1 Approved decisions
 
 - **T18-DEC-01 — `REQ-LOCAL`:** CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` and `CYCLE_DETECTED`. This is a recording obligation; it does not assign construction/publication to Core.
-- **T18-DEC-02 — `OWN-ADAPTER` + `VAL-CORE`:** adapter constructs the Assessment; Core owns semantic validation. Registration/publication/retention ownership remains OPEN. See `decision-register.md` §3 for the canonical scope and enforcement.
+- **T18-DEC-02 — `OWN-ADAPTER` + `VAL-CORE`:** adapter constructs the Assessment; Core owns semantic validation. Registration/publication/retention ownership remains OPEN; `T18-02A` is planning-eligible but cannot be accepted until registration ownership is assigned. See `decision-register.md` §3 for the canonical scope and enforcement.
 
 Still OPEN: C-2 subject model, exact Assessment shape/provenance, publication/retention ownership, and C-2.a3 / CORE-003.
 
@@ -90,7 +90,7 @@ Still OPEN: C-2 subject model, exact Assessment shape/provenance, publication/re
 | Task | Type | Priority | Risk scope |
 | --- | --- | --- | --- |
 | T18-01 Assessment-emission decision package | specification/design | P1 | `CORE-001_RUNTIME` |
-| T18-02A C-1 adapter emission (eligible) | implementation + tests | P1 | `CORE-001_RUNTIME` |
+| T18-02A C-1 adapter emission (planning-eligible; acceptance blocked on registration ownership) | implementation + tests | P1 | `CORE-001_RUNTIME` |
 | T18-02B C-2.a2 adapter emission (blocked on C-2 model) | implementation + tests | P1 | `CORE-001_RUNTIME` |
 | T18-02C Retired / superseded (historical ID; scope split into T18-02A/B) | — | — | `CORE-001_RUNTIME` |
 | T18-03 D-4 future-authorization evidence | test-only | P2 | `CORE-001_RUNTIME` |
@@ -112,7 +112,7 @@ Still OPEN: C-2 subject model, exact Assessment shape/provenance, publication/re
 Milestones:
 
 - **M0** — decisions registered and owners assigned (T18-DEC-01…14).
-- **M1** — CORE-001 implementation gaps resolved or explicitly dispositioned (T18-02A eligible; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
+- **M1** — CORE-001 implementation gaps resolved or explicitly dispositioned (T18-02A planning-eligible, acceptance blocked on registration ownership; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).

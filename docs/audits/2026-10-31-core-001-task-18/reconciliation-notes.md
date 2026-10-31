@@ -72,7 +72,7 @@ Any future correction to Task 17 text or status requires a separate audit revisi
 The project owner approved:
 
 - `T18-DEC-01` = **`REQ-LOCAL`**: CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle. This is a recording obligation; it does not assign construction/publication to Core.
-- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE`**: adapter constructs the Assessment; Core owns semantic validation. See `decision-register.md` §3 for the canonical scope; registration/publication/retention ownership remains OPEN.
+- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE`**: adapter constructs the Assessment; Core owns semantic validation. See `decision-register.md` §3 for the canonical scope; registration/publication/retention ownership remains OPEN. `T18-02A` is planning-eligible but its acceptance requires the registration-ownership decision.
 
 The canonical approved record is `decision-register.md` §3. The T18-01 package is a historical proposal snapshot; it is not the approval record.
 
