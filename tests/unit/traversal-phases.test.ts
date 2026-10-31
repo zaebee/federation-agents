@@ -632,3 +632,52 @@ describe('determinism', () => {
     expect(first).toEqual(second);
   });
 });
+
+describe('path membership against the supplied graph', () => {
+  const { graph } = chainState();
+
+  test('rejects a path edge that is not present in the graph', () => {
+    const forged: Path = {
+      scope: 'CONTINUATION_ONLY',
+      edges: [{ child: identityVersionId('iv-a-2'), parent: identityVersionId('iv-ghost'), relation: 'CONTINUATION' }],
+    };
+
+    const failure = expectMechanismFailure(validatePath(forged, graph, [], requirementFor([]), EMPTY_POLICY, CTX));
+    expect(failure.message).toContain('not present in the supplied graph');
+  });
+
+  test('rejects an edge that exists only in a different graph', () => {
+    const other = diamondState().graph;
+    const path: Path = {
+      scope: 'FULL_ANCESTRY',
+      edges: [{ child: identityVersionId('iv-d'), parent: identityVersionId('iv-b'), relation: 'MERGED_FROM' }],
+    };
+
+    expect(validatePath(path, other, [], requirementFor([]), EMPTY_POLICY, CTX).ok).toBe(true);
+    expect(validatePath(path, graph, [], requirementFor([]), EMPTY_POLICY, CTX).ok).toBe(false);
+  });
+
+  test('phase 3 rejects a path edge that is not present in the graph', () => {
+    const forged: Path = {
+      scope: 'FULL_ANCESTRY',
+      edges: [{ child: identityVersionId('iv-a-2'), parent: identityVersionId('iv-ghost'), relation: 'CONTINUATION' }],
+    };
+
+    const failure = expectMechanismFailure(
+      validateMergeClosure(forged, graph, [], requirementFor([]), EMPTY_POLICY, CTX),
+    );
+    expect(failure.message).toContain('not present in the supplied graph');
+  });
+
+  test('discovered paths belong to their graph by construction', () => {
+    const { graph: diamond, assessments } = diamondState();
+    const discovered = discoverPaths(diamond, 'FULL_ANCESTRY', identityVersionId('iv-d'), identityVersionId('iv-a-1'));
+
+    expect(discovered.ok).toBe(true);
+    if (!discovered.ok) return;
+    expect(discovered.value.length).toBeGreaterThan(0);
+    for (const path of discovered.value) {
+      expect(validatePath(path, diamond, assessments, requirementFor(['CONT_OK']), EMPTY_POLICY, CTX).ok).toBe(true);
+    }
+  });
+});

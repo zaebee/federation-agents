@@ -88,7 +88,7 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/acceptance.ts`      | §9       | Implemented | Immutable Local Acceptance, policy-driven lifecycle and contextual applicability |
 | `core/ledger.ts`          | —        | Implemented | Copy-on-write in-memory acceptance/event store — a **mechanism**, not protocol semantics |
 
-`src/index.ts` exports `UIA_CORE_001_REVISION` and re-exports the core barrel. The `ApplicableAssessments` and `CompiledSelector` brands remain module-private and are not exported through `src/index.ts`.
+`src/index.ts` exports `UIA_CORE_001_REVISION` and re-exports the core barrel. The `ApplicableAssessments` and `CompiledSelector` brands remain module-private and are not exported through `src/index.ts`. The built-graph provenance guard (`isBuiltLineageGraph`) stays internal too: traversal accepts a structurally valid graph and verifies that every path edge belongs to it, while Core admission of C-1 assessments requires builder provenance.
 
 `src/adapters/orphan-assessment.ts` is an **experimental reference adapter**, not a protocol API: it constructs a `PARENT_UNRESOLVED` Assessment from a graph with an unresolved parent (T18-02A, §12 C-1). It sits outside `src/core/` because construction of an Assessment is a boundary concern; Core owns validation and admission.
 
@@ -181,13 +181,15 @@ Traversal is split into independently testable phases. The functions below are i
 | Phase | Function                | Responsibility                                                                 |
 | ----- | ----------------------- | ------------------------------------------------------------------------------ |
 | 1     | `discoverPaths`         | Scope-permitted edges only; cycles are dead ends; no path → `ERR_NO_TRAVERSAL_PATH` |
-| 2     | `validatePath`          | For every edge of one path: `assessEdge`, then `evaluateAssurance`               |
-| 3     | `validateMergeClosure`  | For every merge node on the path, every direct parent edge, whatever its relation |
+| 2     | `validatePath`          | Path shape and membership in the supplied graph, then for every edge: `assessEdge`, `evaluateAssurance` |
+| 3     | `validateMergeClosure`  | Phase 2's shape and membership checks, then every direct parent edge of every merge node on the path, whatever its relation |
 | 4     | `evaluateBinding`       | Aggregates per-path results into a `BindingResult`                               |
 
 Phase 3 implements **immediate closure** only — §8.6's literal text about the parent edges of a merge node. Recursive closure and closure over a merge-typed origin are **BLOCKED** in Rev 0.3.3 and are not claimed as conformance (see §9).
 
 Scope governs discovery only. A mixed-relation merge node can be reached through a scope-permitted edge, and immediate closure still checks all its direct parent edges — including relations excluded from discovery. The terminal origin is not closed (A-11).
+
+**Graph trust.** A `Path` is only meaningful against the graph it was discovered from, so both validation phases verify that every path edge exists in the supplied graph; a path assembled from a stale snapshot or another domain's JSON is a mechanism failure, not an accidental `VALID`. Discovery output is in-graph by construction, and orchestration evaluates only discovered paths.
 
 ## 8. Temporal model (implemented)
 
