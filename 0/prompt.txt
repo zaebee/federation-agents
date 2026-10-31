@@ -1,0 +1,37 @@
+### PR #77 — final D3 complexity wording correction
+
+One remaining P2 issue in the latest revision (`a7935c71912e19b1d4af0ae295a7194dc2d2f165`).
+
+**Files:**
+- `complexity-proof.md` §7.1
+- `oq4-complexity-adversarial-pass.md` §4
+
+Both currently claim:
+
+> each vertex is pushed once and popped at most once
+
+This is not generally true for chronological loop erasure: a vertex can be removed from the stack and later pushed again when it reappears in the input walk.
+
+The claimed complexity bound is nevertheless valid for this specific construction:
+
+1. The input walk is the concatenation of two BFS predecessor paths.
+2. Each BFS path is simple and has at most `|V| - 1` edges.
+3. Therefore the concatenated walk has `O(V)` edges.
+4. Each input edge is processed exactly once.
+5. The total number of push operations is bounded by the input walk length plus the initial stack element.
+6. Each individual push is popped at most once.
+7. With a hash map, lookup/update is expected `O(1)`, so loop erasure is expected `O(V)`.
+8. BFS itself is `O(V + E)`.
+
+Please replace the inaccurate per-vertex claim with this operation-count argument in both documents. Keep the deterministic balanced-tree alternative at `O((V + E) log V)`.
+
+**Constraints:**
+- Documentation-only change.
+- No source, tests, `CORE-001.md`, registers or status changes.
+- D3 remains polynomial.
+- D5 remains OPEN.
+- A-8 and A-14 remain OPEN.
+- Do not approve or register `T18-DEC-18`.
+- Do not authorize Issue #25 implementation.
+
+Return the new HEAD SHA and changed-file list.
