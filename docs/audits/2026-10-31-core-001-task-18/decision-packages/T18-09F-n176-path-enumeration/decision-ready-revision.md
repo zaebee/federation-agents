@@ -2,7 +2,7 @@
 
 **Status:** decision-support revision of the draft package. **`T18-DEC-18` remains PROPOSED / OPEN.** This document does not approve it, register it, or change any status.
 **Reviewed revision:** `f1d52e1` (`main`).
-**Complexity source of truth:** `oq4-complexity-adversarial-pass.md` revision 3. Where this document and the earlier revisions differ, revision 3 governs. **D2/D3/D4/D6 are polynomial; D5 is polynomial with a proof sketch and named empirical obligations.**
+**Complexity source of truth:** `oq4-complexity-adversarial-pass.md` revision 3. Where this document and the earlier revisions differ, revision 3 governs. **D2/D3/D4/D6 are polynomial; D5 is a proof sketch with named empirical obligations and is not certified until those obligations are met.**
 **Companions:** `adversarial-review.md`, `remaining-owner-questions.md`, `oq4-complexity-adversarial-pass.md`.
 
 Each section follows the same shape: **exact statement → normative anchor → counterexample → proposed resolution → compatibility impact → closure evidence.**

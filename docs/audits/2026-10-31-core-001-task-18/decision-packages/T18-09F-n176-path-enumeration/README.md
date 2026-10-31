@@ -1,6 +1,6 @@
 # T18-09F — N-176 Path Enumeration Decision Package
 
-**Status:** DRAFT — decision-support only. **Not approved.** Decision-ready revision added (`decision-ready-revision.md`); the complexity analysis (`oq4-complexity-adversarial-pass.md`, revision 3) now proves D0/D2/D3/D4/D6 polynomial and leaves D5 polynomial as a proof sketch with named empirical obligations. `T18-DEC-18` remains PROPOSED / OPEN.
+**Status:** DRAFT — decision-support only. **Not approved.** Decision-ready revision added (`decision-ready-revision.md`); the complexity analysis (`oq4-complexity-adversarial-pass.md`, revision 3) proves D0/D2/D3/D4/D6 polynomial and leaves D5 only as a **proof sketch with named empirical obligations — not certified**. `T18-DEC-18` remains PROPOSED / OPEN.
 **Proposed decision:** `T18-DEC-18` — path-enumeration and equivalent-result semantics.
 **Repository revision:** `f1d52e1` (`main`; Task 17 audit revision 2 merged).
 **Related:** issue #25, issue #53 / audit revision 1, `AMBIG-A-8`, `T18-SPEC-01`.

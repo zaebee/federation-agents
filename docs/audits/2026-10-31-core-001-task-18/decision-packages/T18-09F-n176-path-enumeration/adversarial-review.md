@@ -34,19 +34,13 @@ A compact result that returns one canonical accepted path cannot pass B-3 as wri
 
 **Required:** `T18-SPEC-01` must revise the B-3/B-4/B-6 expectations (or the decision must preserve a diagnostic API capable of satisfying them), and DEC-18's closure evidence must name that revision and the re-audit.
 
-### F2 (high) — A rejection witness must reproduce the top-level code, and A-8 is OPEN
+### F2 (high) — A rejection witness must reproduce the top-level code
 
-**Status: partially resolved** — `oq4` §3–§8 gives class-existence predicates and the precedence is preserved as an implementation rule; A-8 remains OPEN.
+**Status: witness contract resolved; A-8 (normative precedence) still open.** `decision-ready-revision.md` §3 now specifies the class-existence predicates (D0/D2/D3/D4/D6), the required class witness per returned code, and the current precedence preserved as an implementation compatibility rule (`MECHANISM > closure > cycle > contested > assurance`). `N176-12` (witness sufficiency) is answered for these classes; `A-8` — whether that precedence is normative — remains OPEN and is not claimed to be resolved by DEC-18.
 
-Today the top-level failure code is computed **after scanning every path**, with the precedence closure > cycle > contested > assurance (`summarizePaths`). A non-enumerating rejection that returns "one failing edge" does not by itself establish the same observable code. `N176-12` and `A-8` are both OPEN; the package acknowledges this but still recommends Option D as the implementation shape. DEC-18 cannot claim an equivalent result until the rejection contract states: which witness is sufficient, and which top-level code it must produce for each combination.
+### F3 (high) — Mechanism-failure precedence (historical finding)
 
-### F3 (high) — Mechanism-failure precedence is unaddressed
-
-**Status: superseded** — there is no path-scoped mechanism class; mechanism failures are input-scoped and `N176-13` is withdrawn.
-
-`evaluateBinding` returns a `MECHANISM` result if **any** discovered path's evaluation fails (for example a malformed assessment or selector), even when another path would be accepted; the loop returns immediately on that error before `summarizePaths`. Early-acceptance (Option D) stops as soon as a valid path is found and would never observe the later mechanism failure. That is an **observable semantic change**, not a performance improvement.
-
-**Required:** DEC-18 must state the precedence between "valid path exists" and "some path produces a mechanism failure", and a compact algorithm must preserve it (or the spec must change it explicitly).
+**Status: superseded. No action remains.** This finding was written against revision 1 of the complexity analysis, which assumed path-scoped mechanism failures (for example a `Policy` hook throwing only for some edges). Revision 3 shows that no such class exists: the only reachable `MECHANISM` results are input-scoped (`assessEdge` candidate-array validation, selector/candidate prechecks); a throwing `Policy` hook is not caught and propagates. `N176-13` is withdrawn. The old "Required" action is therefore historical and was removed; the current model is in `oq4` §7 and `decision-ready-revision.md` §3.5.
 
 ### F4 (medium) — Option A cannot be recorded as satisfying N-176
 
