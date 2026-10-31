@@ -18,6 +18,8 @@ export {
   assessEdge,
   evaluateAssurance,
   registerAssessment,
+  registerCycleAssessment,
+  registerCycleAssessments,
   registerOrphanAssessment,
   registerOrphanAssessments,
   validateContinuityAssessment,

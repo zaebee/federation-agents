@@ -39,7 +39,7 @@
 | --- | --- | --- |
 | `disposition-matrix.md` row `N-143` | `SPECIFICATION_DECISION`; `T18-02B` eligible after `T18-DEC-16`; PASS only with AEBE | Blocker chain |
 | `disposition-matrix.md` row `N-145` | cross-spec dependency on CORE-003 (`T18-DEC-13`) | Case remains BLOCKED after the model |
-| `remediation-roadmap.md` row `T18-02B` | "eligible after `T18-DEC-16`" | The approval recorded for this package |
+| `remediation-roadmap.md` row `T18-02B` | "implemented (AEBE recorded)" | The implementation the approval enabled |
 | `remediation-roadmap.md` critical path | `T18-02B → AEBE → T18-13` | Why an unregistered decision was on the critical path |
 
 ## 5. Implementation sources (`src/`)

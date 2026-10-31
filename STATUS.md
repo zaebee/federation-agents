@@ -1,6 +1,6 @@
 # UIA-CORE-001 — Repository Status
 
-**Verified at:** commit `1440ca4`, 2026-10-31.
+**Verified at:** commit `c63f288`, 2026-10-31.
 **Scope:** the reference implementation and its conformance evidence in this repository.
 **Authority:** the audit trail under [`docs/audits/`](docs/audits/). This file summarises it and links to it; it does not replace it.
 
@@ -15,14 +15,14 @@ What remains is not a backlog of missing code paths. It is two kinds of work:
 
 ## At a glance
 
-| Measure            | Value                                                                                                                                                       | Source                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| §12 cases          | 14 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 0 NOT COVERED                                                                                          | Task 17 audit, revision 1              |
-| Requirements       | 153 PASS, 9 PARTIAL, 9 BLOCKED, 5 NOT COVERED, 0 FAIL (176 total)                                                                                           | Task 17 audit, revision 1              |
-| Decisions          | 4 APPROVED (incl. `T18-DEC-16`/`T18-DEC-17`), 13 OPEN                                                                                                       | Task 18 decision register              |
-| Non-PASS items     | 23 in revision 1 (also 23 at the Task 17 baseline): N-138 closed, N-176 new and not yet dispositioned by Task 18; remediation implemented: 1 task (T18-02A) | Task 18 disposition + audit revision 1 |
-| Readiness          | `NOT_READY`                                                                                                                                                 | Task 18 §7                             |
-| Local check matrix | green — 582 tests, 579 pass, 3 todo, 0 fail, 3646 expectations                                                                                              | `bun test` at the commit above         |
+| Measure            | Value                                                                                                                                                                 | Source                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| §12 cases          | 14 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 0 NOT COVERED                                                                                                    | Task 17 audit, revision 1              |
+| Requirements       | 153 PASS, 9 PARTIAL, 9 BLOCKED, 5 NOT COVERED, 0 FAIL (176 total)                                                                                                     | Task 17 audit, revision 1              |
+| Decisions          | 4 APPROVED (incl. `T18-DEC-16`/`T18-DEC-17`), 13 OPEN                                                                                                                 | Task 18 decision register              |
+| Non-PASS items     | 23 in revision 1 (also 23 at the Task 17 baseline): N-138 closed, N-176 new and not yet dispositioned by Task 18; remediation implemented: 2 tasks (T18-02A, T18-02B) | Task 18 disposition + audit revision 1 |
+| Readiness          | `NOT_READY`                                                                                                                                                           | Task 18 §7                             |
+| Local check matrix | green — 596 tests, 593 pass, 3 todo, 0 fail, 3713 expectations                                                                                                        | `bun test` at the commit above         |
 
 Three statuses need a caveat:
 

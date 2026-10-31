@@ -9,3 +9,6 @@ export * from './core/index.js';
 // guarantee or compatibility commitment is implied by this package export.
 export { emitOrphanAssessment } from './adapters/orphan-assessment.js';
 export type { OrphanAssessmentEmission, OrphanAssessmentRequest } from './adapters/orphan-assessment.js';
+
+export { emitCycleAssessments } from './adapters/cycle-assessment.js';
+export type { CycleAssessmentEmission, CycleAssessmentRequest } from './adapters/cycle-assessment.js';

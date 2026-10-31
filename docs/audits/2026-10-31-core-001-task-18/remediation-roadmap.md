@@ -1,6 +1,6 @@
 # Remediation Roadmap — Task 18
 
-**Audit base:** `2a83c65`. **Planning and implementation record.** `T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16` and `T18-DEC-17` are approved; T18-02A is implemented. `T18-02A` is eligible for planning and acceptance: Core-owned admission and immutable representation are approved, persistent storage is caller-managed. `T18-02B` is **unblocked** by the `T18-DEC-16` approval (Option D) and is the next implementation task; `T18-DEC-17` (publication/retention) is approved independently and does not block recording; `T18-02C` is retired / superseded.
+**Audit base:** `2a83c65`. **Planning and implementation record.** `T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16` and `T18-DEC-17` are approved; T18-02A and T18-02B are implemented. T18-02B implements Option D and records AEBE for C-2.a2 (`aebe/C-2.a2.md`); C-2 remains BLOCKED on `CASE-C-2.a3` (CORE-003, `T18-DEC-13`); `T18-02C` is retired / superseded.
 
 ## 1. How to read this roadmap
 
@@ -43,7 +43,7 @@ T18-13 depends on AEBE, not on a specific implementation task.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | T18-01 | specification/design | T18-DEC-01, T18-DEC-02; N-138, N-143, C-1, C-2 | none | `CORE-001_RUNTIME` | P1 | Decision record (approved) | DEC-01 = `REQ-LOCAL`; DEC-02 = `OWN-ADAPTER` + `VAL-CORE` | Recorded in `decision-register.md` |
 | T18-02A | implementation + tests | N-138, CASE-C-1.a3, T-001 | DEC-01/02 approved; Core-owned admission approved; Core validation enforced; `T18-DEC-15` OPEN with Option B local choice | `CORE-001_RUNTIME` | P1 | Adapter C-1 emission + Core validation/admission | AEBE for C-1 from adapter; validation and admission enforced; no public generic C-1 bypass; caller-managed persistence documented; `T18-DEC-15` remains OPEN | `bun test tests/conformance/c.test.ts`; full suite |
-| T18-02B | implementation + tests | N-143, CASE-C-2.a2, T-002 | DEC-01/02 approved + `T18-DEC-16` approved (satisfied) | `CORE-001_RUNTIME` | P1 | Adapter C-2.a2 emission + Core validation | **Eligible** — DEC-16 approved; AEBE for C-2.a2; C-2 stays BLOCKED | `bun test tests/conformance/c.test.ts`; full suite |
+| T18-02B | implementation + tests | N-143, CASE-C-2.a2, T-002 | DEC-01/02 approved + `T18-DEC-16` approved (satisfied) | `CORE-001_RUNTIME` | P1 | Adapter C-2.a2 emission + Core validation | **Implemented** — Option D emission + Core contextual admission; AEBE `aebe/C-2.a2.md`; C-2 stays BLOCKED on a3 | `bun test tests/conformance/c.test.ts`; full suite |
 | T18-02C | retired / superseded | — | none | `CORE-001_RUNTIME` | — | None | Historical task structure; superseded by T18-02A and T18-02B | — |
 | T18-03 | test-only | N-041, CASE-D-4.a2, T-004 | none | `CORE-001_RUNTIME` | P2 | D-4 policy input/outcome test | No auto-authorization; policy context asserted | `bun test tests/conformance/d.test.ts` |
 | T18-04 | conditional | N-019, F-005, T-005 | T18-DEC-03 | `CORE-001_RUNTIME` | P2 | Validation change or caller contract + test | Invalid SEMVER_2 rejected or contract proven | `bun test tests/unit/version-scheme.test.ts`, `entities.test.ts` |
@@ -83,9 +83,9 @@ The adapter constructs the C-1 Assessment using domain identity, provenance and 
 
 `T18-DEC-15` remains OPEN. T18-02A uses Option B — full declared parent set per `(child, relation)`, at least one parent unresolved — as a local implementation choice/disposition, not a normative resolution.
 
-### T18-02B — C-2.a2 adapter emission (eligible; DEC-16 approved)
+### T18-02B — C-2.a2 adapter emission (implemented; AEBE recorded)
 
-The adapter path is selected and `T18-DEC-16` is approved (2026-10-31), so T18-02B is eligible: implement Option D (one Assessment per affected lineage edge), add Core contextual validation and admission, and produce AEBE from the adapter boundary. `T18-DEC-17` is approved independently and does not gate this task. T18-02B closes N-143/C-2.a2 only; it does not close C-2 and does not close N-168.
+Implemented under the approved `T18-DEC-16` Option D: `emitCycleAssessments` emits one Assessment per affected lineage edge, Core adds contextual validation and admission, and AEBE is recorded in `docs/audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md`. `T18-DEC-17` is independent. T18-02B closes N-143/CASE-C-2.a2 evidence only; it does not close C-2 (blocked on `CASE-C-2.a3`) and does not close N-168.
 
 ### T18-02C — Retired / superseded
 
@@ -120,7 +120,7 @@ graph TD
   DEC01[T18-DEC-01 APPROVED REQ-LOCAL] --> T1801[T18-01 complete]
   DEC02[T18-DEC-02 APPROVED OWN-ADAPTER + VAL-CORE] --> T1801
   T1801 --> T1802A[T18-02A C-1 adapter emission]
-  T1801 --> T1802B[T18-02B C-2.a2 adapter eligible]
+  T1801 --> T1802B[T18-02B C-2.a2 adapter implemented]
   T1801 -.->|retired / superseded| T1802C[T18-02C retired / superseded]
   T1801 -.->|not selected| SPEC01[PATH-C alternative]
   T1809E[T18-09E C-2 subject model package] --> DEC16[T18-DEC-16 APPROVED Option D]
@@ -158,7 +158,7 @@ graph TD
 ### Milestones
 
 - **M0** — DEC-01 (`REQ-LOCAL`), DEC-02 (`OWN-ADAPTER` + `VAL-CORE`), DEC-16 (Option D) and DEC-17 (publication/retention) approved.
-- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A implemented and acceptance-eligible; T18-02B eligible after `T18-DEC-16`; T18-02C retired / superseded; T18-04, T18-05).
+- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A and T18-02B implemented; C-2 stays BLOCKED on a3; T18-02C retired / superseded; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
@@ -166,7 +166,7 @@ graph TD
 ### Critical path
 
 1. **C-1:** DEC-01/02 approved → T18-02A (adapter C-1) → AEBE → T18-13; readiness also needs T18-11 for N-170/N-175.
-2. **C-2:** `T18-DEC-16` approved → T18-02B (adapter C-2.a2) → AEBE; plus T18-DEC-13/T18-10 for a3 → T18-13. Publication/retention (`T18-DEC-17`) is approved independently of this path.
+2. **C-2:** T18-02B implemented (a2 emission + AEBE); remaining T18-DEC-13/T18-10 for a3 → T18-13. Publication/retention (`T18-DEC-17`) is approved independently of this path.
 3. **Assurance:** T18-DEC-06/07 → T18-09A → N-078/N-107/N-112; T18-DEC-06 → T18-09D → N-172.
 4. **Trust:** T18-DEC-04 → T18-06 → N-040; T18-DEC-09 → T18-09C → N-128.
 
@@ -198,7 +198,7 @@ A task that bundles requirements of different urgency is split rather than silen
 | P2 | T18-03, T18-04, T18-06, T18-09C, T18-09D, T18-SPEC-01 |
 | P3 | T18-05, T18-07, T18-08, T18-09B, T18-10, T18-11, T18-12 |
 
-`T18-02B` is unblocked (`T18-DEC-16` approved); `T18-DEC-17` (publication/retention) is approved and separate; `T18-02C` is retired / superseded. Neither is active P1 work.
+`T18-02B` is implemented (AEBE `aebe/C-2.a2.md`); `T18-DEC-17` (publication/retention) is approved and separate; `T18-02C` is retired / superseded. C-2 remains BLOCKED on `CASE-C-2.a3`.
 
 ## 8. Authority-boundary watchlist
 

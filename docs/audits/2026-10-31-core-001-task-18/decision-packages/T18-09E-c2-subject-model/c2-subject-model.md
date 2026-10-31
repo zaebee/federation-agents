@@ -4,7 +4,7 @@
 **Related case:** §12 C-2 / N-143 / `CASE-C-2.a2`.
 **Related approved decisions:** `T18-DEC-01` (`REQ-LOCAL`, recording obligation), `T18-DEC-02` (`OWN-ADAPTER` + `VAL-CORE`).
 **Related open decisions:** `T18-DEC-13` (grant suppression observability), `T18-DEC-15` (parent coverage), `T18-DEC-17` (publication/retention ownership), `A-14` / issue #65 (cycle breadth in path validation).
-**Task 18:** `T18-02B` was blocked only by `T18-DEC-16` (approved 2026-10-31, see §8); `T18-DEC-17` is approved and independent of recording.
+**Task 18:** `T18-02B` was blocked only by `T18-DEC-16` (approved 2026-10-31, see §8) and is now implemented (AEBE `docs/audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md`); `T18-DEC-17` is approved and independent of recording.
 
 ---
 
@@ -252,7 +252,7 @@ Rationale: it adopts the T18-01 recommendation rather than replacing it; no sche
 
 ---
 
-## 8. Why `T18-02B` was blocked, and what unblocks it
+## 8. Why `T18-02B` was blocked, and what unblocked it
 
 `T18-02B` (C-2.a2 adapter emission + Core validation) needs:
 
@@ -260,7 +260,7 @@ Rationale: it adopts the T18-01 recommendation rather than replacing it; no sche
 2. **The contextual admission path** for `CYCLE_DETECTED`, mirroring C-1: the generic guard at `src/core/assessment.ts:60` rejects the claim on every path while C-2 is blocked; the approved model turns it into "rejected on the generic path, admitted only through the cycle path".
 3. **AEBE from the adapter boundary** (package root, not a hand-constructed fixture), as `T18-02A` did for C-1, with Core validation and admission evidence.
 
-Approval was recorded on 2026-10-31 in `decision-register.md` §3. Closure evidence for `N-143`/`CASE-C-2.a2` is the `T18-02B` implementation plus AEBE; `T18-DEC-17`'s boundary statement is the caller-owned publication/retention scope. Task 17 statuses change only through a re-audit revision, not here.
+Approval was recorded on 2026-10-31 in `decision-register.md` §3, and `T18-02B` is implemented with AEBE in `docs/audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md`. Closure evidence for `N-143`/`CASE-C-2.a2` is that implementation plus AEBE, pending a re-audit revision; C-2 remains BLOCKED on `CASE-C-2.a3`. `T18-DEC-17`'s boundary statement is the caller-owned publication/retention scope. Task 17 statuses change only through a re-audit revision, not here.
 
 ---
 
