@@ -648,6 +648,38 @@ function buildHistoricalResult(
   };
 }
 
+/** Whether a revocation record names the same credential it is evaluated against. */
+function revocationMatchesCredential(
+  revocation: DeepReadonly<CredentialRevocationRecord> | undefined,
+  credential: DeepReadonly<CredentialDescriptor>,
+): boolean {
+  return revocation === undefined || revocation.credential_id === credential.credential_id;
+}
+
+/**
+ * Validates the records the evaluator reads and returns owned copies. A Proxy or
+ * a later mutation of the caller's objects cannot change the evaluated inputs.
+ */
+function resolveSignatureInputs(input: HistoricalSignatureInput): Result<HistoricalSignatureInput> {
+  const credential = validateCredentialDescriptor(input.credential);
+  if (!credential.ok) {
+    return mechanismResult(`CredentialDescriptor is invalid: ${credential.error.message}`);
+  }
+  const base: HistoricalSignatureInput = { ...input, credential: credential.value };
+  const revocationResult =
+    input.revocation === undefined ? undefined : validateCredentialRevocationRecord(input.revocation);
+  if (revocationResult === undefined) {
+    return { ok: true, value: base };
+  }
+  if (!revocationResult.ok) {
+    return mechanismResult(`CredentialRevocationRecord is invalid: ${revocationResult.error.message}`);
+  }
+  if (!revocationMatchesCredential(revocationResult.value, credential.value)) {
+    return mechanismResult('CredentialRevocationRecord.credential_id does not match the evaluated Credential');
+  }
+  return { ok: true, value: { ...base, revocation: revocationResult.value } };
+}
+
 /** Evaluates one historical signature. Policy is mandatory; missing/failing policy is a mechanism failure. */
 export function evaluateHistoricalSignature(
   input: HistoricalSignatureInput,
@@ -660,25 +692,11 @@ export function evaluateHistoricalSignature(
     return mechanismResult('SignatureTemporalPolicy must provide both callbacks');
   }
 
-  const credential = validateCredentialDescriptor(input.credential);
-  if (!credential.ok) {
-    return mechanismResult(`CredentialDescriptor is invalid: ${credential.error.message}`);
+  const inputs = resolveSignatureInputs(input);
+  if (!inputs.ok) {
+    return inputs;
   }
-  const revocation = input.revocation === undefined ? undefined : validateCredentialRevocationRecord(input.revocation);
-  if (revocation !== undefined && !revocation.ok) {
-    return mechanismResult(`CredentialRevocationRecord is invalid: ${revocation.error.message}`);
-  }
-  // Evaluate owned copies: a validated record cannot be re-read through the
-  // caller's object, so a Proxy or a later mutation cannot change the inputs
-  // after validation.
-  const evaluated: HistoricalSignatureInput = {
-    ...input,
-    credential: credential.value,
-    ...(revocation === undefined || !revocation.ok ? {} : { revocation: revocation.value }),
-  };
-  if (evaluated.revocation !== undefined && evaluated.revocation.credential_id !== evaluated.credential.credential_id) {
-    return mechanismResult('CredentialRevocationRecord.credential_id does not match the evaluated Credential');
-  }
+  const evaluated = inputs.value;
 
   const usage = evaluateCredentialUsage(evaluated.credential, evaluated.requested_usage);
   const verification = runVerifier(verifier, {
