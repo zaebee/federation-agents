@@ -1,6 +1,6 @@
 # Remediation Roadmap — Task 18
 
-**Audit base:** `2a83c65`. **Planning and implementation record.** `T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16` and `T18-DEC-17` are approved; T18-02A and T18-02B are implemented. T18-02B implements Option D and records AEBE for C-2.a2 (`aebe/C-2.a2.md`); C-2 remains BLOCKED on `CASE-C-2.a3` (CORE-003, `T18-DEC-13`); `T18-02C` is retired / superseded.
+**Audit base:** `2a83c65`. **Planning and implementation record.** `T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16` and `T18-DEC-17` are approved; T18-02A and T18-02B are implemented; T18-03 adds test-only D-4 policy evidence. T18-02B implements Option D and records AEBE for C-2.a2 (`aebe/C-2.a2.md`); C-2 remains BLOCKED on `CASE-C-2.a3` (CORE-003, `T18-DEC-13`); `T18-02C` is retired / superseded.
 
 ## 1. How to read this roadmap
 
@@ -45,7 +45,7 @@ T18-13 depends on AEBE, not on a specific implementation task.
 | T18-02A | implementation + tests | N-138, CASE-C-1.a3, T-001 | DEC-01/02 approved; Core-owned admission approved; Core validation enforced; `T18-DEC-15` OPEN with Option B local choice | `CORE-001_RUNTIME` | P1 | Adapter C-1 emission + Core validation/admission | AEBE for C-1 from adapter; validation and admission enforced; no public generic C-1 bypass; caller-managed persistence documented; `T18-DEC-15` remains OPEN | `bun test tests/conformance/c.test.ts`; full suite |
 | T18-02B | implementation + tests | N-143, CASE-C-2.a2, T-002 | DEC-01/02 approved + `T18-DEC-16` approved (satisfied) | `CORE-001_RUNTIME` | P1 | Adapter C-2.a2 emission + Core validation | **Implemented** — Option D emission + Core contextual admission; AEBE `aebe/C-2.a2.md`; C-2 stays BLOCKED on a3 | `bun test tests/conformance/c.test.ts`; full suite |
 | T18-02C | retired / superseded | — | none | `CORE-001_RUNTIME` | — | None | Historical task structure; superseded by T18-02A and T18-02B | — |
-| T18-03 | test-only | N-041, CASE-D-4.a2, T-004 | none | `CORE-001_RUNTIME` | P2 | D-4 policy input/outcome test | No auto-authorization; policy context asserted | `bun test tests/conformance/d.test.ts` |
+| T18-03 | test-only | N-041, CASE-D-4.a2, T-004 | none | `CORE-001_RUNTIME` | P2 | D-4 policy input/outcome test | **Implemented** — `tests/conformance/d.test.ts` asserts policy context and that CONTESTED_COMPROMISED remains a policy-dependent result, not an automatic grant; N-041/D-4 remain PARTIAL | `bun test tests/conformance/d.test.ts` |
 | T18-04 | conditional | N-019, F-005, T-005 | T18-DEC-03 | `CORE-001_RUNTIME` | P2 | Validation change or caller contract + test | Invalid SEMVER_2 rejected or contract proven | `bun test tests/unit/version-scheme.test.ts`, `entities.test.ts` |
 | T18-05 | conditional | N-084, T-011 | T18-DEC-05 | `CORE-001_RUNTIME` | P3 | `verifyDescriptorHash` or caller contract + boundary evidence | Match/mismatch/malformed; negative mismatch | `bun test tests/unit/hashing.test.ts` + caller test |
 | T18-06 | specification decision + docs | N-040, F-006, T18-DEC-04 | T18-DEC-04 | `CORE-001_RUNTIME` | P2 | Decision record and proposed wording | Decision record and proposed wording; any normative amendment is routed through separately approved T18-SPEC-01 | Review |
@@ -86,6 +86,17 @@ The adapter constructs the C-1 Assessment using domain identity, provenance and 
 ### T18-02B — C-2.a2 adapter emission (implemented; AEBE recorded)
 
 Implemented under the approved `T18-DEC-16` Option D: `emitCycleAssessments` emits one Assessment per affected lineage edge, Core adds contextual validation and admission, and AEBE is recorded in `docs/audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md`. `T18-DEC-17` is independent. T18-02B closes N-143/CASE-C-2.a2 evidence only; it does not close C-2 (blocked on `CASE-C-2.a3`) and does not close N-168.
+
+### T18-03 — D-4 policy input/outcome evidence (implemented, test-only)
+
+`tests/conformance/d.test.ts` contains the D-4 policy boundary tests. They assert:
+
+- the unknown-compromise result is `CONTESTED_COMPROMISED` and no compromise time is inferred;
+- the mandatory `evaluateFutureAuthorization` callback receives revocation, temporal and assurance context;
+- `future_authorizable` is a policy outcome (`REQUIRES_ASSESSMENT`, `AUTHORIZABLE`), not an execution authorization or grant;
+- the historical result remains `CONTESTED_COMPROMISED` even when the policy returns `AUTHORIZABLE`.
+
+This is evidence for T18-03/CASE-D-4.a2, not a resolution of §12 D-4's normative sufficiency sentence. N-041 and D-4 therefore remain PARTIAL: whether a particular policy is an adequate "additional normative assessment" is not a library property.
 
 ### T18-02C — Retired / superseded
 
@@ -159,7 +170,7 @@ graph TD
 
 - **M0** — DEC-01 (`REQ-LOCAL`), DEC-02 (`OWN-ADAPTER` + `VAL-CORE`), DEC-16 (Option D) and DEC-17 (publication/retention) approved.
 - **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A and T18-02B implemented; C-2 stays BLOCKED on a3; T18-02C retired / superseded; T18-04, T18-05).
-- **M2** — evidence gaps closed (T18-03, T18-07).
+- **M2** — evidence gaps addressed: T18-03 test evidence added; T18-07 pending.
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
 
@@ -195,7 +206,7 @@ A task that bundles requirements of different urgency is split rather than silen
 | Task priority | Tasks |
 | --- | --- |
 | P1 | T18-01 (complete), T18-02A, T18-09A, T18-09E, T18-13 |
-| P2 | T18-03, T18-04, T18-06, T18-09C, T18-09D, T18-SPEC-01 |
+| P2 | T18-04, T18-06, T18-09C, T18-09D, T18-SPEC-01; T18-03 evidence implemented |
 | P3 | T18-05, T18-07, T18-08, T18-09B, T18-10, T18-11, T18-12 |
 
 `T18-02B` is implemented (AEBE `aebe/C-2.a2.md`); `T18-DEC-17` (publication/retention) is approved and separate; `T18-02C` is retired / superseded. C-2 remains BLOCKED on `CASE-C-2.a3`.

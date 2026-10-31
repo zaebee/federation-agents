@@ -182,6 +182,37 @@ describe('§12 Category D: credential revocation', () => {
     expect(result.temporal.compromise_effective_at).toBeUndefined();
     expect(result).not.toHaveProperty('grant');
   });
+
+  test('D-4 contested history leaves future authorization to the policy, not an automatic grant', () => {
+    let observed: FutureAuthorizationInput | undefined;
+    const unknownTime = revocationFixture({
+      reason: 'CONFIRMED_COMPROMISE',
+      compromise_effective_at: undefined,
+    });
+    const result = expectOk(
+      evaluate(
+        unknownTime,
+        signaturePolicy({
+          evaluateFutureAuthorization: (input) => {
+            observed = input;
+            return 'AUTHORIZABLE';
+          },
+        }),
+      ),
+    );
+
+    // The contested history is preserved. AUTHORIZABLE is a policy outcome, not
+    // an execution authorization or a grant created by CORE-001.
+    expect(result.historical).toEqual({ status: 'CONTESTED_COMPROMISED' });
+    expect(result.future_authorizable).toBe('AUTHORIZABLE');
+    expect(result.claim_status).toBeUndefined();
+    expect(result).not.toHaveProperty('grant');
+    expect(result).not.toHaveProperty('authorization');
+
+    expect(observed?.revocation_reason).toBe('CONFIRMED_COMPROMISE');
+    expect(observed?.temporal).toEqual({ signed_at: 'TRUSTED' });
+    expect(observed?.reassessment_required).toBe(false);
+  });
 });
 
 function expectRuntimeOk<T>(
