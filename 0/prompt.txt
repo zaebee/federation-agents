@@ -1,0 +1,5 @@
+src/core/credential.ts
+Line 470
+Check failure
+Refactor this function to reduce its Cognitive Complexity from 25 to the 15 allowed.
+Check failure: Refactor this function to reduce its Cognitive Complexity from 25 to the 15 allowed.
