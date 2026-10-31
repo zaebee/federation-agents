@@ -9,6 +9,7 @@
 // never inserts anything, and never normalizes or drops declared links.
 
 import type { IdentityVersionDescriptor, LineageLink, LineageRelationType, ParticipantRecord } from './entities.js';
+import { deepFreeze } from './ownership.js';
 import type { DeepReadonly } from './ownership.js';
 import type { IdentityVersionID } from './primitives.js';
 
@@ -131,4 +132,221 @@ export function validateDescriptor(
   }
 
   return { status: 'VALID' };
+}
+
+export interface LineageEdge {
+  readonly child: IdentityVersionID;
+  readonly parent: IdentityVersionID;
+  readonly relation: LineageRelationType;
+}
+
+export interface LineageGraph {
+  readonly nodes: readonly IdentityVersionID[];
+  readonly edges: readonly DeepReadonly<LineageEdge>[];
+  readonly unresolvedParents: readonly (readonly [IdentityVersionID, readonly IdentityVersionID[]])[];
+  readonly cycles: readonly (readonly IdentityVersionID[])[];
+}
+
+function compareStrings(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+function compareEdges(a: LineageEdge, b: LineageEdge): number {
+  return (
+    compareStrings(a.child, b.child) || compareStrings(a.parent, b.parent) || compareStrings(a.relation, b.relation)
+  );
+}
+
+function collectEdges(versions: readonly DeepReadonly<IdentityVersionDescriptor>[]): LineageEdge[] {
+  const edges: LineageEdge[] = [];
+  for (const version of versions) {
+    for (const lineage of version.lineage) {
+      edges.push({
+        child: version.id,
+        parent: lineage.parent_version_id,
+        relation: lineage.relation,
+      });
+    }
+  }
+  edges.sort(compareEdges);
+  return edges;
+}
+
+function collectUnresolvedParents(
+  nodes: ReadonlySet<IdentityVersionID>,
+  edges: readonly LineageEdge[],
+): LineageGraph['unresolvedParents'] {
+  const missingByChild = new Map<IdentityVersionID, Set<IdentityVersionID>>();
+
+  for (const edge of edges) {
+    if (nodes.has(edge.parent)) {
+      continue;
+    }
+    let missing = missingByChild.get(edge.child);
+    if (missing === undefined) {
+      missing = new Set<IdentityVersionID>();
+      missingByChild.set(edge.child, missing);
+    }
+    missing.add(edge.parent);
+  }
+
+  return [...missingByChild.entries()]
+    .sort(([a], [b]) => compareStrings(a, b))
+    .map(([child, parents]) => [child, [...parents].sort(compareStrings)] as const);
+}
+
+/** Deduplicated adjacency for cycle detection only; `edges` keeps duplicates. */
+function buildAdjacency(
+  nodes: readonly IdentityVersionID[],
+  edges: readonly LineageEdge[],
+): Map<IdentityVersionID, IdentityVersionID[]> {
+  const adjacency = new Map<IdentityVersionID, Set<IdentityVersionID>>();
+  for (const node of nodes) {
+    adjacency.set(node, new Set<IdentityVersionID>());
+  }
+  for (const edge of edges) {
+    adjacency.get(edge.child)?.add(edge.parent);
+  }
+
+  const sorted = new Map<IdentityVersionID, IdentityVersionID[]>();
+  for (const [node, parents] of adjacency) {
+    sorted.set(node, [...parents].sort(compareStrings));
+  }
+  return sorted;
+}
+
+function finishOrder(
+  nodes: readonly IdentityVersionID[],
+  adjacency: ReadonlyMap<IdentityVersionID, readonly IdentityVersionID[]>,
+): IdentityVersionID[] {
+  const visited = new Set<IdentityVersionID>();
+  const order: IdentityVersionID[] = [];
+
+  for (const start of nodes) {
+    if (visited.has(start)) {
+      continue;
+    }
+    visited.add(start);
+    const stack: Array<{ node: IdentityVersionID; next: number }> = [{ node: start, next: 0 }];
+
+    while (stack.length > 0) {
+      const frame = stack.at(-1);
+      if (frame === undefined) {
+        break;
+      }
+      const parents = adjacency.get(frame.node) ?? [];
+
+      if (frame.next >= parents.length) {
+        order.push(frame.node);
+        stack.pop();
+        continue;
+      }
+
+      const parent = parents[frame.next];
+      frame.next += 1;
+      if (!visited.has(parent) && adjacency.has(parent)) {
+        visited.add(parent);
+        stack.push({ node: parent, next: 0 });
+      }
+    }
+  }
+
+  return order;
+}
+
+function reverseAdjacency(
+  nodes: readonly IdentityVersionID[],
+  adjacency: ReadonlyMap<IdentityVersionID, readonly IdentityVersionID[]>,
+): Map<IdentityVersionID, IdentityVersionID[]> {
+  const reverse = new Map<IdentityVersionID, IdentityVersionID[]>();
+  for (const node of nodes) {
+    reverse.set(node, []);
+  }
+  for (const [child, parents] of adjacency) {
+    for (const parent of parents) {
+      reverse.get(parent)?.push(child);
+    }
+  }
+  for (const children of reverse.values()) {
+    children.sort(compareStrings);
+  }
+  return reverse;
+}
+
+function stronglyConnectedComponents(
+  nodes: readonly IdentityVersionID[],
+  adjacency: ReadonlyMap<IdentityVersionID, readonly IdentityVersionID[]>,
+): IdentityVersionID[][] {
+  const order = finishOrder(nodes, adjacency);
+  const reverse = reverseAdjacency(nodes, adjacency);
+  const assigned = new Set<IdentityVersionID>();
+  const components: IdentityVersionID[][] = [];
+
+  for (let index = order.length - 1; index >= 0; index -= 1) {
+    const start = order[index];
+    if (assigned.has(start)) {
+      continue;
+    }
+
+    const component: IdentityVersionID[] = [];
+    const stack: IdentityVersionID[] = [start];
+    assigned.add(start);
+
+    while (stack.length > 0) {
+      const node = stack.pop();
+      if (node === undefined) {
+        break;
+      }
+      component.push(node);
+      for (const child of reverse.get(node) ?? []) {
+        if (!assigned.has(child)) {
+          assigned.add(child);
+          stack.push(child);
+        }
+      }
+    }
+
+    component.sort(compareStrings);
+    components.push(component);
+  }
+
+  components.sort((a, b) => compareStrings(a[0], b[0]));
+  return components;
+}
+
+function isCyclicComponent(
+  component: readonly IdentityVersionID[],
+  adjacency: ReadonlyMap<IdentityVersionID, readonly IdentityVersionID[]>,
+): boolean {
+  if (component.length > 1) {
+    return true;
+  }
+  const node = component[0];
+  return (adjacency.get(node) ?? []).includes(node);
+}
+
+/**
+ * Builds an immutable lineage graph snapshot from a Registry.
+ *
+ * Declared edges are preserved exactly, including duplicates and references to
+ * parents that are not registered yet. Unresolved parents are grouped by child
+ * and deduplicated for diagnostics only. Cycles are reported as sorted strongly
+ * connected components (a self-loop is a one-node component); they do not
+ * remove nodes or edges. `CYCLE_DETECTED` belongs to the assessment boundary of
+ * a later traversal task and is not emitted here.
+ */
+export function buildLineageGraph(registry: Registry): LineageGraph {
+  const versions = registry.versions();
+  const nodes = [...new Set(versions.map((version) => version.id))].sort(compareStrings);
+  const nodeSet = new Set(nodes);
+  const edges = collectEdges(versions);
+  const unresolvedParents = collectUnresolvedParents(nodeSet, edges);
+  const adjacency = buildAdjacency(nodes, edges);
+  const cycles = stronglyConnectedComponents(nodes, adjacency).filter((component) =>
+    isCyclicComponent(component, adjacency),
+  );
+
+  return deepFreeze({ nodes, edges, unresolvedParents, cycles }) as LineageGraph;
 }

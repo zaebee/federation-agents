@@ -14,7 +14,7 @@ import {
   validateLineageLink,
   validateParticipantRecord,
 } from '../../src/core/entities.js';
-import type { Registry, StructuralResult } from '../../src/core/lineage.js';
+import type { LineageGraph, Registry, StructuralResult } from '../../src/core/lineage.js';
 import type { DeepReadonly } from '../../src/core/ownership.js';
 import { credentialId, domainId, identityVersionId, participantId, timestamp } from '../../src/core/primitives.js';
 
@@ -117,4 +117,25 @@ export function expectRejected(
   } else {
     expect(result.parent_version_id as string | undefined).toBe(parentVersionId);
   }
+}
+
+/** String-projected view of a graph, for assertions that do not depend on nominal types. */
+export function plainGraph(graph: LineageGraph): {
+  nodes: string[];
+  edges: { child: string; parent: string; relation: string }[];
+  unresolvedParents: [string, string[]][];
+  cycles: string[][];
+} {
+  return {
+    nodes: graph.nodes.map(String),
+    edges: graph.edges.map((edge) => ({
+      child: String(edge.child),
+      parent: String(edge.parent),
+      relation: edge.relation,
+    })),
+    unresolvedParents: graph.unresolvedParents.map(
+      ([child, parents]) => [String(child), parents.map(String)] as [string, string[]],
+    ),
+    cycles: graph.cycles.map((cycle) => cycle.map(String)),
+  };
 }
