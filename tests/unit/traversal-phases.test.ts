@@ -702,3 +702,47 @@ describe('descriptor identity in orchestration', () => {
     expect(result.error.message).toContain('Duplicate descriptor id');
   });
 });
+
+describe('cycle breadth (A-14)', () => {
+  test('an acyclic path through a node in a cyclic SCC is rejected conservatively', () => {
+    // A <-> B is a CONTINUATION cycle; C CONTINUATION A; A FORKED_FROM D.
+    // The path C->A->D is acyclic, but A belongs to the cyclic SCC.
+    const a = descriptor({
+      id: 'iv-cyc-a',
+      participant: 'participant-a',
+      lineage: [link('iv-cyc-b', 'CONTINUATION'), link('iv-cyc-d', 'FORKED_FROM')],
+    });
+    const b = descriptor({
+      id: 'iv-cyc-b',
+      participant: 'participant-a',
+      lineage: [link('iv-cyc-a', 'CONTINUATION')],
+    });
+    const c = descriptor({
+      id: 'iv-cyc-c',
+      participant: 'participant-a',
+      lineage: [link('iv-cyc-a', 'CONTINUATION')],
+    });
+    const d = descriptor({ id: 'iv-cyc-d', participant: 'participant-a' });
+    const graph = buildLineageGraph(registry([alice], [a, b, c, d]));
+
+    const discovered = discoverPaths(
+      graph,
+      'FULL_ANCESTRY',
+      identityVersionId('iv-cyc-c'),
+      identityVersionId('iv-cyc-d'),
+    );
+    expect(discovered.ok).toBe(true);
+    if (!discovered.ok) return;
+    expect(discovered.value).toHaveLength(1);
+
+    // Phase 1 offers the path; Phase 2 rejects it because one of its nodes is in
+    // a cycle. This is the conservative reading of §11.2 recorded as A-14 (OPEN).
+    const result = validatePath(discovered.value[0], graph, [], requirementFor([]), EMPTY_POLICY, CTX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.status).toBe('CYCLE_DETECTED');
+    if (result.value.status !== 'CYCLE_DETECTED') return;
+    expect(result.value.cycle.map(String)).toEqual(['iv-cyc-a', 'iv-cyc-b']);
+  });
+});

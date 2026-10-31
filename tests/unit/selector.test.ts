@@ -196,7 +196,10 @@ describe('OPAQUE_TAG and CONTENT_HASH selectors', () => {
       expect(matches('=1.2.3', '1.2.3+build', scheme)).toBe(false);
     });
 
-    test(`${scheme}: wildcard matches every label`, () => {
+    // A-13 (OPEN): §3.2 permits non-exact matching for OPAQUE_TAG only under an
+    // explicit local policy. `uia-ref-selector@1` has no such policy surface, so
+    // this wildcard is a mechanism extension; changing it requires resolving A-13.
+    test(`${scheme}: wildcard matches every label (A-13 mechanism extension)`, () => {
       expect(matches('*', 'anything', scheme)).toBe(true);
       expect(matches('*', '01.2.3', scheme)).toBe(true);
     });
