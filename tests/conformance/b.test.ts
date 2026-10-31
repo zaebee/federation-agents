@@ -8,6 +8,9 @@ import {
   bindingFor,
   chainState,
   diamondState,
+  expectNormativeFailure,
+  mergeClosureState,
+  mergeClosureWithSideBranchState,
   pathNodes,
 } from '../support/traversal.js';
 
@@ -100,5 +103,132 @@ describe('§12 Category B: conditional binding and traversal (Task 9 subset)', (
     ]);
     expect(stateSnapshot(state)).toBe(before);
     expect(JSON.stringify(state).toLowerCase()).not.toContain('grant');
+  });
+});
+
+describe('§12 Category B: merge closure (Task 10)', () => {
+  test('B-4 closure-only branch failure preserves path-level and closure evidence', () => {
+    const { graph, descriptors, assessments, binding } = mergeClosureState();
+    const state = { graph, descriptors, assessments };
+    const before = JSON.stringify(state);
+
+    const result = evaluateBinding(state, binding, identityVersionId('iv-d'), EMPTY_POLICY, CTX);
+
+    const failure = expectNormativeFailure(result);
+    expect(failure.code).toBe('ERR_MERGE_BRANCH_UNSATISFIED');
+    const perPath = failure.details.perPath ?? [];
+    expect(perPath).toHaveLength(2);
+
+    const pathLevelFailure = perPath.find(
+      (item) => JSON.stringify(pathNodes(item.path)) === JSON.stringify(['iv-d', 'iv-b', 'iv-a-1']),
+    );
+    expect(pathLevelFailure?.outcome.status).toBe('INVALID');
+    if (pathLevelFailure?.outcome.status !== 'INVALID') return;
+    expect(pathLevelFailure.outcome.missing).toEqual(['OK']);
+
+    const survived = perPath.find(
+      (item) => JSON.stringify(pathNodes(item.path)) === JSON.stringify(['iv-d', 'iv-c', 'iv-a-1']),
+    );
+    expect(survived?.outcome).toEqual({ status: 'VALID' });
+    expect(survived?.closure?.status).toBe('UNSATISFIED');
+    if (survived?.closure?.status !== 'UNSATISFIED') return;
+    expect(survived.closure.failures).toHaveLength(1);
+    expect(survived.closure.failures[0].branch).toEqual({
+      child: identityVersionId('iv-d'),
+      parent: identityVersionId('iv-b'),
+      relation: 'MERGED_FROM',
+    });
+    expect(survived.closure.failures[0].reason).toBe('NO_APPLICABLE_ASSESSMENT');
+
+    expect(JSON.stringify(state)).toBe(before);
+  });
+
+  test('B-5 untrusted positive assessment cannot substitute for the trusted auditor', () => {
+    const { graph, descriptors } = chainState();
+    const trusted = assessmentRecord({
+      id: 'trusted',
+      subject: 'iv-a-2',
+      parents: ['iv-a-1'],
+      relation: 'CONTINUATION',
+      verified: [],
+      unverified: ['SPEC_MISMATCH'],
+      by: 'domain-auditor',
+    });
+    const untrusted = assessmentRecord({
+      id: 'untrusted',
+      subject: 'iv-a-2',
+      parents: ['iv-a-1'],
+      relation: 'CONTINUATION',
+      verified: ['SPEC_MISMATCH'],
+      by: 'untrusted.org',
+    });
+    const state = { graph, descriptors, assessments: [trusted, untrusted] };
+    const before = JSON.stringify(state);
+    const binding = bindingFor({
+      origin: 'iv-a-1',
+      selector: '>=1.0.0',
+      scope: 'CONTINUATION_ONLY',
+      claims: ['SPEC_MISMATCH'],
+      trusted: ['domain-auditor'],
+    });
+
+    const result = evaluateBinding(state, binding, identityVersionId('iv-a-2'), EMPTY_POLICY, CTX);
+
+    const failure = expectNormativeFailure(result);
+    expect(failure.code).toBe('ERR_ASSURANCE_PREDICATE_UNSATISFIED');
+    const outcome = failure.details.perPath?.[0].outcome;
+    expect(outcome?.status).toBe('INVALID');
+    if (outcome?.status !== 'INVALID') return;
+    expect(outcome.missing).toEqual(['SPEC_MISMATCH']);
+    expect('negative' in outcome).toBe(false);
+    expect(JSON.stringify(state)).toBe(before);
+    expect(JSON.stringify(state).toLowerCase()).not.toContain('grant');
+  });
+
+  test('B-6 non-origin direct branch fails closure without checking deeper edges', () => {
+    const { graph, descriptors, assessments, binding } = mergeClosureWithSideBranchState();
+
+    const result = evaluateBinding(
+      { graph, descriptors, assessments },
+      binding,
+      identityVersionId('iv-d'),
+      EMPTY_POLICY,
+      CTX,
+    );
+
+    const failure = expectNormativeFailure(result);
+    expect(failure.code).toBe('ERR_MERGE_BRANCH_UNSATISFIED');
+    const survived = failure.details.perPath?.[0];
+    expect(survived?.outcome.status).toBe('VALID');
+    expect(survived?.closure?.status).toBe('UNSATISFIED');
+    if (survived?.closure?.status !== 'UNSATISFIED') return;
+    expect(survived.closure.failures).toHaveLength(1);
+    expect(String(survived.closure.failures[0].branch.parent)).toBe('iv-c');
+    expect(survived.closure.failures[0].reason).toBe('NO_APPLICABLE_ASSESSMENT');
+    expect(survived.closure.failures.some((item) => String(item.branch.parent) === 'iv-x')).toBe(false);
+  });
+
+  test('B-7 all assessment arrival permutations produce the same result', () => {
+    const { graph, descriptors, assessments, binding } = mergeClosureState();
+    const permutations = (items: typeof assessments): (typeof assessments)[] => {
+      if (items.length <= 1) return [[...items]];
+      return items.flatMap((item, index) =>
+        permutations([...items.slice(0, index), ...items.slice(index + 1)]).map((rest) => [item, ...rest]),
+      );
+    };
+
+    const results = permutations(assessments).map((ordered) =>
+      JSON.stringify(
+        evaluateBinding(
+          { graph, descriptors, assessments: ordered },
+          binding,
+          identityVersionId('iv-d'),
+          EMPTY_POLICY,
+          CTX,
+        ),
+      ),
+    );
+
+    expect(new Set(results).size).toBe(1);
   });
 });

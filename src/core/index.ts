@@ -24,7 +24,7 @@ export type {
   Policy,
 } from './assessment.js';
 
-export { discoverPaths, evaluateBinding, validatePath } from './traversal.js';
+export { discoverPaths, evaluateBinding, validateMergeClosure, validatePath } from './traversal.js';
 export type {
   BindingFailureCode,
   BindingResult,
@@ -32,6 +32,8 @@ export type {
   FailedPath,
   FailedPathValidation,
   LineageTraversalScope,
+  MergeClosureBranchFailure,
+  MergeClosureResult,
   Path,
   PathOutcome,
   PathSet,
