@@ -138,6 +138,10 @@ describe('§12 Category D: credential revocation', () => {
     expect(acceptCalls).toBe(0);
     expect(futureCalls).toBe(1);
 
+    expect(observed).toBeDefined();
+    expect(observed?.credential).toEqual(credential);
+    expect(observed?.signed_at).toBe(timestamp(SIGNED_AT));
+    expect(observed?.subject_binding).toEqual(binding);
     expect(observed?.revocation_reason).toBe('CONFIRMED_COMPROMISE');
     expect(observed?.revocation?.revoked_at).toBe(timestamp(REVOKED_AT));
     expect(observed?.revocation?.compromise_effective_at).toBeUndefined();
