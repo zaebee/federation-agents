@@ -1,0 +1,167 @@
+# PR #77 — targeted documentation revision (after audit of `659372269e06a396dcceeb1a2ffcce6bb8994151`)
+
+## Objective
+
+Prepare a narrowly scoped documentation-only revision of PR #77.
+
+The previous audit found that the major technical contradictions have been addressed. Do not redesign the package or reopen settled parts of the analysis. Fix the remaining issues below, preserve all existing scope restrictions, and make the resulting decision package internally consistent.
+
+## 1. OQ-9: remove any implication of automatic N-176 PASS
+
+**Problem**
+
+`remaining-owner-questions.md` currently states, in substance:
+
+> Reading B + accepted implementation → N-176 PASS, §8.8 PARTIAL → PASS, via a re-audit revision.
+
+Even with the re-audit qualification, this shorthand can be read as implying that adopting Reading B and accepting an implementation is sufficient for PASS.
+
+**Required correction**
+
+Replace it with an explicit conditional statement along these lines:
+
+> Reading B may establish a path toward N-176 PASS, but adoption of Reading B or acceptance of an implementation does not itself change N-176 status. N-176 may be changed to PASS only through a separate audit revision that verifies:
+> - the owner's explicit approval of the normative interpretation;
+> - exact L1/L2 equivalence under the approved contract;
+> - closure of D5 or approval of a deterministic non-minimum witness rule consistent with §8.8;
+> - resolution of OQ-11 and OQ-12, or their explicit and justified exclusion from the equivalence claim;
+> - the required conformance tests;
+> - a successful re-audit of the resulting package and implementation.
+
+Use equivalent wording if needed, but preserve the key invariant:
+
+**Implementation acceptance alone never changes N-176 or §8.8 status.**
+
+Do not mark N-176 PASS or §8.8 PASS in this revision.
+
+## 2. OQ-12: explicitly record the stale Policy-callback documentation
+
+**Verified source behavior**
+
+At the source baseline `9e29b3627c9c5daab3a3029d8326dec65c47c161`:
+
+- `policy.applicableAssessments` is invoked directly from `assessEdge()` / `narrowByPolicy()`.
+- `policy.conflictPredicate` is invoked directly from contested-claim collection.
+- These callback invocations are not individually wrapped in `try/catch`.
+- An exception thrown by either callback propagates to the caller; it is not converted into a mechanism failure by the current implementation.
+
+However, `docs/implementation.md` §1.6 says:
+
+> policy callbacks are guarded individually and a throwing one becomes a mechanism failure.
+
+This is stale and contradicts the current source behavior.
+
+**Required correction in this PR**
+
+- Add the discrepancy explicitly to OQ-12.
+- State the verified current behavior accurately: exceptions from these Policy callbacks propagate.
+- Record `docs/implementation.md` §1.6 as requiring a separate documentation correction.
+- Do not modify source code in this PR.
+- Do not silently resolve OQ-12 by assuming a no-throw contract. The owner must decide whether Policy callbacks are required to be pure, deterministic and non-throwing, or whether callback exceptions are explicitly outside the N-176 equivalence claim.
+
+Keep OQ-12 OPEN until the relevant owner decision is made.
+
+## 3. CycleWitness: define deterministic cyclic-node selection
+
+**Problem**
+
+The current package requires `cyclicNode` to belong to the final loop-erased candidate-to-origin path, but it does not specify which node to choose if multiple nodes from the relevant cyclic set survive in that path.
+
+Because witness output is observable under CORE-001 §8.8, this selection must be deterministic.
+
+**Required correction**
+
+Specify one deterministic rule. A suitable rule is:
+
+1. Construct the final loop-erased candidate-to-origin path deterministically.
+2. Scan that path in its defined traversal order.
+3. Select the first node belonging to the relevant cyclic set `C`.
+4. Return the SCC evidence corresponding to that selected node.
+
+Ensure the document defines or references deterministic path construction and SCC selection. If the existing algorithm cannot guarantee this, state the missing proof obligation rather than claiming determinism.
+
+Do not claim D5 is closed as a result of adding this rule. D5 remains OPEN until its proof obligations are discharged.
+
+## 4. Editorial and metadata synchronization
+
+Make these targeted consistency fixes:
+
+### 4.1 Benchmark figure in README
+
+README currently mentions approximately `2.7s` for `k=16`, while the current executed benchmark record reports a median of `2305ms`.
+
+- Use `2305ms` / `2.305s` if referring to the current benchmark.
+- Retain `2.7s` only if explicitly labeled as a historical scratch run from Issue #25.
+- Do not mix results from different runs or imply that they are directly interchangeable.
+
+### 4.2 D0 / D1 taxonomy
+
+README's phrase “class-existence rejection proof” currently associates the terminology with D0 while omitting D1.
+
+Align the taxonomy with the proof document:
+
+- D0: acceptance / class-existence case.
+- D1: no-path rejection case.
+
+Use the exact terminology already established in `complexity-proof.md`; do not introduce a new proof category.
+
+### 4.3 Adversarial-review revision number
+
+`adversarial-review.md` still references correction revision 3, while the current package is revision 3.1.
+
+Synchronize the reference to revision 3.1 wherever it refers to the current correction package. Preserve historical references where they genuinely describe an earlier revision.
+
+### 4.4 D5 wording
+
+Some documents call D5 obligations “empirical”, although the obligations include formal proof requirements as well as test checks.
+
+Replace misleading wording with something like:
+
+> D5 proof and test obligations
+
+Do not weaken any proof obligation into a benchmark or empirical observation.
+
+## 5. Scope restrictions — mandatory
+
+This is a documentation-only revision.
+
+Do NOT:
+
+- modify source files;
+- modify tests;
+- modify `CORE-001.md`;
+- change Task 17 statuses or other status registers;
+- introduce a new normative `UiaErrorCode`;
+- approve or register `T18-DEC-18`;
+- mark N-176 PASS;
+- mark §8.8 PASS;
+- mark D5 CLOSED;
+- close A-8 or A-14 — both remain OPEN;
+- authorize implementation of the compact API or any other Issue #25 implementation;
+- represent benchmark results as a complexity proof.
+
+Preserve the existing distinction between normative choices (Reading A / Reading B) and engineering/API migration choices. Do not silently turn a proposed recommendation into an owner-approved decision.
+
+## 6. Validation and delivery
+
+After editing:
+
+1. Check all changed documents for internal consistency.
+2. Search for stale references to:
+   - automatic N-176 PASS;
+   - Policy callback exception handling;
+   - CycleWitness determinism;
+   - `2.7s` / `2305ms`;
+   - D0 / D1 taxonomy;
+   - correction revision 3 / 3.1;
+   - “empirical” D5 obligations.
+3. Confirm no source, test, `CORE-001.md`, or status-register files changed.
+4. Run the relevant documentation/CI checks.
+5. Report:
+   - exact new commit SHA;
+   - complete changed-file list;
+   - CI result;
+   - a short item-by-item summary of corrections;
+   - explicit confirmation that all scope restrictions above remain satisfied.
+
+Do not claim that this revision resolves the owner decisions or authorizes implementation.
