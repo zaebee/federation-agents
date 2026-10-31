@@ -169,22 +169,50 @@ function pathKey(path: Path): string {
     .join('\u0001');
 }
 
+type GraphEdgeIndex = ReadonlyMap<IdentityVersionID, ReadonlyMap<IdentityVersionID, ReadonlySet<LineageRelationType>>>;
+
+// Built once per graph instance and reused: a graph is an immutable input, so
+// the index cannot go stale. Weak keys keep it collected with the graph.
+const GRAPH_EDGE_INDEX: WeakMap<object, GraphEdgeIndex> = new WeakMap<object, GraphEdgeIndex>();
+
+function graphEdgeIndex(graph: LineageGraph): GraphEdgeIndex {
+  const cached = GRAPH_EDGE_INDEX.get(graph);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const index = new Map<IdentityVersionID, Map<IdentityVersionID, Set<LineageRelationType>>>();
+  for (const edge of graph.edges) {
+    let byParent = index.get(edge.child);
+    if (byParent === undefined) {
+      byParent = new Map<IdentityVersionID, Set<LineageRelationType>>();
+      index.set(edge.child, byParent);
+    }
+    let relations = byParent.get(edge.parent);
+    if (relations === undefined) {
+      relations = new Set<LineageRelationType>();
+      byParent.set(edge.parent, relations);
+    }
+    relations.add(edge.relation);
+  }
+  GRAPH_EDGE_INDEX.set(graph, index);
+  return index;
+}
+
 /**
  * A path is meaningful only against the graph it was discovered from. Every
  * edge must exist in that graph; without this check a path assembled from a
  * stale snapshot or from another domain's JSON would validate against any
  * graph that happens to accept its declarations.
  *
- * The direct scan is deliberate: a path holds a handful of edges, so comparing
- * them against `graph.edges` costs no per-call allocation, while a key set
- * would allocate one string per graph edge on every call.
+ * Membership is an O(1) lookup in the cached index, so neither a per-call key
+ * set (one string per graph edge) nor an O(N x M) scan is needed. The index is
+ * keyed by node identity rather than by concatenated key strings, because an id
+ * may contain any character and would make a separator-based key ambiguous.
  */
 function pathMembershipFailure(path: Path, graph: LineageGraph): Result<void> {
+  const index = graphEdgeIndex(graph);
   for (const edge of path.edges) {
-    const present = graph.edges.some(
-      (candidate) =>
-        candidate.child === edge.child && candidate.parent === edge.parent && candidate.relation === edge.relation,
-    );
+    const present = index.get(edge.child)?.get(edge.parent)?.has(edge.relation) === true;
     if (!present) {
       return pathMechanismFailure(
         `Path edge ${String(edge.child)} -[${edge.relation}]-> ${String(edge.parent)} is not present in the supplied graph`,
