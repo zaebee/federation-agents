@@ -1,0 +1,11 @@
+### Medium finding
+
+**Location:** `src/core/credential.ts:374`
+
+The verifier's outcome is retained by reference, so the final `deepFreeze` at `src/core/credential.ts:708–710` also freezes verifier-owned state; the provided verifier returns its supplied object directly (`tests/support/credential.ts:118`). A stateful verifier that reuses and updates its result object will consequently throw on subsequent evaluations, producing `CRYPTO_UNAVAILABLE`; copy the validated outcome before freezing it. 
+---
+### Medium finding
+
+**Location:** `src/core/temporal.ts:72`
+
+With `trust: { subject: {} }` and field `constructor`, this lookup returns the inherited constructor, causing `assessment.field` to throw instead of returning `UNASSESSED`. That extension field passes validation (`src/core/primitives.ts:79,128–138`); use own-property checks when reading the trust maps.
