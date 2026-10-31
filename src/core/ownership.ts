@@ -13,11 +13,15 @@ import { hasLoneSurrogate } from './primitives.js';
 import type { Result } from './errors.js';
 import { mechanismFailure } from './errors.js';
 
-export type DeepReadonly<T> = T extends (infer A)[]
-  ? readonly DeepReadonly<A>[]
-  : T extends object
-    ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
-    : T;
+// Primitive types (including branded strings and numbers) are returned as-is;
+// mapping them would turn a branded ID into a structural object type.
+export type DeepReadonly<T> = T extends string | number | boolean | bigint | symbol | null | undefined
+  ? T
+  : T extends (infer A)[]
+    ? readonly DeepReadonly<A>[]
+    : T extends object
+      ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+      : T;
 
 const OWNERSHIP_UNSUPPORTED = 'E_OWNERSHIP_UNSUPPORTED' as const;
 const UNKNOWN_BOUNDARY_REJECTED = 'E_UNKNOWN_BOUNDARY_REJECTED' as const;

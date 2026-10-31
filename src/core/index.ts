@@ -9,6 +9,9 @@ export * from './sha256.js';
 export * from './entities.js';
 export * from './hashing.js';
 
+export { validateDescriptor } from './lineage.js';
+export type { Registry, StructuralResult } from './lineage.js';
+
 export { validateVersionLabel } from './version-scheme.js';
 export type { SemVer, VersionLabel } from './version-scheme.js';
 

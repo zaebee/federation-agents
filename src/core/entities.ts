@@ -14,13 +14,45 @@ import type { Result } from './errors.js';
 import { mechanismFailure } from './errors.js';
 import type { DeepReadonly } from './ownership.js';
 import { deepFreeze, validateJsonValue } from './ownership.js';
-import type { CredentialID, DomainID, IdentityVersionID, JsonValue, ParticipantID, Timestamp } from './primitives.js';
+import type {
+  CredentialID,
+  DomainID,
+  IdentityVersionID,
+  JsonValue,
+  ParticipantID,
+  RuntimeInstanceID,
+  Timestamp,
+} from './primitives.js';
 
 export type VersionScheme = 'SEMVER_2' | 'CONTENT_HASH' | 'OPAQUE_TAG';
 
 export type CredentialUsage = 'AUTHENTICATION' | 'SIGNING' | 'ENCRYPTION';
 
 export type LineageRelationType = 'CONTINUATION' | 'FORKED_FROM' | 'MERGED_FROM';
+
+export type ParticipantKind = 'HUMAN' | 'AGENT' | 'SERVICE' | 'EXTERNAL_SYSTEM';
+
+export interface ParticipantRecord {
+  id: ParticipantID;
+
+  kind: ParticipantKind;
+
+  home_domain: DomainID;
+
+  registered_at: Timestamp;
+}
+
+export interface RuntimeInstanceDescriptor {
+  id: RuntimeInstanceID;
+
+  identity_version_id: IdentityVersionID;
+
+  execution_context_ref: string;
+
+  ephemeral_public_key?: string;
+
+  instantiated_at: Timestamp;
+}
 
 export interface CredentialDescriptor {
   credential_id: CredentialID;
@@ -76,6 +108,16 @@ const DESCRIPTOR_FIELDS: readonly string[] = [
   'published_at',
 ];
 
+const PARTICIPANT_FIELDS: readonly string[] = ['id', 'kind', 'home_domain', 'registered_at'];
+
+const RUNTIME_FIELDS: readonly string[] = [
+  'id',
+  'identity_version_id',
+  'execution_context_ref',
+  'ephemeral_public_key',
+  'instantiated_at',
+];
+
 const CREDENTIAL_FIELDS: readonly string[] = [
   'credential_id',
   'issuer_domain',
@@ -99,6 +141,8 @@ export const VERSION_SCHEMES: readonly VersionScheme[] = ['SEMVER_2', 'CONTENT_H
 const CREDENTIAL_USAGES: readonly CredentialUsage[] = ['AUTHENTICATION', 'SIGNING', 'ENCRYPTION'];
 
 const LINEAGE_RELATIONS: readonly LineageRelationType[] = ['CONTINUATION', 'FORKED_FROM', 'MERGED_FROM'];
+
+const PARTICIPANT_KINDS: readonly ParticipantKind[] = ['HUMAN', 'AGENT', 'SERVICE', 'EXTERNAL_SYSTEM'];
 
 type JsonObject = { readonly [key: string]: JsonValue };
 
@@ -253,7 +297,7 @@ function validateCredential(value: JsonValue, path: string): Result<CredentialDe
   return { ok: true, value: credential };
 }
 
-function validateLineageLink(value: JsonValue, path: string): Result<LineageLink> {
+function validateLineageLinkAt(value: JsonValue, path: string): Result<LineageLink> {
   const object = requireObject(value, path);
   if (!object.ok) return object;
 
@@ -304,7 +348,7 @@ function validateLineageList(value: JsonValue | undefined): Result<LineageLink[]
 
   const links: LineageLink[] = [];
   for (let i = 0; i < list.value.length; i += 1) {
-    const link = validateLineageLink(list.value[i], `$.lineage[${i}]`);
+    const link = validateLineageLinkAt(list.value[i], `$.lineage[${i}]`);
     if (!link.ok) return link;
     links.push(link.value);
   }
@@ -363,5 +407,115 @@ export function validateIdentityVersionDescriptor(value: unknown): Result<DeepRe
     lineage: lineage.value,
     published_at: publishedAt.value,
   };
+  return { ok: true, value: deepFreeze(descriptor) };
+}
+
+/**
+ * Validates an untrusted value as a ParticipantRecord (§3.1) and returns an
+ * owned, deeply frozen copy. Unknown fields and present-`undefined` values are
+ * rejected, never coerced.
+ */
+export function validateParticipantRecord(value: unknown): Result<DeepReadonly<ParticipantRecord>> {
+  const json = validateJsonValue(value);
+  if (!json.ok) return json;
+
+  const object = requireObject(json.value, '$');
+  if (!object.ok) return object;
+
+  const known = rejectUnknownFields(object.value, PARTICIPANT_FIELDS, '$');
+  if (!known.ok) return known;
+
+  const id = requireString(object.value.id, '$.id');
+  if (!id.ok) return id;
+
+  const kind = requireEnum(object.value.kind, PARTICIPANT_KINDS, '$.kind');
+  if (!kind.ok) return kind;
+
+  const homeDomain = requireString(object.value.home_domain, '$.home_domain');
+  if (!homeDomain.ok) return homeDomain;
+
+  const registeredAt = requireTimestamp(object.value.registered_at, '$.registered_at');
+  if (!registeredAt.ok) return registeredAt;
+
+  return {
+    ok: true,
+    value: deepFreeze({
+      id: id.value as ParticipantID,
+      kind: kind.value,
+      home_domain: homeDomain.value as DomainID,
+      registered_at: registeredAt.value,
+    }),
+  };
+}
+
+/**
+ * Validates an untrusted value as a CredentialDescriptor (§4.2) and returns an
+ * owned, deeply frozen copy. Reuses the credential validation used by §3.2
+ * descriptors; there is no second validation path.
+ */
+export function validateCredentialDescriptor(value: unknown): Result<DeepReadonly<CredentialDescriptor>> {
+  const json = validateJsonValue(value);
+  if (!json.ok) return json;
+
+  const credential = validateCredential(json.value, '$');
+  if (!credential.ok) return credential;
+
+  return { ok: true, value: deepFreeze(credential.value) };
+}
+
+/**
+ * Validates an untrusted value as a LineageLink (§5.1) and returns an owned,
+ * deeply frozen copy. Structural lineage rules (cardinality, self-parent,
+ * participant constraints) belong to `validateDescriptor`, not here.
+ */
+export function validateLineageLink(value: unknown): Result<DeepReadonly<LineageLink>> {
+  const json = validateJsonValue(value);
+  if (!json.ok) return json;
+
+  const link = validateLineageLinkAt(json.value, '$');
+  if (!link.ok) return link;
+
+  return { ok: true, value: deepFreeze(link.value) };
+}
+
+/**
+ * Validates an untrusted value as a RuntimeInstanceDescriptor (§3.3) and
+ * returns an owned, deeply frozen copy. Runtime lifecycle events are CORE-002.
+ */
+export function validateRuntimeInstanceDescriptor(value: unknown): Result<DeepReadonly<RuntimeInstanceDescriptor>> {
+  const json = validateJsonValue(value);
+  if (!json.ok) return json;
+
+  const object = requireObject(json.value, '$');
+  if (!object.ok) return object;
+
+  const known = rejectUnknownFields(object.value, RUNTIME_FIELDS, '$');
+  if (!known.ok) return known;
+
+  const id = requireString(object.value.id, '$.id');
+  if (!id.ok) return id;
+
+  const identityVersionId = requireString(object.value.identity_version_id, '$.identity_version_id');
+  if (!identityVersionId.ok) return identityVersionId;
+
+  const executionContext = requireString(object.value.execution_context_ref, '$.execution_context_ref');
+  if (!executionContext.ok) return executionContext;
+
+  const ephemeralKey = optionalString(object.value.ephemeral_public_key, '$.ephemeral_public_key');
+  if (!ephemeralKey.ok) return ephemeralKey;
+
+  const instantiatedAt = requireTimestamp(object.value.instantiated_at, '$.instantiated_at');
+  if (!instantiatedAt.ok) return instantiatedAt;
+
+  const descriptor: RuntimeInstanceDescriptor = {
+    id: id.value as RuntimeInstanceID,
+    identity_version_id: identityVersionId.value as IdentityVersionID,
+    execution_context_ref: executionContext.value,
+    instantiated_at: instantiatedAt.value,
+  };
+  if (ephemeralKey.value !== undefined) {
+    descriptor.ephemeral_public_key = ephemeralKey.value;
+  }
+
   return { ok: true, value: deepFreeze(descriptor) };
 }
