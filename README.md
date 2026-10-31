@@ -105,6 +105,7 @@ Implemented so far:
 - Entity constructors for §3–§5 — Participant, IdentityVersion, RuntimeInstance, Credential and Lineage records — all owned and deeply frozen.
 - Structural lineage validation (§5.2): per-relation cardinality, distinct merge parents, the `CONTINUATION` same-participant constraint, and self-parent rejection, covered by the A-1…A-5 conformance cases.
 - Lineage graph construction: preserved declarations, delayed-parent resolution with `unresolvedParents`, and deterministic strongly connected component cycle detection (graph-level C-1/C-2; full conformance needs Assessments).
+- Continuity assessments: edge-bound applicability, policy narrowing without expansion, trusted-assessor filtering, spec-literal unverified-claim semantics, explicit-only `CONTESTED`, and copy-on-write supersession.
 - Descriptor hashing over the explicit §7.1 projection, pinned by a known-answer test.
 - Version label validation: strict SemVer 2.0.0 for `SEMVER_2`, non-empty labels for `CONTENT_HASH` and `OPAQUE_TAG` (no format or ordering inferred).
 - The versioned `uia-ref-selector@1` mechanism — exact match, wildcard, comparators, `&&` composition — with factory-provenance checks on compiled selectors.
@@ -112,10 +113,9 @@ Implemented so far:
 Still to come:
 
 - Credential semantics and temporal validation.
-- Continuity assessments and edge-bound assurance.
 - Conditional version binding and graph traversal.
 - Local Acceptance and lifecycle semantics.
-- The remaining §12 conformance corpus (B, C, D; C-1/C-2 need Assessments) and property-based invariance tests.
+- The remaining §12 conformance corpus (B, C, D; C-1/C-2 and the B-series need traversal integration) and property-based invariance tests.
 
 Implementation progress is tracked task by task in the implementation plan. Not every capability described in the specification is necessarily implemented in the current repository state.
 

@@ -55,9 +55,9 @@ This is the semantic core of CORE-001. Until it lands, the repository has founda
 | 4    | Done    | Descriptor hashing with the explicit §7.1 projection                  | §7.1 key set asserted; wrappers cannot change the hash |
 | 5    | Done    | Version schemes and a versioned selector mechanism                    | SEMVER_2 / CONTENT_HASH / OPAQUE_TAG rules and exact-match fallback tested |
 | 6    | Done    | Entities and structural validation (§5)                               | Corpus A-1…A-5 pass |
-| 7    | Done    | Lineage graph: delayed parents, cycles (§11)                          | Graph-level C-1/C-2 behaviour; full C-1/C-2 conformance awaits Tasks 8–9 |
-| 8    | Next    | Assessments: edge binding, unverified-claim semantics (§6)             | Runtime brand rejects structurally identical fakes; `unverified_claims` yields no support and no negative finding |
-| 9    | Planned | Traversal phases 1 and 2                                              | Corpus B-1…B-3 pass; phases testable in isolation |
+| 7    | Done    | Lineage graph: delayed parents, cycles (§11)                          | Graph-level C-1/C-2 behaviour; full conformance awaits traversal integration (Tasks 9–10) |
+| 8    | Done    | Assessments: edge binding, unverified-claim semantics (§6)             | Unit-level assessment semantics; B-5 conformance fixture remains Task 10 |
+| 9    | Next    | Traversal phases 1 and 2                                              | Corpus B-1…B-3 pass; phases testable in isolation |
 | 10   | Planned | Immediate merge closure                                               | Corpus B-4…B-7 pass; per-path outcomes preserved |
 | 11   | Planned | Scope × closure consistency                                           | Structural argument asserted by test |
 
