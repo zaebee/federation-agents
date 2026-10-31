@@ -154,11 +154,11 @@ export function assessEdge(
     seenIds.add(assessment.assessment_id);
   }
 
-  const edge: EdgeRef = {
+  const edge: EdgeRef = Object.freeze({
     child: edgeRef.child,
     parent: edgeRef.parent,
     relation: edgeRef.relation,
-  };
+  });
   const ordered = copied.value.filter((assessment) => appliesToEdge(assessment, edge)).sort(compareAssessments);
   const applicable = deepFreeze(ordered);
   const hook = policy.applicableAssessments;

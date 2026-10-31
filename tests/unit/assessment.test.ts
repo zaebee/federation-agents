@@ -257,6 +257,44 @@ describe('policy narrowing', () => {
     expect(narrowed.unresolved).toBe(true);
   });
 
+  test('does not let the policy hook rebind the edge', () => {
+    const firstParent = identityVersionId('iv-p1');
+    const secondParent = identityVersionId('iv-p2');
+    const mergeEdge: EdgeRef = {
+      child: identityVersionId('iv-child'),
+      parent: firstParent,
+      relation: 'MERGED_FROM',
+    };
+    const multiParent = assessment({
+      declared_relation: 'MERGED_FROM',
+      parent_version_ids: [firstParent, secondParent],
+    });
+    let mutationError: unknown;
+
+    const result = assessEdge(
+      mergeEdge,
+      [multiParent],
+      policy({
+        applicableAssessments: (hookEdge, assessments) => {
+          try {
+            (hookEdge as unknown as { parent: string }).parent = String(secondParent);
+          } catch (error) {
+            mutationError = error;
+          }
+          return assessments;
+        },
+      }),
+      CTX,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(mutationError).toBeInstanceOf(TypeError);
+    expect(String(result.value.edge.parent)).toBe('iv-p1');
+    expect(Object.isFrozen(result.value.edge)).toBe(true);
+    expect(result.value.assessments).toHaveLength(1);
+  });
+
   test('orders applicable assessments by id before invoking the hook', () => {
     const first = assessment({ assessment_id: assessmentId('a-1'), verified_claims: ['C1'] });
     const second = assessment({ assessment_id: assessmentId('b-1'), verified_claims: ['C2'] });
