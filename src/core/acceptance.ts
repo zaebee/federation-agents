@@ -130,37 +130,48 @@ function firstUnknownField(object: JsonObject, allowed: readonly string[]): stri
   return Object.keys(object).find((key) => !allowed.includes(key));
 }
 
+function readStringValue(value: JsonValue | undefined, path: string): Result<JsonValue> {
+  return typeof value === 'string' ? { ok: true, value } : invalid(path, 'expected string');
+}
+
+function readTimestampValue(value: JsonValue | undefined, path: string): Result<JsonValue> {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? { ok: true, value }
+    : invalid(path, 'expected finite timestamp');
+}
+
+function readStringArrayValue(value: JsonValue | undefined, path: string): Result<JsonValue> {
+  if (!Array.isArray(value)) {
+    return invalid(path, 'expected array of strings');
+  }
+  const out: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string') {
+      return invalid(path, 'expected array of strings');
+    }
+    out.push(item);
+  }
+  return { ok: true, value: out };
+}
+
+function readEnumValue(value: JsonValue | undefined, path: string, allowed: readonly string[]): Result<JsonValue> {
+  return typeof value === 'string' && allowed.includes(value)
+    ? { ok: true, value }
+    : invalid(path, `expected one of: ${allowed.join(', ')}`);
+}
+
 function readField(object: JsonObject, key: string, path: string, kind: FieldKind): Result<JsonValue> {
   const value = object[key];
   if (kind === 'string') {
-    return typeof value === 'string' ? { ok: true, value } : invalid(path, 'expected string');
+    return readStringValue(value, path);
   }
   if (kind === 'timestamp') {
-    return typeof value === 'number' && Number.isFinite(value)
-      ? { ok: true, value }
-      : invalid(path, 'expected finite timestamp');
+    return readTimestampValue(value, path);
   }
   if (kind === 'string_array') {
-    if (!Array.isArray(value)) {
-      return invalid(path, 'expected array of strings');
-    }
-    const out: string[] = [];
-    for (const item of value) {
-      if (typeof item !== 'string') {
-        return invalid(path, 'expected array of strings');
-      }
-      out.push(item);
-    }
-    return { ok: true, value: out };
+    return readStringArrayValue(value, path);
   }
-  if (kind === 'decision') {
-    return typeof value === 'string' && (DECISIONS as readonly string[]).includes(value)
-      ? { ok: true, value }
-      : invalid(path, `expected one of: ${DECISIONS.join(', ')}`);
-  }
-  return typeof value === 'string' && (STATES as readonly string[]).includes(value)
-    ? { ok: true, value }
-    : invalid(path, `expected one of: ${STATES.join(', ')}`);
+  return readEnumValue(value, path, kind === 'decision' ? DECISIONS : STATES);
 }
 
 function readObject(value: unknown): Result<JsonObject> {
@@ -250,7 +261,7 @@ function isState(value: unknown): value is AcceptanceLifecycleState {
 }
 
 function declaredAtFor(ctx: TemporalContext, basis: TemporalFieldRef): Timestamp | undefined {
-  if (!Object.prototype.hasOwnProperty.call(ctx.declared, basis)) {
+  if (!Object.hasOwn(ctx.declared, basis)) {
     return undefined;
   }
   return ctx.declared[basis];

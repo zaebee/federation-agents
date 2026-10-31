@@ -3,7 +3,7 @@
 // Stores Local Acceptance decisions and lifecycle events separately. It does
 // not order, replay, deduplicate events, or derive a current lifecycle state.
 
-import type { AcceptanceLifecycleState, LocalAcceptanceLifecycleEvent, LocalAcceptanceRecord } from './acceptance.js';
+import type { LocalAcceptanceLifecycleEvent, LocalAcceptanceRecord } from './acceptance.js';
 import { createLocalAcceptanceLifecycleEvent, createLocalAcceptanceRecord } from './acceptance.js';
 import type { Result } from './errors.js';
 import { mechanismFailure } from './errors.js';
@@ -86,5 +86,3 @@ export function appendLifecycleEvent(
   }
   return { ok: true, value: makeLedger(ledger.acceptances(), [...ledger.lifecycleEvents(), validated.value]) };
 }
-
-export type { AcceptanceLifecycleState };
