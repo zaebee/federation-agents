@@ -1,0 +1,1924 @@
+мержим
+
+---
+
+# T18-02A — C-1 Adapter Emission + Core Semantic Validation
+## Claude Plan Mode
+
+You are working in the `zaebee/federation-agents` repository.
+
+Your task is to prepare an implementation plan for **T18-02A: C-1 adapter emission with mandatory Core semantic validation**, following the approved Task 18 roadmap and project-owner decisions.
+
+This is a planning-only task. Do not implement anything.
+
+---
+
+## 1. Mandatory context restoration
+
+Before planning, inspect the current repository state and read these sources:
+
+1. `docs/CORE-001.md`
+2. `docs/audits/2026-10-31-core-001-task-17/`
+3. `docs/audits/2026-10-31-core-001-task-18/README.md`
+4. `docs/audits/2026-10-31-core-001-task-18/disposition-matrix.md`
+5. `docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md`
+6. `docs/audits/2026-10-31-core-001-task-18/decision-register.md`
+7. `docs/audits/2026-10-31-core-001-task-18/reconciliation-notes.md`
+8. The complete T18-01 Assessment Emission Decision Package under:
+   `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-01-assessment-emission/`
+
+Inspect the actual implementation, especially:
+
+- `src/core/assessment.ts`
+- `src/core/lineage.ts`
+- `src/core/traversal.ts`
+- `src/core/errors.ts`
+- `src/core/index.ts`
+- `src/index.ts`
+- package exports in `package.json`
+- existing C-1 conformance tests and relevant fixtures.
+
+Do not rely on previous chat summaries where repository evidence is available. Verify the current branch, HEAD, working tree, and merged status of PR #40.
+
+If PR #40 has not been merged, stop and report that T18-02A prerequisites are not yet satisfied. Do not plan against an unmerged decision record as if it were authoritative.
+
+---
+
+## 2. Approved decisions — binding constraints
+
+The following project-owner decisions are approved:
+
+### T18-DEC-01 = REQ-LOCAL
+
+CORE-001 requires a local Assessment recording:
+
+- `PARENT_UNRESOLVED` for an unresolved parent;
+- `CYCLE_DETECTED` for a detected cycle.
+
+This is a recording obligation. It does not assign construction or publication to Core.
+
+### T18-DEC-02 = OWN-ADAPTER + VAL-CORE
+
+- The adapter owns Assessment construction and registration.
+- Core owns normative semantic validation.
+- Core validation MUST be enforced on every supported registration path.
+- The old public registration API MUST NOT remain a validation bypass.
+- A standalone validator that callers may omit is insufficient.
+
+These decisions do not authorize arbitrary changes to CORE-001.
+
+---
+
+## 3. Exact scope
+
+T18-02A addresses **C-1 only**:
+
+> An unresolved parent must result in a local Assessment recording `PARENT_UNRESOLVED`.
+
+The implementation must demonstrate the complete boundary:
+
+1. The actual adapter boundary observes unresolved parent state.
+2. The adapter constructs the Assessment using real graph/domain state.
+3. Core validates the Assessment contract.
+4. Registration cannot bypass Core validation.
+5. The resulting registered Assessment is immutable and available through the intended public API.
+6. AEBE (Assessment Emission Boundary Evidence) demonstrates the actual behavior.
+
+T18-02A closes only:
+
+- N-138 / C-1.a3, subject to exact Task 17 traceability;
+- the C-1 portion of the Assessment emission gap.
+
+It does NOT close:
+
+- C-1 as a whole unless every C-1 assertion is independently satisfied;
+- C-2 or N-143;
+- C-2.a2 or C-2.a3;
+- N-168 readiness;
+- any CORE-003 grant suppression requirement.
+
+Do not expand scope to cycle emission. T18-02B remains blocked pending the separate C-2 subject-model decision.
+
+---
+
+## 4. Critical design questions to resolve in the plan
+
+Do not silently assume answers. Inspect the code and present explicit options, trade-offs, and a recommendation.
+
+### A. Assessment construction boundary
+
+Identify the narrowest real adapter boundary that has access to:
+
+- the unresolved parent information;
+- the relevant child/subject identity;
+- relation and graph context;
+- domain provenance.
+
+Explain why this is genuinely the adapter boundary rather than a test fixture or a hand-constructed Assessment literal.
+
+### B. Core semantic validation
+
+Design a validation contract for the C-1 Assessment.
+
+At minimum, investigate validation of:
+
+- required fields and non-empty identifiers;
+- subject/child identity;
+- unresolved parent references;
+- relation semantics;
+- required `PARENT_UNRESOLVED` claim;
+- claim array shape and allowed values;
+- profile and method identifiers;
+- evidence/provenance references;
+- timestamp representation and validity;
+- duplicate or contradictory parent entries;
+- unsupported extra structures and malformed runtime values.
+
+Do not invent normative requirements where CORE-001 is silent. Clearly classify each proposed validation rule as:
+
+- directly required by CORE-001;
+- required by approved Task 18 decisions;
+- implementation safety/integrity rule;
+- unresolved normative question.
+
+Do not turn timestamps, assessor identifiers, or provenance fields into trust or authority assertions without explicit normative support.
+
+### C. Registration enforcement and API compatibility
+
+Inspect the actual public API and package exports.
+
+The plan must explain how Core validation becomes unavoidable for every supported registration path.
+
+Explicitly address:
+
+- existing `registerAssessment`;
+- package-root exports;
+- internal-module imports;
+- any alternate registration or mutation path;
+- whether a guarded validated-registration API is needed;
+- how the old API is changed, restricted, or removed;
+- how bypass attempts are tested.
+
+A design in which callers can simply skip the validator is unacceptable.
+
+### D. Ownership and immutability
+
+Preserve the existing ownership model:
+
+- adapter constructs;
+- Core validates;
+- Core registration owns the immutable stored representation.
+
+Inspect existing deep-copy/deep-freeze behavior and avoid weakening it.
+
+Do not introduce `any`, unvalidated `unknown` in public domain records, or unsafe type assertions to make the implementation compile.
+
+### E. Negative evidence
+
+The plan must include a negative case:
+
+- a resolved parent must NOT produce `PARENT_UNRESOLVED`.
+
+Also include malformed Assessment cases that must be rejected at the Core registration boundary.
+
+---
+
+## 5. AEBE acceptance criteria
+
+AEBE is a shared evidence deliverable, not a separate implementation task.
+
+The implementation plan must show how to produce reproducible evidence for:
+
+1. Positive case: unresolved parent produces an Assessment containing `PARENT_UNRESOLVED`.
+2. Negative case: resolved parent produces no such claim.
+3. Authenticity: Assessment is produced by the actual adapter boundary, not manually assembled in the test.
+4. Validation: Core semantic validation is enforced on all supported registration paths.
+5. Bypass resistance: the old public API cannot register malformed Assessment objects.
+6. Immutability: mutation of input or returned values cannot alter registered state.
+7. Provenance: evidence identifies the graph/domain inputs and the boundary responsible for emission.
+8. Public API: tests use the package root wherever public API behavior is being claimed.
+9. Reproducibility: exact test commands and expected results are documented.
+
+Do not claim AEBE complete merely because a unit test manually constructs a valid Assessment and passes it to `registerAssessment`.
+
+---
+
+## 6. Test strategy
+
+Provide a test matrix covering:
+
+- adapter positive case;
+- adapter negative case;
+- malformed required fields;
+- invalid claim values;
+- missing `PARENT_UNRESOLVED`;
+- inconsistent subject/parent data;
+- invalid relation;
+- invalid profile/method;
+- malformed provenance;
+- invalid timestamp;
+- duplicate parent references;
+- unsupported nested values;
+- registration through every public entry point;
+- attempted bypass through the old API;
+- deep-copy/deep-freeze guarantees;
+- package-root API behavior.
+
+Separate unit tests, integration tests, and conformance tests.
+
+Preserve all existing conformance semantics. Do not rewrite Task 17 historical audit results.
+
+---
+
+## 7. Explicitly out of scope
+
+Do not:
+
+- implement T18-02B;
+- decide the C-2 subject model (SCC/node/edge);
+- implement `CYCLE_DETECTED` Assessment emission;
+- implement CORE-003 grant suppression;
+- introduce a general Ruling mechanism;
+- change Finding/Ruling/Execution Authorization semantics;
+- edit `docs/CORE-001.md`;
+- retrospectively change Task 17 statuses;
+- resolve unrelated OPEN decisions from T18-DEC-03…14;
+- create commits, branches, or PRs.
+
+Any discovery that requires a normative CORE-001 amendment must be recorded as a blocker or a separate proposed spec-change task. Do not resolve it by implementation fiat.
+
+---
+
+## 8. Required Plan Mode output
+
+Produce a concrete implementation plan containing:
+
+1. Repository state and prerequisite verification.
+2. Exact normative traceability from CORE-001 and Task 17.
+3. Current implementation/API gap analysis with file and symbol references.
+4. Proposed architecture and data flow.
+5. Assessment validation contract, with each rule classified by authority.
+6. Registration API migration/enforcement design.
+7. File-by-file change list.
+8. Test matrix with positive, negative, malformed, and bypass cases.
+9. AEBE evidence plan.
+10. Risks, unresolved questions, and explicit blockers.
+11. Acceptance criteria mapped to N-138 / C-1.a3 and AEBE.
+12. Estimated implementation sequence and dependencies.
+
+For every proposed code change, identify the exact existing symbol or module it affects.
+
+Do not invent file paths or APIs before inspecting the repository.
+
+---
+
+## 9. Final decision gate
+
+End with one of:
+
+- `READY FOR BUILD` — all required contracts are supported by current normative sources and the plan has no unresolved blocking design questions.
+- `READY WITH EXPLICIT DECISIONS` — implementation can proceed only after the project owner approves listed design choices.
+- `BLOCKED` — a normative or architectural ambiguity prevents a safe implementation plan.
+
+List every required project-owner decision separately.
+
+**Do not start implementation. Do not modify files. Do not commit.**
+
+---
+
+# T18-02A — Final Architecture Decision
+## Core-Owned Registration and Admission Control
+### Claude Plan Mode
+
+Continue work on T18-02A in `zaebee/federation-agents`.
+
+The project owner has reviewed the previous implementation plan and approved the following architectural direction.
+
+Your task is to reconcile the plan with these decisions and produce a final implementation-ready plan.
+
+**This is still Plan Mode. Do not implement anything.**
+
+---
+
+## 1. Restore repository context
+
+Inspect the current repository state first:
+
+- branch, HEAD, working tree;
+- PR #40 merge status;
+- current Task 18 decision register and remediation roadmap;
+- T18-01 decision package;
+- CORE-001 Rev 0.3.3;
+- Task 17 audit artifacts;
+- current Assessment, lineage, traversal, and public API implementation.
+
+Do not assume that previous planning output accurately represents the current repository.
+
+If the repository state differs from the expected merged state, report the discrepancy.
+
+---
+
+## 2. Approved architectural decisions
+
+The following decisions are now approved by the project owner for T18-02A.
+
+### DECISION A — Registration ownership
+
+**Core owns Assessment registration and immutable storage.**
+
+The Adapter:
+
+- observes domain/graph context;
+- constructs an Assessment candidate;
+- initiates registration through the Core API.
+
+Core:
+
+- validates the candidate;
+- enforces contextual validation where required;
+- owns the registration operation;
+- creates the immutable registered representation;
+- controls admission into registered state.
+
+The Adapter MUST NOT directly mutate or append to Core-owned registered state.
+
+### DECISION B — Mandatory admission control
+
+Validation must be inseparable from admission into registered state.
+
+No supported public API may allow an Assessment to enter registered state without mandatory Core validation.
+
+This includes both:
+
+1. Generic Assessment validation.
+2. C-1 contextual validation for `PARENT_UNRESOLVED`.
+
+A standalone validator that callers can skip is insufficient.
+
+A shape-valid but semantically false C-1 Assessment must not be registerable through any supported public registration path.
+
+### DECISION C — Adapter classification
+
+The proposed `src/adapters/orphan-assessment.ts` is a **reference adapter** for T18-02A.
+
+There is currently no established production host adapter in the repository.
+
+Do not describe this module as a production integration.
+
+Its purpose is to demonstrate the adapter/Core boundary and provide reproducible conformance evidence.
+
+### DECISION D — Publication boundary
+
+Publication remains OPEN and OUT OF SCOPE for T18-02A.
+
+Core registration does not imply external publication.
+
+Do not introduce:
+
+- event publisher;
+- transactional outbox;
+- delivery worker;
+- subscriber management;
+- retry/delivery guarantees;
+- external event transport.
+
+Record publication as a separate architectural concern if documentation needs clarification.
+
+### DECISION E — Scope
+
+T18-02A covers C-1 only.
+
+It does not cover:
+
+- C-2;
+- C-2 subject model;
+- `CYCLE_DETECTED` Assessment emission;
+- CORE-003 grant suppression;
+- N-168 readiness;
+- general Ruling implementation;
+- changes to Task 17 historical audit statuses.
+
+---
+
+## 3. Required architecture
+
+Plan for the following conceptual flow:
+
+```text
+Domain / Graph Context
+        |
+        v
+Reference Adapter
+        |
+        | constructs Assessment candidate
+        v
+Core Registration API
+        |
+        +--> Generic Assessment Validation
+        |
+        +--> C-1 Contextual Validation
+        |
+        +--> Ownership / Deep Copy / Deep Freeze
+        |
+        v
+Core-Owned Registered State
+        |
+        v
+Registration Result
+```
+
+The diagram describes responsibilities, not necessarily the final API shape.
+
+Inspect the actual code and recommend the narrowest safe API.
+
+In particular, investigate an operation conceptually equivalent to:
+
+`registerOrphanAssessment(candidate, graph, existing)`
+
+The exact signature must be derived from actual repository types.
+
+The operation must ensure that generic validation, C-1 contextual validation, and registration cannot be separated by the caller.
+
+Do not expose a public sequence in which callers are expected to remember to invoke multiple validators.
+
+---
+
+## 4. Generic and contextual validation
+
+Keep the validation layers conceptually distinct.
+
+### 4.1 Generic Assessment validation
+
+Validate the runtime structure and ownership contract of `ContinuityAssessment`.
+
+Inspect CORE-001 §6.2.1 and existing Global Constraints before proposing rules.
+
+Classify every rule as one of:
+
+- directly required by CORE-001;
+- required by an approved Task 18 decision;
+- implementation safety/integrity rule;
+- unresolved normative question.
+
+Review at least:
+
+- required fields;
+- runtime enum validation;
+- identifier validity;
+- parent array shape;
+- claim array shape;
+- profile and method references;
+- evidence references;
+- timestamp representation;
+- supersession fields;
+- unsupported object structures;
+- accessors, symbols, cycles, functions, and nested values;
+- deep-copy/deep-freeze behavior.
+
+Do not silently convert implementation preferences into normative requirements.
+
+Do not automatically reject all unknown fields unless this is supported by the actual schema contract or explicitly justified as a compatibility decision.
+
+Respect Global Constraint 17:
+
+- no public domain record or semantic result may expose unvalidated `unknown`;
+- boundary adapters may accept `unknown` but must validate it before domain construction;
+- no exported API may use `any`.
+
+Do not invent new normative or mechanism error codes. Reuse existing contracts or identify a decision required.
+
+### 4.2 C-1 contextual validation
+
+The Core registration operation must establish that:
+
+- the subject belongs to the supplied graph context;
+- the relevant parent is actually unresolved;
+- the declared relation matches the graph context;
+- `PARENT_UNRESOLVED` is recorded in `unverified_claims`;
+- it is not incorrectly represented as a verified claim;
+- the candidate cannot claim unresolved parents unrelated to the supplied graph.
+
+A structurally valid Assessment with a false C-1 claim must be rejected.
+
+Do not claim that this establishes absolute truth or grants authority. It establishes consistency with the supplied local graph and the applicable contract.
+
+### 4.3 Validation context integrity
+
+Investigate whether passing a `LineageGraph` directly into the registration API is safe.
+
+Consider:
+
+- mutable graph references;
+- graph snapshot ownership;
+- graph provenance;
+- consistency between the graph used for validation and the graph used by the adapter;
+- mutation between construction and registration;
+- whether a minimal immutable validation context is preferable.
+
+Recommend the narrowest solution that preserves the invariant without introducing unnecessary architecture.
+
+---
+
+## 5. C-1 grouping decision
+
+Assess the options for multiple unresolved parents:
+
+1. One Assessment per unresolved parent.
+2. One Assessment per `(child, relation)` group.
+3. One combined Assessment per child.
+
+Consider the single-valued `declared_relation` field in `ContinuityAssessment`.
+
+Recommend a deterministic option.
+
+Clearly distinguish a local implementation choice from a normative interpretation.
+
+Do not alter CORE-001 to accommodate the chosen implementation.
+
+If the existing contract does not permit a safe choice, identify the blocker instead of inventing semantics.
+
+---
+
+## 6. Public API and bypass analysis
+
+Inspect all actual exports and registration paths.
+
+At minimum:
+
+- `registerAssessment`;
+- proposed `registerOrphanAssessment`;
+- `src/core/index.ts`;
+- `src/index.ts`;
+- package root exports;
+- internal module imports;
+- any alternate mutation or registration mechanism.
+
+The plan must guarantee:
+
+- the old public API cannot bypass generic validation;
+- no supported path can register malformed Assessment objects;
+- no supported path can register a false C-1 claim;
+- the Adapter cannot mutate Core-owned registered state;
+- returned state cannot mutate internal registered state.
+
+Do not assume that TypeScript types provide runtime validation.
+
+If `assessEdge` consumes registered assessments, determine whether it needs changes for this task. Do not expand scope without evidence of a bypass.
+
+---
+
+## 7. Reference adapter and AEBE
+
+Implement the proposed adapter as a reference adapter, not a production integration.
+
+It must use actual graph/domain data and the Core registration API.
+
+AEBE must demonstrate:
+
+1. Positive case: unresolved parent produces a registered Assessment with `PARENT_UNRESOLVED`.
+2. Negative case: resolved parent produces no such Assessment.
+3. The Assessment is constructed by the reference adapter, not manually assembled in the test.
+4. Core generic validation is enforced.
+5. Core C-1 contextual validation is enforced.
+6. The old public API cannot bypass generic validation.
+7. No supported API can bypass C-1 contextual validation.
+8. Mutation of input or returned values cannot alter registered state.
+9. Tests exercise the package-root public API where appropriate.
+10. Evidence includes exact revision, commands, test names, and results.
+
+A test that merely creates a valid Assessment literal and calls `registerAssessment` does not prove adapter emission.
+
+Publication is explicitly excluded from AEBE.
+
+---
+
+## 8. Test strategy
+
+Provide a concrete test matrix separating:
+
+- generic validation unit tests;
+- contextual validation tests;
+- registration integration tests;
+- reference adapter tests;
+- package-root API tests;
+- C-1 conformance tests.
+
+Include positive, negative, malformed, and bypass attempts.
+
+Preserve existing tests and conformance semantics.
+
+Do not change C-2 tests or C-2 todo status.
+
+Do not rewrite Task 17 historical audit results.
+
+---
+
+## 9. Documentation and implementation boundaries
+
+Identify the exact files to change.
+
+Likely candidates include:
+
+- `src/core/assessment.ts` or a focused validation module;
+- `src/core/index.ts`;
+- `src/index.ts`, if required;
+- `src/adapters/orphan-assessment.ts`;
+- unit and conformance tests;
+- `docs/implementation.md`;
+- AEBE evidence under the Task 18 audit directory;
+- Task 18 roadmap / decision register, only if required to record the approved registration ownership decision.
+
+Do not edit `docs/CORE-001.md`.
+
+Do not modify Task 17 artifacts.
+
+Do not change unrelated OPEN decisions.
+
+If the registration ownership decision must be recorded in the Task 18 decision register, propose the exact wording and the minimal documentation change. Do not silently amend unrelated decisions.
+
+Publication remains OPEN.
+
+---
+
+## 10. Required output
+
+Produce a final implementation plan with:
+
+1. Verified repository state.
+2. Normative traceability.
+3. Approved architecture mapped to actual symbols.
+4. Generic validation contract.
+5. C-1 contextual validation contract.
+6. Graph/context integrity design.
+7. Registration API and bypass analysis.
+8. C-1 grouping recommendation.
+9. Reference adapter design.
+10. File-by-file implementation plan.
+11. Complete test matrix.
+12. AEBE evidence plan.
+13. Risks and remaining OPEN questions.
+14. Exact acceptance criteria.
+15. Implementation sequence.
+
+Every proposed code change must identify the actual existing symbol or module it affects.
+
+### Final gate
+
+Choose one:
+
+- `READY FOR BUILD`
+- `READY WITH EXPLICIT DECISIONS`
+- `BLOCKED`
+
+List any remaining project-owner decisions separately.
+
+Do not implement anything, modify files, create branches, or commit.
+
+The final plan must preserve the distinction between:
+
+- Assessment construction;
+- Assessment validation;
+- Assessment registration;
+- immutable storage;
+- external publication.
+
+These are separate architectural responsibilities.
+
+---
+
+# T18-02A — Final Plan Corrections
+## Claude Plan Mode — No Implementation
+
+Revise the current T18-02A implementation plan.
+
+The project owner approves the overall Core-owned registration architecture but requires the following corrections before Build Mode.
+
+### 1. Preserve claim semantics
+
+The current plan proposes that generic `registerAssessment` rejects every Assessment containing `PARENT_UNRESOLVED`.
+
+Do not assume this is a normative CORE-001 rule.
+
+Analyze whether this restriction is necessary to guarantee that a false C-1 Assessment cannot enter registered state.
+
+Distinguish:
+
+- generic structural validation;
+- claim-specific contextual validation;
+- registration/admission policy.
+
+Prefer a narrow C-1 admission operation without accidentally defining global semantics for `PARENT_UNRESOLVED`.
+
+If generic registration remains public, prove that no supported registration path can admit an Assessment requiring C-1 contextual validation without that validation.
+
+Do not invent a general-purpose admission framework unless the existing architecture requires it.
+
+### 2. Validate graph context integrity
+
+Deep-copying a LineageGraph is not sufficient to prove that the graph itself is valid.
+
+Inspect:
+
+- `buildLineageGraph`;
+- `LineageGraph` construction and runtime invariants;
+- validation of `nodes`, `edges`, `unresolvedParents`;
+- whether callers can manually construct inconsistent graph objects;
+- whether graph fields can be mutated before registration.
+
+Determine whether Core registration can safely accept the public `LineageGraph` type.
+
+Evaluate:
+
+A. Accept only a graph produced by a Core-owned builder, with an appropriate runtime integrity guarantee.
+
+B. Snapshot and independently validate the graph structure and cross-field consistency.
+
+C. Introduce a minimal immutable validation context derived by Core.
+
+Recommend the narrowest safe solution.
+
+Do not introduce nominal brands without a concrete enforcement benefit.
+
+The required invariant is:
+
+A C-1 Assessment must be validated against a structurally valid, immutable graph context. The graph context must not be treated as evidence of external truth or authority.
+
+### 3. Assessment ID
+
+Reject the proposed implicit `prefix:parent:relation` ID generation as a default.
+
+Prefer caller-supplied Assessment IDs for T18-02A unless existing repository conventions provide a better established mechanism.
+
+The reference adapter must not silently invent an ID protocol.
+
+Assess collision responsibility and duplicate-ID handling using existing Core registration behavior.
+
+Do not introduce UUIDs, hashes, counters, or timestamp-derived IDs without an explicit design reason.
+
+### 4. Unknown fields
+
+Review unknown-field rejection against:
+
+- the exact CORE-001 `ContinuityAssessment` schema;
+- existing extension conventions;
+- other Core validators;
+- compatibility expectations.
+
+If rejecting unknown fields is a local implementation safety decision, document it as such.
+
+If the schema is intended to be extensible, identify the safe extension mechanism rather than silently rejecting future fields.
+
+Do not change CORE-001.
+
+### 5. Documentation decision recording
+
+The project owner has approved Core-owned registration for T18-02A.
+
+Prepare the minimal Task 18 documentation reconciliation:
+
+- DEC-02 scope records adapter construction, Core validation, and Core-owned registration/immutable storage;
+- adapter initiates registration but cannot mutate registered state;
+- publication remains OPEN;
+- remove the registration ownership blocker from T18-02A.
+
+Do not rewrite Task 17 historical audit results.
+
+Do not describe publication as approved or implemented.
+
+### 6. Final deliverable
+
+Return the corrected implementation plan with:
+
+1. Updated architecture and data flow.
+2. Generic vs C-1 contextual validation contract.
+3. Graph context integrity solution.
+4. Registration API and complete bypass analysis.
+5. Caller-supplied ID handling.
+6. Unknown-field compatibility decision.
+7. Reference adapter behavior.
+8. Updated test matrix.
+9. Exact documentation amendments.
+10. Remaining project-owner decisions.
+
+Final gate must be one of:
+
+- `READY FOR BUILD`
+- `READY WITH EXPLICIT DECISIONS`
+- `BLOCKED`
+
+No implementation, source changes, test changes, commits, branches, or PRs.
+
+Do not invent normative requirements or modify CORE-001.
+
+---
+
+# T18-02A — Final Architecture Corrections (Plan Mode)
+
+Revise the current implementation plan. Do not implement anything.
+
+The previous review accepts the overall architecture but requires four final corrections.
+
+## 1. Preserve generic Assessment registration semantics
+
+The current proposal removes `registerAssessment` from the public package API and exposes only `registerOrphanAssessment`.
+
+Do not assume this breaking API change is necessary.
+
+Investigate whether the following architecture can be implemented safely:
+
+- `registerAssessment` remains the generic public registration/admission API.
+- It performs generic structural validation and immutable admission.
+- It does not assign global semantics to `PARENT_UNRESOLVED`.
+- `registerOrphanAssessment` performs generic validation plus C-1 contextual validation.
+- No supported public API can admit a C-1 Assessment without the required contextual validation.
+
+Explore concrete designs for enforcing the last invariant without globally defining the meaning of `PARENT_UNRESOLVED`.
+
+If this is impossible, provide:
+1. a concrete bypass scenario;
+2. why a separate admission boundary cannot prevent it;
+3. the exact public API compatibility impact;
+4. why removing generic registration is preferable.
+
+Do not make this decision by implementation convenience.
+
+## 2. Prove graph provenance and invariants
+
+Audit `buildLineageGraph` and every graph construction path.
+
+Verify:
+- the WeakSet is populated only after successful construction and validation;
+- all nested structures are deeply immutable;
+- `nodes`, `edges`, `unresolvedParents`, and `cycles` are mutually consistent;
+- contradictory input cannot produce a graph that passes provenance checks;
+- there is no alternate builder or construction path.
+
+Distinguish explicitly:
+- builder provenance;
+- structural validity;
+- semantic consistency.
+
+WeakSet membership proves provenance, not automatically the other two.
+
+Retain Option A only if the builder actually enforces the required invariants. Otherwise propose the smallest additional validation needed.
+
+## 3. Define ID callback and atomicity contracts
+
+Retain caller-supplied IDs, but specify:
+- validation of every returned ID;
+- duplicate IDs within one batch;
+- duplicate IDs against existing registrations;
+- callback exception handling;
+- deterministic behavior expectations;
+- whether callbacks may have side effects;
+- behavior when registration of a later candidate fails.
+
+The batch operation must be atomic: either every candidate is admitted or none is. Do not return a partially updated registration array.
+
+Keep admission and validation inside Core. Do not introduce generated IDs, UUIDs, hashes, counters, or timestamps as substitutes.
+
+## 4. Clarify admission versus storage ownership
+
+The current API accepts `existing` and returns a new immutable array. This demonstrates Core-owned admission and representation, but not persistent Core-owned storage.
+
+Use precise terminology:
+- Core-owned validation/admission;
+- immutable registered representation;
+- caller-managed persistence, unless an actual Core-owned registry exists.
+
+Keep persistent storage ownership, publication, and retention OPEN. Do not silently introduce a repository or outbox.
+
+## 5. Preserve approved boundaries
+
+- DEC-01 remains APPROVED — REQ-LOCAL.
+- DEC-02 remains APPROVED — OWN-ADAPTER + VAL-CORE + REG-CORE.
+- Adapter constructs candidates and initiates Core admission.
+- Core validates and admits.
+- Publication remains OPEN and out of scope.
+- C-2 subject model remains OPEN.
+- C-2.a3 grant suppression remains CORE-003.
+- Task 17 audit artifacts and statuses remain unchanged.
+- No edits to `docs/CORE-001.md`.
+- Any normative amendment requires a separate approved spec-change task.
+
+## 6. Deliverable
+
+Return a revised final implementation plan with:
+- exact public API;
+- exact internal API;
+- admission/bypass analysis;
+- graph invariant evidence;
+- atomic batch contract;
+- updated file-by-file changes;
+- test matrix;
+- AEBE criteria;
+- precise documentation reconciliation;
+- explicit remaining project-owner decisions.
+
+Do not modify files, source, tests, or documentation. Do not create commits or PRs.
+
+Final gate must be one of:
+- READY;
+- READY WITH EXPLICIT DECISIONS;
+- BLOCKED.
+
+Explain every remaining decision and its impact.
+
+---
+
+# T18-02A — Mandatory Plan Review Corrections
+
+The submitted plan does not incorporate the four corrections requested in the previous review. It substantially repeats the earlier proposal.
+
+Do not restate the existing plan. Re-open the relevant repository code and resolve each issue with concrete evidence.
+
+## 1. Generic registration API — unresolved
+
+The plan still removes `registerAssessment` from the public package API without demonstrating that this is necessary.
+
+Investigate and compare these designs:
+
+A. Preserve generic public registration and add a separate C-1 contextual admission path.
+
+B. Preserve generic public registration, but introduce a narrowly scoped admission contract preventing context-dependent C-1 claims from being admitted without contextual validation.
+
+C. Remove generic registration from the public API.
+
+For each option:
+- identify the exact public functions and call paths;
+- show whether a false C-1 Assessment can enter registered state;
+- identify the normative and implementation consequences;
+- assess compatibility impact.
+
+Do not equate generic structural validity with C-1 contextual validity.
+
+Do not globally define the semantics of `PARENT_UNRESOLVED`.
+
+Recommend the narrowest safe API design. Option C requires explicit project-owner approval and a concrete justification; it is not the default.
+
+## 2. Graph integrity — provide code evidence
+
+Inspect the actual implementation of:
+- `buildLineageGraph`;
+- all graph construction paths;
+- node/edge collection;
+- unresolved-parent derivation;
+- cycle derivation;
+- deep-copy and deep-freeze behavior.
+
+Produce a table with:
+- invariant;
+- exact implementation location;
+- enforcement mechanism;
+- existing test;
+- remaining gap.
+
+Distinguish:
+1. builder provenance;
+2. structural validity;
+3. semantic consistency.
+
+WeakSet membership proves only provenance. Retain the WeakSet approach only if the builder itself enforces the required invariants. Otherwise specify the smallest additional validation.
+
+Do not claim that builder-issued automatically means semantically valid.
+
+## 3. Atomic batch admission — mandatory
+
+The current adapter registers candidates sequentially and does not define all-or-nothing behavior.
+
+Design a batch admission operation with this contract:
+
+- all candidates are validated before the new state is returned;
+- duplicate IDs within the batch are rejected;
+- duplicate IDs against existing state are rejected;
+- supersession constraints are checked against the complete prospective state;
+- callback failures or validation failures do not expose partial state;
+- failure returns the original state unchanged;
+- success returns one complete immutable state.
+
+Specify whether the atomic operation belongs in Core or the adapter. Core must own the admission decision.
+
+Define callback behavior:
+- ID callback exceptions;
+- invalid IDs;
+- duplicate IDs;
+- determinism expectations;
+- side-effect expectations.
+
+Do not introduce generated identifiers.
+
+## 4. Admission versus storage ownership
+
+The proposed API accepts `existing` and returns a new array. This is immutable Core-owned admission, not persistent Core-owned storage.
+
+Correct all architecture diagrams, responsibility tables and documentation wording.
+
+Use:
+- Core-owned validation/admission;
+- immutable registered representation;
+- caller-managed persistence.
+
+Keep persistent storage ownership, publication and retention OPEN.
+
+Do not add a repository, database, event outbox or publication mechanism.
+
+## 5. Required output
+
+Return:
+1. code-backed findings for all four areas;
+2. revised public and internal API signatures;
+3. bypass analysis;
+4. graph invariant table;
+5. atomic batch contract;
+6. corrected architecture and terminology;
+7. updated test matrix;
+8. documentation reconciliation;
+9. exact remaining project-owner decisions.
+
+Do not modify files, source, tests, specifications or documentation. Do not create commits or PRs.
+
+Final gate: READY, READY WITH EXPLICIT DECISIONS, or BLOCKED.
+
+A decision is not resolved merely because the plan repeats a recommendation. Show the evidence and consequences.
+
+---
+
+see your spec:
+===
+# T18-02A — Corrected Implementation Plan (Plan Mode)
+
+## 1. Repository state
+
+| Check | Result |
+|---|---|
+| Branch / HEAD | `main` / **`f9b7749`** |
+| Working tree | clean |
+| PR #40 | **MERGED** at `f9b7749` |
+| Task 17 | unchanged: 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL |
+| C-1 | NOT COVERED; a1/a2/a4 PASS, **a3 NOT COVERED** |
+| C-2 | BLOCKED; C-2.a2 NOT COVERED; C-2.a3 BLOCKED |
+| T18-DEC-01 | APPROVED — `REQ-LOCAL` |
+| T18-DEC-02 | APPROVED — `OWN-ADAPTER` + `VAL-CORE` |
+
+The merged Task 18 register still says registration ownership is OPEN. The project owner has now approved **Core-owned registration**. The plan includes the exact documentation reconciliation; this is a documentation amendment, not a new normative decision.
+
+---
+
+## 2. Claim semantics — corrected position
+
+The previous plan proposed that generic `registerAssessment` reject every Assessment containing `PARENT_UNRESOLVED`. That would be an **admission policy**, not a CORE-001 rule, and it would define global semantics for a claim that only has meaning in C-1 context.
+
+### Analysis
+
+| Option | Consequence |
+|---|---|
+| A. Keep generic registration public; reject `PARENT_UNRESOLVED` globally | Prevents false C-1 admission, but invents a global claim policy; rejected |
+| B. Keep generic registration public; no claim-specific rejection | A shape-valid false C-1 Assessment can enter registered state; unacceptable |
+| C. Remove generic registration from the public package API; expose only `registerOrphanAssessment` | No supported public path can admit C-1 without contextual validation; no global claim semantics; **recommended** |
+| D. General admission-token framework | Over-engineered; not required by current architecture |
+
+### Recommended separation
+
+- **Generic structural validation:** `validateContinuityAssessment` — shape and ownership only; it does not interpret `PARENT_UNRESOLVED`.
+- **C-1 contextual validation:** `validateOrphanAssessment` — only called by `registerOrphanAssessment`.
+- **Admission policy:** `registerOrphanAssessment` is the only public registration path for C-1; generic registration is internal.
+
+This avoids defining `PARENT_UNRESOLVED` globally while proving that no supported public path can admit a false C-1 Assessment.
+
+---
+
+## 3. Architecture and data flow
+
+```text
+Domain / LineageGraph (from buildLineageGraph)
+        │
+        ▼
+Reference adapter: src/adapters/orphan-assessment.ts
+  - reads graph.edges / unresolved parents
+  - constructs ContinuityAssessment candidate
+  - caller-supplied assessment ID
+        │
+        ▼
+Core: registerOrphanAssessment(candidate, graph, existing)
+  - checks graph provenance (builder-issued, frozen)
+  - validateContinuityAssessment(candidate)       generic
+  - validateOrphanAssessment(candidate, graph)    C-1 contextual
+  - admitAssessment(existing, candidate)          duplicate/supersession + freeze
+        │
+        ▼
+Core-owned immutable registered array
+```
+
+| Responsibility | Owner |
+|---|---|
+| Observation of graph/domain context | Adapter |
+| Assessment construction | Adapter |
+| Generic validation | Core |
+| C-1 contextual validation | Core |
+| Registration / admission | **Core** |
+| Immutable registered storage | **Core** |
+| Publication | **OPEN / out of scope** |
+| Downstream consumption | Existing `assessEdge`/`evaluateAssurance`; no authority |
+
+---
+
+## 4. Generic validation contract
+
+Internal function in `src/core/assessment.ts` (or `assessment-validation.ts`):
+
+```ts
+function validateContinuityAssessment(value: unknown): Result<DeepReadonly<ContinuityAssessment>>;
+```
+
+Use `validateJsonValue` (`src/core/ownership.ts:191`) for JSON/ownership rejection, then field checks.
+
+| Rule | Classification |
+|---|---|
+| Plain object; no accessors, symbols, non-enumerable props, functions, cycles, unsupported prototypes | Ownership model / safety |
+| Required §6.2.1 fields present | Directly required by CORE-001 |
+| `declared_relation` enum | Directly required by §5.1/§6.2.1 |
+| Arrays of strings for parents/claims/evidence | Directly required field shape |
+| Finite `assessed_at` | Implementation safety |
+| Non-empty IDs/profile/method | Implementation safety; CORE-001 silent |
+| Parent array non-empty; no duplicates; no self-parent | Implementation safety |
+| Unknown fields rejected | Implementation safety/compatibility decision (see §9) |
+| `supersedes_assessment_id` optional non-empty string | Directly required §6.3 |
+| `verified_claims`/`unverified_claims` overlap | Unresolved normative question; generic validator may allow |
+| Deep copy/freeze | Approved ownership model |
+
+No new error codes: `E_JSON_VALUE_INVALID` for JSON/ownership, `E_UNKNOWN_BOUNDARY_REJECTED` for semantic field failures.
+
+---
+
+## 5. C-1 contextual validation contract
+
+Internal function:
+
+```ts
+function validateOrphanAssessment(
+  candidate: DeepReadonly<ContinuityAssessment>,
+  graph: DeepReadonly<LineageGraph>,
+): Result<DeepReadonly<ContinuityAssessment>>;
+```
+
+Checks:
+
+- subject exists in `graph.nodes`;
+- parent is absent from `graph.nodes`;
+- `graph.unresolvedParents` contains the child/parent pair;
+- `graph.edges` contains the exact `(child, parent, relation)` edge;
+- `declared_relation` matches that edge;
+- `unverified_claims` includes `PARENT_UNRESOLVED`;
+- `verified_claims` does not include it;
+- one-per-parent model: exactly one parent entry;
+- no `CYCLE_DETECTED` claim in this C-1 path.
+
+It establishes consistency with the supplied local graph, not truth, trust or authority.
+
+---
+
+## 6. Graph context integrity
+
+### Options
+
+| Option | Assessment |
+|---|---|
+| A. Accept only graphs produced by `buildLineageGraph`, with runtime provenance | **Recommended**; builder guarantees structure and deep-freezes |
+| B. Snapshot + independently validate nodes/edges/unresolvedParents consistency | More code; accepts manually built graphs if consistent; still not truth |
+| C. Minimal Core-derived validation context | Additional type/API; not necessary |
+
+### Recommendation: Option A
+
+- Add a module-private `WeakSet<object>` in `src/core/lineage.ts`.
+- `buildLineageGraph` adds the frozen graph to the set.
+- Add internal `isBuiltLineageGraph(value: unknown): value is LineageGraph` (not package-root exported).
+- `registerOrphanAssessment` rejects a graph not in the set with `E_UNKNOWN_BOUNDARY_REJECTED`.
+- No nominal brand; WeakSet provenance is the same mechanism already used for `ApplicableAssessments`.
+- `buildLineageGraph` deep-freezes the graph, so no mutation after construction.
+- Builder tests already cover nodes/edges/unresolvedParents/cycles consistency.
+
+This proves the graph is structurally valid, immutable and builder-issued. It does not claim external truth.
+
+---
+
+## 7. Registration API and bypass analysis
+
+### Public API
+
+```ts
+function registerOrphanAssessment(
+  candidate: unknown,
+  graph: LineageGraph,
+  existing: readonly DeepReadonly<ContinuityAssessment>[],
+): Result<readonly DeepReadonly<ContinuityAssessment>[]>;
+```
+
+Only this function is exported from the package root for registration.
+
+### Internal API
+
+```ts
+function validateContinuityAssessment(value: unknown): Result<DeepReadonly<ContinuityAssessment>>;
+function validateOrphanAssessment(candidate, graph): Result<DeepReadonly<ContinuityAssessment>>;
+function registerAssessment(existing, successor): Result<...>;   // internal admission primitive
+function admitAssessment(existing, candidate): Result<...>;     // duplicate/supersession + freeze
+```
+
+`registerAssessment` remains in `src/core/assessment.ts` for internal tests and reuse, but is **removed from `src/core/index.ts`** and therefore from the package root. Existing tests import it from the internal module; external supported API no longer exposes it.
+
+### Bypass table
+
+| Path | Result |
+|---|---|
+| `registerOrphanAssessment` | Generic + contextual + admission in one call; cannot separate |
+| `registerAssessment` via package root | Not exported; no supported path |
+| `registerAssessment` via internal module | Internal tests only; package `exports` only `.` blocks supported subpath imports |
+| Manually constructed `LineageGraph` | Rejected by builder provenance |
+| Mutated builder graph | Impossible; deep-frozen |
+| Returned/registered array mutation | Frozen; no mutable store |
+| Adapter direct append | No access to Core-owned state |
+| `assessEdge` | Consumer, not registration; unchanged |
+
+No supported public path can register malformed Assessment objects or false C-1 claims.
+
+**Breaking API note:** removing `registerAssessment` from the package root is a public API change. Existing external consumers must migrate to `registerOrphanAssessment` for C-1; generic registration is deferred. This requires project-owner approval.
+
+---
+
+## 8. Assessment ID handling
+
+- Adapter request carries a caller-supplied ID function:
+
+```ts
+assessmentIdFor: (parent: IdentityVersionID, relation: LineageRelationType) => AssessmentID;
+```
+
+- The adapter does not invent `prefix:parent:relation`, UUIDs, hashes, counters or timestamp-derived IDs.
+- Caller owns uniqueness and collision handling.
+- Core admission reuses existing duplicate-ID rejection (`registerAssessment`/`admitAssessment` behavior).
+- On collision, `registerOrphanAssessment` returns a mechanism failure; the adapter does not retry or generate a new ID.
+- Tests cover duplicate ID and collision responsibility.
+
+---
+
+## 9. Unknown fields
+
+CORE-001 §6.2.1 lists the `ContinuityAssessment` fields; it defines no extension convention. Other Core validators reject unknown fields. Therefore:
+
+- Reject unknown fields as a **local implementation safety/compatibility decision**, consistent with existing records.
+- Document the decision; do not claim it is normative.
+- If future extensibility is required, it needs a separate specification/extension decision; do not silently allow unknown fields.
+
+---
+
+## 10. Reference adapter
+
+`src/adapters/orphan-assessment.ts`:
+
+```ts
+interface OrphanAssessmentRequest {
+  graph: LineageGraph;
+  child: IdentityVersionID;
+  existing: readonly DeepReadonly<ContinuityAssessment>[];
+  assessmentIdFor: (parent: IdentityVersionID, relation: LineageRelationType) => AssessmentID;
+  assessment_profile_ref: string;
+  assessment_method_version: string;
+  assessed_by: DomainID;
+  assessed_at: Timestamp;
+  evidence_refs?: readonly string[];
+}
+
+function emitOrphanAssessment(request): Result<{
+  assessments: readonly DeepReadonly<ContinuityAssessment>[];
+  registered: readonly DeepReadonly<ContinuityAssessment>[];
+}>;
+```
+
+Behavior:
+
+1. Find unique `(parent, relation)` edges in `graph.edges` where parent is absent from `graph.nodes`, sorted by `(parent, relation)`.
+2. If none, return `ok:true` with empty assessments and unchanged registered state.
+3. For each edge, construct one candidate:
+   - subject = child;
+   - parent list = `[parent]`;
+   - relation = edge relation;
+   - `verified_claims = []`;
+   - `unverified_claims = ['PARENT_UNRESOLVED']`;
+   - caller-supplied ID;
+   - profile/method/domain/timestamp/evidence from request.
+4. Call `registerOrphanAssessment(candidate, graph, registered)` sequentially.
+5. Return constructed and registered arrays.
+
+It is a **reference adapter**, not production. Recommendation: keep it internal (not exported from package root); tests import from `src/adapters/orphan-assessment.js`. Package-root tests cover Core registration.
+
+---
+
+## 11. File-by-file plan
+
+| File | Change |
+|---|---|
+| `src/core/assessment.ts` | Add `validateContinuityAssessment`, internal `validateOrphanAssessment`, `admitAssessment`; add `registerOrphanAssessment`; keep internal `registerAssessment` |
+| `src/core/lineage.ts` | Add `WeakSet` provenance and internal `isBuiltLineageGraph`; register graph in `buildLineageGraph` |
+| `src/core/index.ts` | Export `registerOrphanAssessment`; remove `registerAssessment` from public barrel |
+| `src/index.ts` | No change unless adapter is exported; root re-exports Core |
+| `src/adapters/orphan-assessment.ts` | New reference adapter |
+| `tests/unit/assessment-validation.test.ts` | Generic validation matrix |
+| `tests/unit/orphan-assessment.test.ts` | Adapter positive/negative/grouping/immutability/ID collision |
+| `tests/unit/assessment.test.ts` | Internal admission and duplicate-ID tests |
+| `tests/conformance/c.test.ts` | Replace C-1 todo with real C-1 test; leave C-2 todo |
+| `docs/implementation.md` | Update assessment/registration/adapter docs |
+| `docs/audits/.../aebe/C-1.md` | AEBE evidence |
+| Task 18 docs | Record Core-owned registration; remove blocker (exact wording below) |
+
+---
+
+## 12. Test matrix
+
+| Area | Case | Expected |
+|---|---|---|
+| Generic | Valid assessment | Accepted, owned, frozen |
+| Generic | Missing field / invalid relation / non-string arrays | Mechanism failure |
+| Generic | Empty IDs / duplicate/self parents / non-finite timestamp | Mechanism failure |
+| Generic | Unknown field / accessor / symbol / function / cycle | Mechanism failure |
+| Contextual | Subject missing from graph | Mechanism failure |
+| Contextual | Parent resolved | Mechanism failure |
+| Contextual | Parent not in `unresolvedParents` | Mechanism failure |
+| Contextual | Relation mismatch | Mechanism failure |
+| Contextual | Missing `PARENT_UNRESOLVED` | Mechanism failure |
+| Contextual | `PARENT_UNRESOLVED` in verified claims | Mechanism failure |
+| Contextual | Extra unrelated parent | Mechanism failure |
+| Graph | Manually constructed `LineageGraph` | Mechanism failure |
+| Graph | Builder-issued graph | Accepted |
+| Graph | Mutation attempt on builder graph | Frozen / unchanged |
+| Adapter | One orphan parent | Registered assessment with claim |
+| Adapter | Resolved parent | No assessment/claim |
+| Adapter | Multiple missing parents | Deterministic one-per-parent |
+| Adapter | Duplicate caller ID | Mechanism failure; no retry |
+| Adapter | Input mutation after emission | Registered state unchanged |
+| Public API | `registerAssessment` absent from package root | Confirmed |
+| Public API | `registerOrphanAssessment` from package root | Works |
+| Bypass | Internal module import in tests | Internal only; no supported public path |
+| Conformance | C-1 orphan | Claim asserted; C-1 evidence |
+| Conformance | C-2 | Todo unchanged |
+
+---
+
+## 13. AEBE evidence plan
+
+`docs/audits/2026-10-31-core-001-task-18/aebe/C-1.md` records:
+
+1. Revision and exact commands.
+2. Positive: orphan graph → reference adapter → registered Assessment with `PARENT_UNRESOLVED`.
+3. Negative: resolved graph → no assessment/claim.
+4. Authenticity: test calls adapter, not a literal.
+5. Generic validation enforced.
+6. C-1 contextual validation enforced.
+7. No public generic registration path; `registerOrphanAssessment` is the only supported C-1 path.
+8. Graph provenance: builder-issued, frozen graph; fake graph rejected.
+9. Immutability of input/returned state.
+10. Provenance and caller-supplied IDs.
+11. Package-root Core API tests.
+12. Test names/results.
+
+Publication excluded.
+
+---
+
+## 14. Exact Task 18 documentation amendments
+
+`decision-register.md` §3, DEC-02 scope:
+
+> **Scope of approval:** DEC-02 assigns adapter construction, Core semantic validation, and Core-owned registration/immutable storage. The adapter constructs and initiates registration through the Core API; it must not mutate registered state. Publication/retention remain OPEN.
+
+Resolution: `OWN-ADAPTER` + `VAL-CORE` + `REG-CORE`.
+
+Remove registration from “Still open”; keep publication/retention, C-2 model, exact shape/provenance, C-2.a3.
+
+`remediation-roadmap.md`: T18-02A prerequisite `DEC-01/02 approved; Core-owned registration approved; Core validation enforced`; acceptance `AEBE ... Core registration owner; no public generic registration bypass`. Remove “acceptance blocked on registration ownership”.
+
+`reconciliation-notes.md` §6: record Core-owned registration; T18-02A eligible; publication OPEN.
+
+`README.md` §4.1/task table/M1: same.
+
+`disposition-matrix.md` N-138: “Core registration/validation; publication OPEN”; dependency T18-02A.
+
+No Task 17 changes.
+
+---
+
+## 15. Remaining project-owner decisions
+
+1. **Public API removal:** approve removing `registerAssessment` from the package root, keeping it internal, and exposing only `registerOrphanAssessment`. If generic public registration must remain, a claim-specific admission rule is required instead.
+2. **Graph provenance:** approve the `WeakSet` builder-provenance approach (Option A) rather than independent graph validation.
+3. **C-1 grouping:** approve one Assessment per unresolved parent edge (recommended).
+4. **Caller-supplied IDs:** approve `assessmentIdFor(parent, relation)`; no generated IDs.
+5. **Unknown fields:** approve rejection as a local safety/compatibility decision.
+6. **Adapter visibility:** approve internal reference adapter (not package-root exported).
+7. **Documentation amendment wording** for Core-owned registration.
+
+---
+
+## Final gate
+
+**`READY WITH EXPLICIT DECISIONS`**
+
+Implementation can proceed after the seven decisions above are approved. No files modified. No implementation started.
+
+---
+
+and remediate reviewer corrections:
+===
+# T18-02A — Mandatory Plan Review Corrections
+
+The submitted plan does not incorporate the four corrections requested in the previous review. It substantially repeats the earlier proposal.
+
+Do not restate the existing plan. Re-open the relevant repository code and resolve each issue with concrete evidence.
+
+## 1. Generic registration API — unresolved
+
+The plan still removes `registerAssessment` from the public package API without demonstrating that this is necessary.
+
+Investigate and compare these designs:
+
+A. Preserve generic public registration and add a separate C-1 contextual admission path.
+
+B. Preserve generic public registration, but introduce a narrowly scoped admission contract preventing context-dependent C-1 claims from being admitted without contextual validation.
+
+C. Remove generic registration from the public API.
+
+For each option:
+- identify the exact public functions and call paths;
+- show whether a false C-1 Assessment can enter registered state;
+- identify the normative and implementation consequences;
+- assess compatibility impact.
+
+Do not equate generic structural validity with C-1 contextual validity.
+
+Do not globally define the semantics of `PARENT_UNRESOLVED`.
+
+Recommend the narrowest safe API design. Option C requires explicit project-owner approval and a concrete justification; it is not the default.
+
+## 2. Graph integrity — provide code evidence
+
+Inspect the actual implementation of:
+- `buildLineageGraph`;
+- all graph construction paths;
+- node/edge collection;
+- unresolved-parent derivation;
+- cycle derivation;
+- deep-copy and deep-freeze behavior.
+
+Produce a table with:
+- invariant;
+- exact implementation location;
+- enforcement mechanism;
+- existing test;
+- remaining gap.
+
+Distinguish:
+1. builder provenance;
+2. structural validity;
+3. semantic consistency.
+
+WeakSet membership proves only provenance. Retain the WeakSet approach only if the builder itself enforces the required invariants. Otherwise specify the smallest additional validation.
+
+Do not claim that builder-issued automatically means semantically valid.
+
+## 3. Atomic batch admission — mandatory
+
+The current adapter registers candidates sequentially and does not define all-or-nothing behavior.
+
+Design a batch admission operation with this contract:
+
+- all candidates are validated before the new state is returned;
+- duplicate IDs within the batch are rejected;
+- duplicate IDs against existing state are rejected;
+- supersession constraints are checked against the complete prospective state;
+- callback failures or validation failures do not expose partial state;
+- failure returns the original state unchanged;
+- success returns one complete immutable state.
+
+Specify whether the atomic operation belongs in Core or the adapter. Core must own the admission decision.
+
+Define callback behavior:
+- ID callback exceptions;
+- invalid IDs;
+- duplicate IDs;
+- determinism expectations;
+- side-effect expectations.
+
+Do not introduce generated identifiers.
+
+## 4. Admission versus storage ownership
+
+The proposed API accepts `existing` and returns a new array. This is immutable Core-owned admission, not persistent Core-owned storage.
+
+Correct all architecture diagrams, responsibility tables and documentation wording.
+
+Use:
+- Core-owned validation/admission;
+- immutable registered representation;
+- caller-managed persistence.
+
+Keep persistent storage ownership, publication and retention OPEN.
+
+Do not add a repository, database, event outbox or publication mechanism.
+
+## 5. Required output
+
+Return:
+1. code-backed findings for all four areas;
+2. revised public and internal API signatures;
+3. bypass analysis;
+4. graph invariant table;
+5. atomic batch contract;
+6. corrected architecture and terminology;
+7. updated test matrix;
+8. documentation reconciliation;
+9. exact remaining project-owner decisions.
+
+Do not modify files, source, tests, specifications or documentation. Do not create commits or PRs.
+
+Final gate: READY, READY WITH EXPLICIT DECISIONS, or BLOCKED.
+
+A decision is not resolved merely because the plan repeats a recommendation. Show the evidence and consequences.
+
+---
+
+# T18-02A — Final Semantic and API Clarifications (Plan Mode)
+
+The current revision resolves the four architectural issues from the previous review. Do not rewrite the entire plan.
+
+Resolve the following remaining issues with repository evidence.
+
+## 1. MERGED_FROM grouping semantics — critical
+
+The plan groups candidates by `(child, relation)` but currently populates `parent_version_ids` only with unresolved parents.
+
+This may violate the minimum parent cardinality of `MERGED_FROM`.
+
+Analyze this concrete graph:
+
+- child has two `MERGED_FROM` parents;
+- parent A exists in `graph.nodes`;
+- parent B does not exist in `graph.nodes`;
+- therefore exactly one parent is unresolved.
+
+Determine the normative meaning of `ContinuityAssessment.parent_version_ids` under CORE-001 §6.2.1 and the relevant relation constraints.
+
+Compare:
+
+A. Assessment contains only unresolved parents.
+
+B. Assessment contains all declared parents for the `(child, relation)` group, while contextual validation establishes that at least one parent is unresolved.
+
+C. A different representation justified by the existing specification.
+
+For each option, explain:
+- whether relation cardinality is preserved;
+- whether the Assessment accurately represents the declaration;
+- how `PARENT_UNRESOLVED` is validated;
+- whether resolved parents can legitimately appear in the Assessment.
+
+Do not infer normative semantics from implementation convenience.
+
+Recommend one model and define the exact contextual validation rules.
+
+Add test cases for:
+- all parents unresolved;
+- one resolved and one unresolved MERGED_FROM parent;
+- all parents resolved;
+- multiple relations involving the same parent.
+
+If CORE-001 is ambiguous, keep the question OPEN and identify whether a separate spec clarification is required.
+
+## 2. Registry validation precondition
+
+The plan states that Registry descriptors are caller-validated, but `buildLineageGraph` does not run `validateDescriptor`.
+
+Inspect:
+- `Registry` type and contract;
+- all current callers of `buildLineageGraph`;
+- all current uses of `validateDescriptor`;
+- whether a caller can pass an unvalidated or contradictory Registry;
+- whether duplicate version IDs with divergent lineage can produce a builder-issued graph.
+
+Compare:
+
+A. Runtime validation in `buildLineageGraph`.
+
+B. A separate validated-Registry boundary/type.
+
+C. Explicit caller precondition with documented enforcement at all current call sites.
+
+Do not automatically add validation if it would change the intentionally structural behavior of graph construction.
+
+Distinguish graph construction semantics from descriptor validation semantics. Recommend the smallest safe approach for T18-02A and state any remaining limitation.
+
+## 3. Reference adapter public API status
+
+The plan exports `emitOrphanAssessment` from the package root to satisfy the AEBE package-root criterion.
+
+Clarify whether this is:
+- a stable public API;
+- an explicitly experimental/reference API;
+- or a temporary conformance adapter.
+
+Inspect package API conventions and roadmap wording.
+
+Specify the compatibility commitment and whether the roadmap criterion can be met by exercising the public Core API while keeping the adapter internal.
+
+Do not silently make a reference adapter a permanent protocol API.
+
+## 4. Atomicity wording
+
+Preserve the batch all-or-nothing contract for Core admission and returned immutable representation.
+
+Explicitly state that arbitrary external side effects performed by `assessmentIdFor` cannot be rolled back by Core.
+
+Specify:
+- callbacks run before Core admission;
+- callback failure means Core admission is never invoked;
+- Core admission failure returns no new registered representation;
+- caller-managed persistence occurs only after complete success.
+
+Do not claim transactionality over external side effects.
+
+## 5. Output
+
+Return only:
+- evidence and findings for these four questions;
+- exact changes to the implementation plan;
+- remaining project-owner decisions;
+- final gate.
+
+No files, source, tests, specifications or documentation may be modified. No commits or PRs.
+
+---
+
+# T18-02A — Final Plan Corrections Before Build Approval
+
+Plan Mode. This is a narrow correction pass over the already reviewed T18-02A plan. Do not redesign the architecture or broaden scope. Do not modify files, run implementation, create branches, or commit.
+
+Apply the following final decisions and clarifications.
+
+## 1. `PARENT_UNRESOLVED` is declaration-scoped under local Option B
+
+Retain Option B as the local T18-02A implementation model:
+
+- One Assessment per `(subject_version_id, declared_relation)`.
+- `parent_version_ids` contains the complete declared parent set for that relation.
+- Emit the Assessment only when at least one listed parent is absent from the local graph.
+- Keep the normative meaning of `parent_version_ids` OPEN as `T18-DEC-15`. Do not present Option B as a normative interpretation of CORE-001.
+
+Add this explicit semantic restriction:
+
+> `PARENT_UNRESOLVED` is declaration-scoped, not edge-scoped. Its presence MUST NOT be interpreted as evidence that every edge covered by the Assessment has an unresolved parent.
+
+`assessEdge` may return the same Assessment for both resolved and unresolved edges in the declaration. Applicability to an edge does not transform declaration-scoped claims into edge-scoped claims.
+
+Add a test demonstrating this distinction:
+- Declaration `D MERGED_FROM A, B`.
+- `A` exists in the graph; `B` does not.
+- The Assessment contains `[A, B]` and `PARENT_UNRESOLVED`.
+- `assessEdge` may return that Assessment for `D → A` and `D → B`.
+- The test and documentation MUST NOT interpret `PARENT_UNRESOLVED` as a claim that `D → A` itself is unresolved.
+
+Do not change `assessEdge` semantics or introduce a new edge-scoped claim.
+
+## 2. Preserve the three independent Registry/graph properties
+
+Use these distinctions consistently:
+
+1. Builder provenance: the graph was produced by the trusted graph builder.
+2. Structural validity: the graph satisfies the builder's structural invariants.
+3. Descriptor validity: the source descriptors passed the applicable descriptor validation.
+
+The first two do not imply the third.
+
+Retain Option C:
+- `buildLineageGraph` remains structural.
+- Registry descriptor validation remains a caller precondition, not an enforced builder guarantee.
+- Do not change its return type or reject currently preserved structurally representable declarations as part of T18-02A.
+
+Add the duplicate-ID/divergent-lineage test as a limitation-pinning test. Clearly state that it documents current structural behavior; it does not normatively approve contradictory Registry contents.
+
+## 3. Reference adapter API wording
+
+Retain the package-root export of `emitOrphanAssessment` to satisfy the AEBE package-root construction path.
+
+Label it as an experimental reference adapter API:
+- Not a CORE-001 protocol API.
+- No stability guarantee.
+- No compatibility commitment.
+
+Do NOT describe the Core registration/validation API as a stable API. Use:
+
+> Core registration and validation form the protocol-facing boundary of this reference implementation. Neither the adapter API nor the package API carries a stability guarantee unless explicitly specified by a future release policy.
+
+Keep normative protocol requirements separate from TypeScript package exports.
+
+## 4. Atomicity
+
+Retain the exact boundary:
+
+- Adapter callback and candidate construction happen before Core admission.
+- Callback side effects cannot be rolled back by Core.
+- A callback failure means Core admission is not invoked.
+- Core admission either returns the complete immutable registered representation or returns no new representation; `existing` remains unchanged.
+- Caller-managed persistence occurs only after successful Core admission.
+- Core does not guarantee transactionality over callback side effects or persistence.
+
+Do not introduce an outbox, repository, publication mechanism, or delivery semantics.
+
+## 5. Decision and audit bookkeeping
+
+Add `T18-DEC-15` as OPEN to:
+- decision register;
+- remediation roadmap;
+- reconciliation notes;
+- any relevant README summary.
+
+Question: Does `ContinuityAssessment.parent_version_ids` denote the full declared parent set for `(subject_version_id, declared_relation)`, or only the subset covered by the Assessment?
+
+Record Option B as the T18-02A local implementation choice, not as resolution of the normative question.
+
+Preserve all Task 17 audit artifacts and rollups exactly as approved. Do not retrospectively change any Task 17 status or claim that this implementation closes a normative ambiguity.
+
+## 6. Final Plan Mode output
+
+Return:
+1. Exact plan sections/files changed.
+2. Final API surface and ownership boundaries.
+3. Test matrix, including the resolved/unresolved mixed-parent case and `assessEdge` interpretation.
+4. AEBE acceptance evidence and how the package-root adapter is exercised.
+5. Explicit list of remaining OPEN/BLOCKED questions.
+6. Confirmation that Task 17 artifacts and rollups remain unchanged.
+7. Final implementation scope and exact build sequence.
+
+No implementation yet.
+
+The plan is ready for Build Mode only if all points above are incorporated without expanding T18-02A scope.
+
+---
+
+The approved Plan Mode result is the implementation authority for T18-02A.
+Do not reopen approved architectural decisions.
+Before implementation, correct the T18-DEC-15 wording:
+use "local implementation choice/disposition", not "resolution",
+while keeping the decision status OPEN.
+If repository evidence contradicts the approved plan, stop and report
+the contradiction instead of silently changing the design. 
+# T18-02A — Implement C-1 Assessment Emission and AEBE
+
+Build Mode. Implement the approved T18-02A plan on the current repository branch.
+
+## Scope
+
+Implement only:
+- generic Assessment structural validation and admission boundary;
+- C-1 `PARENT_UNRESOLVED` contextual validation;
+- Core-owned atomic batch admission;
+- experimental reference adapter `emitOrphanAssessment`;
+- package-root exports required by AEBE;
+- unit, integration, and conformance evidence required for AEBE.
+
+Do NOT implement:
+- C-2 `CYCLE_DETECTED` Assessment emission;
+- publication, outbox, event delivery, or persistence;
+- recursive merge closure;
+- trusted-time or revocation changes;
+- normative CORE-001 changes;
+- unrelated refactoring.
+
+## Approved architectural decisions
+
+1. DEC-01: `REQ-LOCAL`.
+2. DEC-02: `OWN-ADAPTER + VAL-CORE`.
+3. Core owns contextual validation, admission, and immutable registered representation.
+4. Adapter constructs candidates and invokes Core registration.
+5. Persistence remains caller-managed and occurs only after successful admission.
+6. `PARENT_UNRESOLVED` is declaration-scoped under local Option B:
+   - one Assessment per `(child, relation)`;
+   - full declared parent set for that relation;
+   - at least one parent must be absent from the local graph;
+   - this is a local implementation choice, not a normative resolution.
+7. `T18-DEC-15` remains OPEN.
+8. Registry descriptor validation is a caller precondition. `buildLineageGraph` remains structural.
+9. The package-root adapter export is experimental/reference-only and has no stability guarantee.
+10. Core admission atomicity does not cover callback side effects or caller persistence.
+
+## Required implementation properties
+
+### Generic validation and registration
+- Accept `unknown` at the untrusted boundary.
+- Validate runtime structure before constructing domain values.
+- Do not use `any`.
+- Preserve the generic public `registerAssessment` use cases.
+- Reject `PARENT_UNRESOLVED` from the generic registration path unless it passes through the C-1 contextual admission path.
+- Keep C-1 contextual semantics out of generic claim evaluation.
+- Preserve existing legitimate non-C-1 registration and supersession behavior.
+- No public bypass around validation/admission.
+
+### C-1 contextual validation
+Validate:
+- subject exists in graph nodes;
+- listed parent IDs are non-empty, unique, and do not include subject;
+- listed parent set exactly equals all declared parents for that subject and relation;
+- at least one listed parent is absent from graph nodes;
+- unresolved parents are represented in `graph.unresolvedParents`;
+- `PARENT_UNRESOLVED` is unverified, not verified;
+- C-1 candidates do not claim `CYCLE_DETECTED`.
+
+Do not:
+- impose descriptor validity through the graph builder;
+- impose §5.2 declaration cardinality in the C-1 contextual validator;
+- require parent array ordering;
+- treat `PARENT_UNRESOLVED` as an edge-scoped claim.
+
+### Atomic batch admission
+- Validate all candidates before producing a registered result.
+- Detect duplicate IDs within the batch and against existing assessments.
+- Validate supersession references and cycles against the complete prospective state.
+- Return the complete frozen registered representation on success, or no new representation on failure.
+- Leave the caller's existing array and its members unchanged.
+- Do not claim rollback of external callback effects or caller persistence.
+
+### Reference adapter
+- Group graph edges by `(child, relation)`.
+- Include all declared parents in each group's Assessment.
+- Emit only groups with at least one unresolved parent.
+- Use the caller-supplied `assessmentIdFor` callback; do not invent an ID scheme.
+- Call Core admission once for the complete candidate batch.
+- Stop before Core admission if callback execution or candidate construction fails.
+- Export `emitOrphanAssessment` from the package root as an experimental reference adapter API.
+- Do not add publication or persistence behavior.
+
+## Required tests
+
+At minimum cover:
+
+1. Valid generic Assessment registration.
+2. Malformed unknown input rejected at runtime.
+3. Generic registration rejects context-required `PARENT_UNRESOLVED`.
+4. Valid C-1 orphan Assessment admitted.
+5. Resolved parent + unresolved parent in one `MERGED_FROM` declaration.
+6. Full declared parent set required; strict subset rejected.
+7. Undeclared parent rejected.
+8. All parents resolved: no Assessment emitted; submitted candidate rejected.
+9. Same unresolved parent in multiple relations produces separate Assessments.
+10. `PARENT_UNRESOLVED` in `verified_claims` rejected.
+11. `CYCLE_DETECTED` in a C-1 candidate rejected.
+12. Duplicate IDs within batch rejected.
+13. Duplicate IDs against existing assessments rejected.
+14. Invalid supersession references and cycles rejected.
+15. Failed batch leaves existing array and members unchanged.
+16. Callback failure prevents Core admission.
+17. Callback side effects are explicitly outside Core atomicity.
+18. `assessEdge` can return the declaration-scoped Assessment for a resolved edge, without interpreting the claim as edge-scoped.
+19. Duplicate-ID/divergent-lineage Registry behavior is pinned as a documented structural limitation.
+20. Package-root AEBE exercises the real exported adapter and Core admission path, without hand-constructed Assessment literals.
+
+Use focused tests and the repository's existing test conventions. Avoid redundant tests that merely restate the same invariant.
+
+## AEBE acceptance
+
+The evidence must establish:
+- real adapter construction through the package-root export;
+- Core contextual validation and admission;
+- exact `PARENT_UNRESOLVED` claim;
+- negative evidence for resolved-only groups;
+- immutable registered result;
+- graph and descriptor inputs are not mutated;
+- no hand-constructed Assessment literal in the AEBE path.
+
+Keep the AEBE evidence distinct from ordinary unit tests. Document exact test commands and what each proves.
+
+## Documentation
+
+Update only the T18-02A implementation/audit package and directly necessary implementation documentation.
+
+Record `T18-DEC-15` as OPEN. Preserve Task 17 audit files and all approved rollups unchanged.
+
+Do not describe Option B as normative. Do not call the Core API stable. Keep publication and persistence outside the Core ownership boundary.
+
+## Build sequence
+
+1. Inspect current branch, HEAD, worktree, and approved plan.
+2. Implement generic runtime validation and registration boundary.
+3. Implement C-1 contextual validation.
+4. Implement atomic batch admission.
+5. Implement the reference adapter and package-root export.
+6. Add focused tests, then AEBE.
+7. Update T18-02A documentation and decision tracking.
+8. Run formatting, lint, typecheck, tests, and build using repository-defined commands.
+9. Inspect the final diff for scope, immutability, public exports, and accidental normative changes.
+10. Report exact commands/results, changed files, remaining gaps, and audit evidence.
+
+Do not commit, push, create a PR, or modify the normative CORE-001 specification unless separately instructed.
+
+If implementation reveals a normative ambiguity or a contradiction in the approved plan, stop and report it rather than resolving it by implementation fiat.
+
+---
+
+делаем PR

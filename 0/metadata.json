@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M68WK7TMVR1KWN9Z85QESTEC",
+  "session_id": "ses_e6f615c5affeXmShrQYs2JOmPQ",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T11:48:06.752155375Z",
+  "branch": "feat/t18-02a-c1-assessment-emission",
+  "checkpoints_count": 12,
+  "save_step_count": 1,
+  "files_touched": [
+    "docs/audits/2026-10-31-core-001-task-18/README.md",
+    "docs/audits/2026-10-31-core-001-task-18/aebe/C-1.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-register.md",
+    "docs/audits/2026-10-31-core-001-task-18/disposition-matrix.md",
+    "docs/audits/2026-10-31-core-001-task-18/reconciliation-notes.md",
+    "docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md",
+    "docs/implementation.md",
+    "src/adapters/orphan-assessment.ts",
+    "src/core/assessment.ts",
+    "src/core/index.ts",
+    "src/core/lineage.ts",
+    "src/index.ts",
+    "tests/conformance/c.test.ts",
+    "tests/unit/assessment-validation.test.ts",
+    "tests/unit/lineage-graph.test.ts",
+    "tests/unit/orphan-assessment.test.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "4e6f925c5d33",
+  "checkpoint_transcript_start": 406,
+  "transcript_lines_at_start": 406,
+  "compact_transcript_start": 406,
+  "token_usage": {
+    "input_tokens": 931735,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 43226368,
+    "output_tokens": 79917,
+    "api_call_count": 153
+  },
+  "redaction": {
+    "replacements": 12,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 12,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 42
+  }
+}
