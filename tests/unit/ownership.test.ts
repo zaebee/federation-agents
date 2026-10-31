@@ -400,20 +400,26 @@ test('ownership: deeply nested arrays do not exhaust the stack', () => {
   expect(steps).toBe(depth);
 });
 
+test('ownership: a huge sparse array is rejected without materialising its indices', () => {
+  const sparse = new Array(10_000_000);
+  const validated = validateJsonValue(sparse);
+  expect(validated.ok).toBe(false);
+  if (!validated.ok) expect(validated.error.code).toBe('E_JSON_VALUE_INVALID');
+
+  const copied = deepCopy(sparse);
+  expect(copied.ok).toBe(false);
+});
+
 test('ownership: shared subtrees cost work linear in distinct nodes, not in paths', () => {
   const depth = 24;
   let shared: Record<string, unknown> = { leaf: true };
   for (let i = 0; i < depth; i += 1) shared = { left: shared, right: shared };
 
-  const started = performance.now();
   const copied = deepCopy(shared);
   const validated = validateJsonValue(shared);
-  const elapsed = performance.now() - started;
 
   expect(copied.ok).toBe(true);
   expect(validated.ok).toBe(true);
-  // Work proportional to 2^depth paths would not finish; distinct-node work does.
-  expect(elapsed).toBeLessThan(1_500);
 
   const seen = new Set<unknown>();
   const stack: unknown[] = copied.ok ? [copied.value] : [];

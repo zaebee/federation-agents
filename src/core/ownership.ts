@@ -33,12 +33,12 @@ export type DeepReadonly<T> = T extends string | number | boolean | bigint | sym
 const OWNERSHIP_UNSUPPORTED = 'E_OWNERSHIP_UNSUPPORTED' as const;
 const UNKNOWN_BOUNDARY_REJECTED = 'E_UNKNOWN_BOUNDARY_REJECTED' as const;
 
-function rejectUnsupported(message: string): Result<never> {
-  return { ok: false, error: mechanismFailure(OWNERSHIP_UNSUPPORTED, message) };
-}
-
 function ownershipFailure(message: string): Failure {
   return mechanismFailure(OWNERSHIP_UNSUPPORTED, message);
+}
+
+function rejectUnsupported(message: string): Result<never> {
+  return { ok: false, error: ownershipFailure(message) };
 }
 
 function jsonFailure(message: string): Failure {
@@ -56,8 +56,25 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 interface CopyFrame {
   readonly source: object;
   readonly target: Record<string, unknown> | unknown[];
-  readonly keys: readonly string[];
+  // Null for arrays: their keys are the index range, consumed lazily, so a
+  // huge sparse array never materialises its indices.
+  readonly keys: readonly string[] | null;
+  readonly length: number;
   next: number;
+}
+
+interface FrameCursor {
+  readonly keys: readonly string[] | null;
+  readonly length: number;
+  next: number;
+}
+
+function frameHasNext(frame: FrameCursor): boolean {
+  return frame.keys === null ? frame.next < frame.length : frame.next < frame.keys.length;
+}
+
+function frameKey(frame: FrameCursor): string {
+  return frame.keys === null ? String(frame.next) : (frame.keys[frame.next] as string);
 }
 
 // A value that has already been resolved: a finished copy, a frame that still
@@ -102,11 +119,7 @@ function arrayCopyFrame(source: unknown[]): Result<CopyFrame> {
   }
   const keyResult = validateArrayOwnKeys(source);
   if (!keyResult.ok) return keyResult as Result<CopyFrame>;
-  const keys: string[] = [];
-  for (let index = 0; index < source.length; index += 1) {
-    keys.push(String(index));
-  }
-  return { ok: true, value: { source, target: [], keys, next: 0 } };
+  return { ok: true, value: { source, target: [], keys: null, length: source.length, next: 0 } };
 }
 
 function objectCopyFrame(source: Record<string, unknown>): Result<CopyFrame> {
@@ -120,7 +133,7 @@ function objectCopyFrame(source: Record<string, unknown>): Result<CopyFrame> {
       return rejectUnsupported(`Invalid property descriptor: ${key}`);
     }
   }
-  return { ok: true, value: { source, target: {}, keys, next: 0 } };
+  return { ok: true, value: { source, target: {}, keys, length: 0, next: 0 } };
 }
 
 function prepareCopy(input: unknown, active: Set<object>, memo: Map<object, unknown>): PreparedCopy {
@@ -134,10 +147,8 @@ function prepareCopy(input: unknown, active: Set<object>, memo: Map<object, unkn
   }
 
   const source = input as object;
-  // A node on the current path, or one already copied, was validated when it
-  // was first seen, so consulting the path and the memo before building a
-  // frame skips redundant descriptor validation. It does not change which
-  // inputs are rejected: only validated nodes reach `active` or `memo`.
+  // A node reaches `active` or `memo` only after its frame was built, so a hit
+  // is already validated and its checks need not run again.
   if (active.has(source)) {
     return { kind: 'error', error: ownershipFailure('Cyclic reference detected') };
   }
@@ -176,6 +187,21 @@ function assignEntry(
   });
 }
 
+function expandCopyFrame(
+  frame: CopyFrame,
+  active: Set<object>,
+  memo: Map<object, unknown>,
+  stack: CopyFrame[],
+): Failure | null {
+  const key = frameKey(frame);
+  frame.next += 1;
+  const child = prepareCopy((frame.source as Record<string, unknown>)[key], active, memo);
+  if (child.kind === 'error') return child.error;
+  assignEntry(frame.target, key, child.kind === 'value' ? child.value : child.frame.target);
+  if (child.kind === 'frame') stack.push(child.frame);
+  return null;
+}
+
 export function deepCopy<T>(value: T): Result<T> {
   const active = new Set<object>();
   const memo = new Map<object, unknown>();
@@ -185,19 +211,15 @@ export function deepCopy<T>(value: T): Result<T> {
 
   const stack: CopyFrame[] = [root.frame];
   while (stack.length > 0) {
-    const frame = stack[stack.length - 1];
-    if (frame.next >= frame.keys.length) {
+    const frame = stack.at(-1) as CopyFrame;
+    if (!frameHasNext(frame)) {
       memo.set(frame.source, frame.target);
       active.delete(frame.source);
       stack.pop();
       continue;
     }
-    const key = frame.keys[frame.next];
-    frame.next += 1;
-    const child = prepareCopy((frame.source as Record<string, unknown>)[key], active, memo);
-    if (child.kind === 'error') return { ok: false, error: child.error };
-    assignEntry(frame.target, key, child.kind === 'value' ? child.value : child.frame.target);
-    if (child.kind === 'frame') stack.push(child.frame);
+    const failure = expandCopyFrame(frame, active, memo, stack);
+    if (failure !== null) return { ok: false, error: failure };
   }
   return { ok: true, value: root.frame.target as T };
 }
@@ -261,7 +283,9 @@ interface JsonFrame {
   readonly kind: 'array' | 'object';
   readonly source: object;
   readonly target: Record<string, JsonValue> | JsonValue[];
-  readonly keys: readonly string[];
+  // Null for arrays: keys are consumed lazily from the index range.
+  readonly keys: readonly string[] | null;
+  readonly length: number;
   next: number;
 }
 
@@ -321,11 +345,7 @@ function jsonArrayExtraFailure(source: unknown[]): Failure | null {
 }
 
 function jsonArrayFrame(source: unknown[]): JsonFrame {
-  const keys: string[] = [];
-  for (let index = 0; index < source.length; index += 1) {
-    keys.push(String(index));
-  }
-  return { kind: 'array', source, target: [], keys, next: 0 };
+  return { kind: 'array', source, target: [], keys: null, length: source.length, next: 0 };
 }
 
 function prepareJson(input: unknown, active: Set<object>, memo: Map<object, JsonValue>): PreparedJson {
@@ -338,9 +358,8 @@ function prepareJson(input: unknown, active: Set<object>, memo: Map<object, Json
   }
 
   const source = input as object;
-  // As in prepareCopy: a node on the current path or already validated was
-  // checked when first seen, so the path/memo lookup precedes the prototype
-  // and descriptor checks.
+  // Same ordering as prepareCopy: a hit is already validated, so the
+  // prototype and key checks are not repeated.
   if (active.has(source)) {
     return { kind: 'error', error: jsonFailure('Cyclic reference detected in JsonValue') };
   }
@@ -368,6 +387,7 @@ function prepareJson(input: unknown, active: Set<object>, memo: Map<object, Json
         source,
         target: {},
         keys: Object.getOwnPropertyNames(source),
+        length: 0,
         next: 0,
       };
   return { kind: 'frame', frame };
@@ -389,6 +409,31 @@ function prepareJsonChild(
   return prepareJson((frame.source as Record<string, unknown>)[key], active, memo);
 }
 
+function completeJsonFrame(frame: JsonFrame, active: Set<object>, memo: Map<object, JsonValue>): Failure | null {
+  if (frame.kind === 'array') {
+    const extraFailure = jsonArrayExtraFailure(frame.source as unknown[]);
+    if (extraFailure !== null) return extraFailure;
+  }
+  memo.set(frame.source, frame.target as JsonValue);
+  active.delete(frame.source);
+  return null;
+}
+
+function expandJsonFrame(
+  frame: JsonFrame,
+  active: Set<object>,
+  memo: Map<object, JsonValue>,
+  stack: JsonFrame[],
+): Failure | null {
+  const key = frameKey(frame);
+  frame.next += 1;
+  const child = prepareJsonChild(frame, key, active, memo);
+  if (child.kind === 'error') return child.error;
+  assignEntry(frame.target, key, child.kind === 'value' ? child.value : child.frame.target);
+  if (child.kind === 'frame') stack.push(child.frame);
+  return null;
+}
+
 export function validateJsonValue(value: unknown): Result<JsonValue> {
   const active = new Set<object>();
   const memo = new Map<object, JsonValue>();
@@ -398,23 +443,15 @@ export function validateJsonValue(value: unknown): Result<JsonValue> {
 
   const stack: JsonFrame[] = [root.frame];
   while (stack.length > 0) {
-    const frame = stack[stack.length - 1];
-    if (frame.next >= frame.keys.length) {
-      if (frame.kind === 'array') {
-        const extraFailure = jsonArrayExtraFailure(frame.source as unknown[]);
-        if (extraFailure !== null) return { ok: false, error: extraFailure };
-      }
-      memo.set(frame.source, frame.target as JsonValue);
-      active.delete(frame.source);
+    const frame = stack.at(-1) as JsonFrame;
+    if (!frameHasNext(frame)) {
+      const failure = completeJsonFrame(frame, active, memo);
+      if (failure !== null) return { ok: false, error: failure };
       stack.pop();
       continue;
     }
-    const key = frame.keys[frame.next];
-    frame.next += 1;
-    const child = prepareJsonChild(frame, key, active, memo);
-    if (child.kind === 'error') return { ok: false, error: child.error };
-    assignEntry(frame.target, key, child.kind === 'value' ? child.value : child.frame.target);
-    if (child.kind === 'frame') stack.push(child.frame);
+    const failure = expandJsonFrame(frame, active, memo, stack);
+    if (failure !== null) return { ok: false, error: failure };
   }
   return { ok: true, value: root.frame.target as JsonValue };
 }
