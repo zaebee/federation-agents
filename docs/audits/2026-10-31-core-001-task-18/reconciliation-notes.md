@@ -66,3 +66,35 @@ This is a traceability observation, not a new finding. Task 18 does not invent r
 - Task 17 §12 case statuses: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED.
 
 Any future correction to Task 17 text or status requires a separate audit revision with its own review. Task 18 only records the discrepancy.
+
+## 6. T18-DEC-01 and T18-DEC-02 approval
+
+The project owner approved:
+
+- `T18-DEC-01` = **`REQ-LOCAL`**: CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle. This is a recording obligation; it does not assign construction/publication to Core.
+- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE`**: adapter constructs the Assessment; Core owns semantic validation. See `decision-register.md` §3 for the canonical scope; registration/publication/retention ownership remains OPEN. `T18-02A` is planning-eligible but its acceptance requires the registration-ownership decision.
+
+The canonical approved record is `decision-register.md` §3. The T18-01 package is a historical proposal snapshot; it is not the approval record.
+
+Still OPEN: C-2 subject model (SCC/node/edge; edge-level is a proposal only), exact Assessment shape/provenance, registration/publication/retention ownership details, and C-2.a3 / CORE-003.
+
+## 7. PATH-B correction
+
+The historical T18-01 package listed `VAL-CORE-CONSTRUCTION` as an adapter-path option. It is only compatible with `OWN-CORE` and is not an adapter option. The selected path is `OWN-ADAPTER` + `VAL-CORE`; see `decision-register.md` §3. The historical package text is not rewritten.
+
+## 8. Task ID renumbering
+
+The historical T18-01 package used `T18-02A`/`T18-02B` for the PATH-A Core path and `T18-02C` for the PATH-B adapter path. The approved decision renumbers the adapter scope into:
+
+- `T18-02A` — C-1 adapter emission;
+- `T18-02B` — C-2.a2 adapter emission.
+
+`T18-02C` is retired / superseded for historical traceability. Historical package text is not rewritten; this note records the mapping.
+
+## 9. Task 17 historical statuses
+
+Approval of `T18-DEC-01` and `T18-DEC-02` is not conformance evidence and does not change Task 17:
+
+- 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL.
+- §12: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED.
+- C-1 remains NOT COVERED; C-2 remains BLOCKED.

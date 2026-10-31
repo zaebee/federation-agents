@@ -1,6 +1,6 @@
 # Remediation Roadmap — Task 18
 
-**Audit base:** `2a83c65`. **Planning only.** No task in this document is implemented or approved.
+**Audit base:** `2a83c65`. **Planning only.** `T18-DEC-01` and `T18-DEC-02` are approved; no implementation task is executed. `T18-02A` is eligible for planning; its acceptance is blocked on the registration-ownership decision. `T18-02B` is BLOCKED on the C-2 model; `T18-02C` is retired / superseded.
 
 ## 1. How to read this roadmap
 
@@ -9,18 +9,20 @@
 - A task is closed only by the evidence named in its acceptance criteria, not by the existence of a plan.
 - Task 18 does not edit `docs/CORE-001.md`; normative amendments go through `T18-SPEC-01`.
 
-## 2. Decision outcomes for assessment emission
+## 2. Approved decision outcomes
 
-`T18-01` must resolve two separate questions:
+`T18-01` is complete:
 
-- `T18-DEC-01`: does CORE-001 normatively require an Assessment emission mechanism?
-- `T18-DEC-02`: which boundary owns it, core API or adapter?
+- `T18-DEC-01` = **`REQ-LOCAL`**: local Assessment recording required for `PARENT_UNRESOLVED` and `CYCLE_DETECTED`.
+- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE`**: adapter constructs; Core validates; registration/publication ownership remains OPEN (see `decision-register.md` §3).
 
-| DEC-01 | DEC-02 | Path | Evidence | N-138 / N-143 | C-1 / C-2 | T18-13 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Requires emission | Core owns | T18-02A / T18-02B | AEBE from core API tests | PASS if exact claims asserted | C-1 PASS; C-2 BLOCKED on a3 | Uses AEBE |
-| Requires emission | Adapter owns | T18-02C | AEBE from adapter boundary tests | PASS if exact claims asserted | C-1 PASS; C-2 BLOCKED on a3 | Uses AEBE |
-| Does not require emission | n/a | T18-SPEC-01 → re-audit | Approved clarification and re-audit | Reclassified only after re-audit | Re-audited; no automatic PASS | `NOT_READY` until re-audit |
+| Status | DEC-01 | DEC-02 | Eligible remediation |
+| --- | --- | --- | --- |
+| **Approved** | `REQ-LOCAL` | `OWN-ADAPTER` + `VAL-CORE` | `T18-02A` planning-eligible, acceptance blocked on registration ownership; `T18-02B` blocked on C-2 model; `T18-02C` retired / superseded |
+| Alternative (not selected) | `REQ-LOCAL` | `OWN-CORE` | `PATH-A`; not active |
+| Alternative (not selected) | `REQ-EXTERNAL` / `REQ-NONE` | n/a | `PATH-C`; `T18-SPEC-01` only |
+
+**Path correction:** `VAL-CORE-CONSTRUCTION` is only compatible with `OWN-CORE`; it is not an adapter option. The selected path is `OWN-ADAPTER` + `VAL-CORE`; see `decision-register.md` §3 for scope and enforcement.
 
 ### Assessment Emission Boundary Evidence (AEBE)
 
@@ -28,8 +30,10 @@ AEBE is a shared deliverable, not a task. It requires:
 
 1. An Assessment produced from graph state with the exact claim: `PARENT_UNRESOLVED` for an orphan, `CYCLE_DETECTED` for a cycle.
 2. Negative evidence: a resolved parent produces no `PARENT_UNRESOLVED`; an acyclic graph produces no `CYCLE_DETECTED`.
-3. Ownership: the assessment is frozen/registered; the graph and descriptor are unchanged.
+3. Ownership: the assessment is frozen/registered by the assigned registration boundary; the graph and descriptor are unchanged. Registration ownership is currently OPEN.
 4. Boundary authenticity: the evidence comes from the boundary that actually owns emission. A hand-constructed literal in a test is not AEBE.
+5. Validation: see `decision-register.md` §3; AEBE must show enforcement and malformed rejection.
+6. Public API: the evidence uses the package root; an internal-module import is an API boundary gap.
 
 T18-13 depends on AEBE, not on a specific implementation task.
 
@@ -37,10 +41,10 @@ T18-13 depends on AEBE, not on a specific implementation task.
 
 | Task | Type | Includes | Prerequisites | Risk scope | Task priority | Deliverables | Acceptance | Verification |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| T18-01 | specification/design | T18-DEC-01, T18-DEC-02; N-138, N-143, C-1, C-2 | none | `CORE-001_RUNTIME` | P1 | Decision record selecting core/adapter/no-requirement | Both questions answered; owner named | Review of decision record |
-| T18-02A | implementation + tests | N-138, CASE-C-1.a3, T-001 | T18-01 selects core ownership | `CORE-001_RUNTIME` | P1 | Core API + C-1 test | AEBE for C-1 from core | `bun test tests/conformance/c.test.ts`; full suite |
-| T18-02B | implementation + tests | N-143, CASE-C-2.a2, T-002 | T18-01 selects core ownership | `CORE-001_RUNTIME` | P1 | Core API + C-2.a2 test | AEBE for C-2.a2; C-2 stays BLOCKED | `bun test tests/conformance/c.test.ts`; full suite |
-| T18-02C | adapter contract + tests | N-138, N-143, CASE-C-1.a3, CASE-C-2.a2 | T18-01 selects adapter ownership | `CORE-001_RUNTIME` | P1 | Adapter fixture + tests | AEBE from adapter; negative cases | adapter test command + full suite |
+| T18-01 | specification/design | T18-DEC-01, T18-DEC-02; N-138, N-143, C-1, C-2 | none | `CORE-001_RUNTIME` | P1 | Decision record (approved) | DEC-01 = `REQ-LOCAL`; DEC-02 = `OWN-ADAPTER` + `VAL-CORE` | Recorded in `decision-register.md` |
+| T18-02A | implementation + tests | N-138, CASE-C-1.a3, T-001 | DEC-01/02 approved; Core validation enforced; registration ownership decided | `CORE-001_RUNTIME` | P1 | Adapter C-1 emission + Core validation | AEBE for C-1 from adapter; validation enforced; registration owner assigned | `bun test tests/conformance/c.test.ts`; full suite |
+| T18-02B | implementation + tests | N-143, CASE-C-2.a2, T-002 | DEC-01/02 approved + C-2 subject-model decision | `CORE-001_RUNTIME` | P1 | Adapter C-2.a2 emission + Core validation | **BLOCKED** until C-2 model approved; AEBE for C-2.a2; C-2 stays BLOCKED | `bun test tests/conformance/c.test.ts`; full suite |
+| T18-02C | retired / superseded | — | none | `CORE-001_RUNTIME` | — | None | Historical task structure; superseded by T18-02A and T18-02B | — |
 | T18-03 | test-only | N-041, CASE-D-4.a2, T-004 | none | `CORE-001_RUNTIME` | P2 | D-4 policy input/outcome test | No auto-authorization; policy context asserted | `bun test tests/conformance/d.test.ts` |
 | T18-04 | conditional | N-019, F-005, T-005 | T18-DEC-03 | `CORE-001_RUNTIME` | P2 | Validation change or caller contract + test | Invalid SEMVER_2 rejected or contract proven | `bun test tests/unit/version-scheme.test.ts`, `entities.test.ts` |
 | T18-05 | conditional | N-084, T-011 | T18-DEC-05 | `CORE-001_RUNTIME` | P3 | `verifyDescriptorHash` or caller contract + boundary evidence | Match/mismatch/malformed; negative mismatch | `bun test tests/unit/hashing.test.ts` + caller test |
@@ -59,17 +63,25 @@ T18-13 depends on AEBE, not on a specific implementation task.
 
 ## 4. Detailed task notes
 
-### T18-01 — Assessment-emission decision package
+### T18-01 — Assessment-emission decision package (complete)
 
-Deliverable: a decision record, not code. It must answer `T18-DEC-01` and `T18-DEC-02` separately. It must not assume core and adapter are interchangeable. If `T18-DEC-01` says CORE-001 does not require emission, the record must state what the specification requires instead and trigger `T18-SPEC-01` before any dependent work.
+The project owner approved `T18-DEC-01 = REQ-LOCAL` and `T18-DEC-02 = OWN-ADAPTER + VAL-CORE`. The approved record is in `decision-register.md`. This task is not an implementation task.
 
-### T18-02A / T18-02B — Core emission
+### T18-02A — C-1 adapter emission (planning-eligible; acceptance blocked on registration ownership)
 
-Only valid when `T18-DEC-02` selects core ownership. T18-02A closes N-138/C-1.a3. T18-02B closes N-143/C-2.a2 only; it does not close C-2 and does not close N-168.
+The adapter constructs the C-1 Assessment using domain identity, provenance and time. Core semantic validation must be enforced on every supported registration path (see `decision-register.md` §3). Registration/publication ownership remains OPEN, so T18-02A is eligible for planning but cannot be accepted until a registration owner is assigned. AEBE must come from the adapter boundary, not a hand-constructed fixture. T18-02A closes N-138/C-1.a3 only.
 
-### T18-02C — Adapter emission evidence
+### T18-02B — C-2.a2 adapter emission (BLOCKED)
 
-Only valid when `T18-DEC-02` selects adapter ownership. The adapter must produce the assessment from graph state and the evidence must show the claim, the negative case, and immutability. A test that constructs the assessment literal directly is not AEBE.
+The adapter path is selected, but the C-2 subject model (SCC, node, or edge) is still OPEN. T18-02B cannot begin until that separate decision is approved. It closes N-143/C-2.a2 only; it does not close C-2 and does not close N-168.
+
+### T18-02C — Retired / superseded
+
+`T18-02C` is not the selected task structure. Its original adapter scope has been split into `T18-02A` (C-1) and `T18-02B` (C-2.a2). The historical ID is retired / superseded for traceability (see `reconciliation-notes.md` §8) and must not be treated as active work.
+
+### Validation enforcement
+
+See `decision-register.md` §3 for the canonical enforcement and registration/publication scope. AEBE must show that validation is enforced on every supported registration path.
 
 ### T18-05 — Digest verification
 
@@ -93,16 +105,16 @@ Any decision that requires a normative amendment goes here. Task 18 decision pac
 
 ```mermaid
 graph TD
-  DEC01[T18-DEC-01 emission requirement] --> T1801[T18-01 decision]
-  DEC02[T18-DEC-02 emission owner] --> T1801
-  T1801 -->|core| T1802A[T18-02A C-1 core]
-  T1801 -->|core| T1802B[T18-02B C-2.a2 core]
-  T1801 -->|adapter| T1802C[T18-02C adapter evidence]
-  T1801 -->|no requirement| SPEC01[T18-SPEC-01 clarification]
+  DEC01[T18-DEC-01 APPROVED REQ-LOCAL] --> T1801[T18-01 complete]
+  DEC02[T18-DEC-02 APPROVED OWN-ADAPTER + VAL-CORE] --> T1801
+  T1801 --> T1802A[T18-02A C-1 adapter emission]
+  T1801 --> T1802B[T18-02B C-2.a2 adapter BLOCKED]
+  T1801 -.->|retired / superseded| T1802C[T18-02C retired / superseded]
+  T1801 -.->|not selected| SPEC01[PATH-C alternative]
+  C2MODEL[C-2 subject model OPEN] --> T1802B
   T1802A --> AEBE[Assessment Emission Boundary Evidence]
   T1802B --> AEBE
-  T1802C --> AEBE
-  SPEC01 --> REAUDIT[Re-audit N-138/N-143]
+  SPEC01 -.-> REAUDIT[Re-audit N-138/N-143]
   AEBE --> T1813[T18-13 readiness]
   REAUDIT --> T1813
   T1811[T18-11 external] --> T1813
@@ -131,16 +143,16 @@ graph TD
 
 ### Milestones
 
-- **M0** — decisions registered, owners assigned.
-- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A/B/C, T18-04, T18-05).
+- **M0** — DEC-01 (`REQ-LOCAL`) and DEC-02 (`OWN-ADAPTER` + `VAL-CORE`) approved; C-2 model still OPEN.
+- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A planning-eligible, acceptance blocked on registration ownership; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
 
 ### Critical path
 
-1. **C-1:** T18-DEC-01/02 → T18-01 → T18-02A **or** T18-02C → AEBE → T18-13; readiness also needs T18-11 for N-170/N-175.
-2. **C-2:** AEBE for a2 **plus** T18-DEC-13/T18-10 for a3 → T18-13.
+1. **C-1:** DEC-01/02 approved → T18-02A (adapter C-1) → AEBE → T18-13; readiness also needs T18-11 for N-170/N-175.
+2. **C-2:** C-2 subject-model decision → T18-02B (adapter C-2.a2) → AEBE; plus T18-DEC-13/T18-10 for a3 → T18-13.
 3. **Assurance:** T18-DEC-06/07 → T18-09A → N-078/N-107/N-112; T18-DEC-06 → T18-09D → N-172.
 4. **Trust:** T18-DEC-04 → T18-06 → N-040; T18-DEC-09 → T18-09C → N-128.
 
@@ -152,7 +164,7 @@ graph TD
 | `CONDITIONALLY_READY` | C-1 PASS; AEBE for N-143/CASE-C-2.a2; C-2 BLOCKED only on explicitly accepted CORE-003 dependency (CASE-C-2.a3); T18-11 external dependency explicitly accepted with impact described; all other §16 criteria PASS or explicitly accepted; limitations, dependencies and impact enumerated; no CORE-001 implementation gap |
 | `NOT_READY` | Any C-1/C-2 assertion unverified beyond an accepted cross-spec limitation; any CORE-001 implementation gap; unaccepted limitation; required independent compatibility evidence absent and not accepted as a limitation |
 
-An approved BLOCKED disposition does not imply readiness. If `T18-DEC-01` says CORE-001 does not require emission, readiness stays `NOT_READY` until T18-SPEC-01 and re-audit.
+An approved BLOCKED disposition does not imply readiness. `T18-DEC-01` is approved as `REQ-LOCAL`; the `PATH-C` alternatives are not selected. Readiness still depends on AEBE, T18-10 and T18-11.
 
 ## 7. Priority reconciliation
 
@@ -168,9 +180,11 @@ A task that bundles requirements of different urgency is split rather than silen
 
 | Task priority | Tasks |
 | --- | --- |
-| P1 | T18-01, T18-02A/B/C (conditional), T18-09A, T18-13 |
+| P1 | T18-01 (complete), T18-02A, T18-09A, T18-13 |
 | P2 | T18-03, T18-04, T18-06, T18-09C, T18-09D, T18-SPEC-01 |
 | P3 | T18-05, T18-07, T18-08, T18-09B, T18-10, T18-11, T18-12 |
+
+`T18-02B` is BLOCKED on the C-2 model; `T18-02C` is retired / superseded. Neither is active P1 work.
 
 ## 8. Authority-boundary watchlist
 
