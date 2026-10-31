@@ -1,0 +1,65 @@
+# PR #77 — second audit feedback (after a463084)
+
+The revision is materially improved. The previous Case A / Case C aggregation errors are corrected, the D0–D6 taxonomy is aligned with oq4 revision 3, the cycle-preemption explanation is corrected, and the benchmark now has a saved executable harness and repeated measurements.
+
+**Do not merge yet. Please address the following remaining issues.**
+
+## P1 — D6 omits pre-discovery mechanism failures
+
+`evaluateBinding()` calls `precheckCandidate()` before `discoverPaths()`. Invalid selector compilation or version-label validation can return `MECHANISM` even when no candidate-to-origin path exists.
+
+Split D6 into:
+- D6a: pre-discovery mechanism failures, independent of graph reachability;
+- D6b: edge-evaluation mechanism failures, requiring a path that survives cycle preemption (`reach_A(s,t)`).
+
+Update `complexity-proof.md`, `oq4`, and the equivalence matrix consistently. Do not claim that every mechanism outcome requires `reach_A(s,t)`.
+
+## P1 — Canonical witness type conflicts with owner fallback
+
+`api-migration.md` declares `CanonicalPathWitness`, but the owner decision permits choosing `any valid path` if D5 remains open.
+
+Use a neutral `acceptedWitness` type/name until the owner chooses the contract. Explicitly distinguish:
+1. pathKey-minimum witness;
+2. deterministic but non-minimum witness;
+3. arbitrary valid witness.
+
+Do not expose a canonical guarantee unless D5 is closed.
+
+## P1 — Rejection witness is underspecified
+
+Define what evidence is returned for:
+- `ERR_NO_TRAVERSAL_PATH`;
+- `ERR_AUTHORITY_BINDING_MISMATCH`.
+
+For no-path, decide whether the witness is a verifiable reachability/cut certificate or whether verification reruns reachability. For authority mismatch, define which precheck facts are included.
+
+Separate independently verifiable evidence from diagnostics and from merely repeating the top-level code.
+
+## P2 — Benchmark provenance
+
+The record identifies `9e29b36...` as the exact repository revision, but the saved harness was introduced in this PR. Separate:
+- source revision measured;
+- harness revision containing the executable generator.
+
+The command must be reproducible from the documented checkout or the harness must be provided as a separate artifact.
+
+Also run the documented storage-order reversal check at least for k=12, or keep it explicitly OPEN.
+
+## P2 — Cycle witness scope
+
+Clarify whether the v2 cycle witness represents:
+- one concrete cyclic path;
+- the union of cycles over all cyclic paths;
+- a minimal existence witness.
+
+The current `cycleForPath()` computes a per-path union; it does not by itself define a global union over every discovered path. Do not promise legacy diagnostic equivalence unless that is actually intended and implemented.
+
+## Preserve existing boundaries
+
+- Do not register or approve T18-DEC-18.
+- Do not modify CORE-001.md, source, tests, or status registers in this documentation PR.
+- Keep A-8 and A-14 OPEN.
+- Keep D5 OPEN until its exact encoding, oracle, and invariance obligations are discharged.
+- Do not introduce a new normative error code.
+
+After changes, please provide a concise mapping from each finding to the exact revised file/section and the evidence used to close it.
