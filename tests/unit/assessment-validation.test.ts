@@ -320,6 +320,16 @@ describe('claim legality', () => {
     expect(registered.ok).toBe(false);
   });
 
+  test('a blocked claim outranks an overlapping claim regardless of array position', () => {
+    const result = validateContinuityAssessment(
+      assessment({ verified_claims: ['X'], unverified_claims: ['X', 'CYCLE_DETECTED'] }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('not admissible while C-2 is blocked');
+  });
+
   test('CYCLE_DETECTED is rejected identically by both admission paths while C-2 is blocked', () => {
     const cases: readonly { readonly name: string; readonly claims: Partial<ContinuityAssessment> }[] = [
       { name: 'verified', claims: { verified_claims: ['CYCLE_DETECTED'] } },
