@@ -54,6 +54,43 @@ const ASSESSMENT_RELATIONS: readonly LineageRelationType[] = ['CONTINUATION', 'F
 // It is never consulted by assessEdge, evaluateAssurance or Policy.
 const CONTEXT_REQUIRED_CLAIMS: ReadonlySet<string> = new Set(['PARENT_UNRESOLVED']);
 
+// §6.2.2 names CYCLE_DETECTED as an example claim, but C-2 is BLOCKED: no
+// admission path accepts it until that decision lands. The rule lives in the
+// generic validator so every entry point applies it (ambiguities register: C-2).
+const BLOCKED_ASSESSMENT_CLAIMS: ReadonlySet<string> = new Set(['CYCLE_DETECTED']);
+
+/**
+ * Claim legality in one place: the verified/unverified split must not overlap,
+ * and a blocked claim is rejected regardless of the list it appears in.
+ */
+function claimListsFailure(verified: readonly string[], unverified: readonly string[]): string | undefined {
+  // A blocked claim is inadmissible in either list and outranks overlap, so both
+  // lists are scanned for it before the split is considered; otherwise an
+  // earlier overlapping claim would report first and hide the blocked one.
+  for (const claim of verified) {
+    if (BLOCKED_ASSESSMENT_CLAIMS.has(claim)) {
+      return `Claim ${claim} is not admissible while C-2 is blocked`;
+    }
+  }
+  for (const claim of unverified) {
+    if (BLOCKED_ASSESSMENT_CLAIMS.has(claim)) {
+      return `Claim ${claim} is not admissible while C-2 is blocked`;
+    }
+  }
+
+  // Only an assessment with claims on both sides can overlap, so the Set is
+  // allocated only then (candidate validation runs per edge during traversal).
+  if (verified.length > 0 && unverified.length > 0) {
+    const verifiedSet = new Set(verified);
+    for (const claim of unverified) {
+      if (verifiedSet.has(claim)) {
+        return `Claim ${claim} must not be both verified and unverified`;
+      }
+    }
+  }
+  return undefined;
+}
+
 type JsonObject = { readonly [key: string]: JsonValue };
 
 interface AssessmentHeader {
@@ -160,6 +197,10 @@ function readAssessmentClaims(object: JsonObject): Result<AssessmentClaims> {
   if (!unverified.ok) return unverified;
   const evidence = requireStringArray(object.evidence_refs, '$.evidence_refs');
   if (!evidence.ok) return evidence;
+  const claimsFailure = claimListsFailure(verified.value, unverified.value);
+  if (claimsFailure !== undefined) {
+    return mechanismRejection(claimsFailure);
+  }
   return { ok: true, value: { verified: verified.value, unverified: unverified.value, evidence: evidence.value } };
 }
 
@@ -607,9 +648,6 @@ function validateOrphanClaims(candidate: DeepReadonly<ContinuityAssessment>): Re
   }
   if (candidate.verified_claims.includes('PARENT_UNRESOLVED')) {
     return mechanismRejection('C-1 assessment must not record PARENT_UNRESOLVED as verified');
-  }
-  if (candidate.verified_claims.includes('CYCLE_DETECTED') || candidate.unverified_claims.includes('CYCLE_DETECTED')) {
-    return mechanismRejection('C-1 assessment must not claim CYCLE_DETECTED');
   }
   return { ok: true, value: undefined };
 }
