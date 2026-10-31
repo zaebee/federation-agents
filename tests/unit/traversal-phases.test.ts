@@ -201,6 +201,199 @@ describe('discoverPaths (phase 1)', () => {
     expect(pathNodes(result.value[0])).toEqual(['iv-c199', 'iv-origin']);
   });
 
+  test('deduplicates duplicate declared edges in a wide merge', () => {
+    const origin = descriptor({ id: 'iv-origin', participant: 'participant-a', versionLabel: '1.0.0' });
+    const parentCount = 512;
+    const parents = Array.from({ length: parentCount }, (_, index) =>
+      descriptor({
+        id: `iv-p${index}`,
+        participant: 'participant-b',
+        versionLabel: '1.0.0',
+        lineage: [link('iv-origin', 'FORKED_FROM')],
+      }),
+    );
+    const candidate = descriptor({
+      id: 'iv-merge',
+      participant: 'participant-d',
+      versionLabel: '2.0.0',
+      lineage: parents.flatMap((_, index) => [
+        link(`iv-p${index}`, 'MERGED_FROM'),
+        link(`iv-p${index}`, 'MERGED_FROM'),
+      ]),
+    });
+    const dave = participant('participant-d');
+    const bob = participant('participant-b');
+    const alice = participant('participant-a');
+    const graph = buildLineageGraph(registry([alice, bob, dave], [origin, ...parents, candidate]));
+
+    const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId('iv-merge'), identityVersionId('iv-origin'));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toHaveLength(parentCount);
+    const parentsInPaths = new Set(result.value.map((path) => String(path.edges[0].parent)));
+    expect(parentsInPaths.size).toBe(parentCount);
+  });
+
+  test('discovers a 10,000-edge chain', () => {
+    const edgeCount = 10_000;
+    const nodeCount = edgeCount + 1;
+    const alice = participant('participant-a');
+    const versions = [descriptor({ id: 'iv-c0', participant: 'participant-a', versionLabel: '1.0.0' })];
+    for (let index = 1; index < nodeCount; index += 1) {
+      versions.push(
+        descriptor({
+          id: `iv-c${index}`,
+          participant: 'participant-a',
+          versionLabel: '1.0.0',
+          lineage: [link(`iv-c${index - 1}`, 'CONTINUATION')],
+        }),
+      );
+    }
+    const graph = buildLineageGraph(registry([alice], versions));
+
+    const result = discoverPaths(
+      graph,
+      'CONTINUATION_ONLY',
+      identityVersionId(`iv-c${edgeCount}`),
+      identityVersionId('iv-c0'),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0].edges).toHaveLength(edgeCount);
+  });
+
+  test('keeps a cycle in one branch from invalidating another branch', () => {
+    const a = participant('participant-a');
+    const b = participant('participant-b');
+    const dave = participant('participant-d');
+    const origin = descriptor({ id: 'iv-base', participant: 'participant-a' });
+    const loop = descriptor({
+      id: 'iv-loop',
+      participant: 'participant-b',
+      lineage: [link('iv-back', 'CONTINUATION')],
+    });
+    const back = descriptor({
+      id: 'iv-back',
+      participant: 'participant-b',
+      lineage: [link('iv-loop', 'CONTINUATION'), link('iv-base', 'CONTINUATION')],
+    });
+    const clean = descriptor({
+      id: 'iv-clean',
+      participant: 'participant-a',
+      lineage: [link('iv-base', 'CONTINUATION')],
+    });
+    const root = descriptor({
+      id: 'iv-root',
+      participant: 'participant-d',
+      lineage: [link('iv-loop', 'MERGED_FROM'), link('iv-clean', 'MERGED_FROM')],
+    });
+    const graph = buildLineageGraph(registry([a, b, dave], [origin, loop, back, clean, root]));
+
+    const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId('iv-root'), identityVersionId('iv-base'));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toHaveLength(2);
+    expect(result.value.map(pathNodes)).toEqual([
+      ['iv-root', 'iv-clean', 'iv-base'],
+      ['iv-root', 'iv-loop', 'iv-back', 'iv-base'],
+    ]);
+  });
+
+  test('treats visited as path-local across sibling branches', () => {
+    const graph = diamondState().graph;
+
+    const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId('iv-d'), identityVersionId('iv-a-1'));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toHaveLength(2);
+  });
+
+  test('handles identity ids containing NUL and separators', () => {
+    const alice = participant('participant-a');
+    const parentA = 'iv\u0000a';
+    const parentB = 'iv\u0001a';
+    const origin = descriptor({ id: 'iv-origin', participant: 'participant-a', versionLabel: '1.0.0' });
+    const p1 = descriptor({
+      id: parentA,
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-origin', 'CONTINUATION')],
+    });
+    const p2 = descriptor({
+      id: parentB,
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-origin', 'CONTINUATION')],
+    });
+    const candidate = descriptor({
+      id: 'iv-cand',
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link(parentA, 'MERGED_FROM'), link(parentB, 'MERGED_FROM')],
+    });
+    const graph = buildLineageGraph(registry([alice], [origin, p1, p2, candidate]));
+
+    const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId('iv-cand'), identityVersionId('iv-origin'));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toHaveLength(2);
+
+    const reorderedGraph = {
+      ...graph,
+      nodes: [...graph.nodes].reverse(),
+      edges: [...graph.edges].reverse(),
+    };
+    const reorderedResult = discoverPaths(
+      reorderedGraph,
+      'FULL_ANCESTRY',
+      identityVersionId('iv-cand'),
+      identityVersionId('iv-origin'),
+    );
+    expect(JSON.stringify(reorderedResult)).toBe(JSON.stringify(result));
+  });
+
+  test('returns deep-frozen paths', () => {
+    const { graph } = ((): { graph: ReturnType<typeof buildLineageGraph> } => {
+      const alice = participant('participant-a');
+      const origin = descriptor({ id: 'iv-a-1', participant: 'participant-a', versionLabel: '1.0.0' });
+      const candidate = descriptor({
+        id: 'iv-a-2',
+        participant: 'participant-a',
+        versionLabel: '1.1.0',
+        lineage: [link('iv-a-1', 'CONTINUATION')],
+      });
+      return { graph: buildLineageGraph(registry([alice], [origin, candidate])) };
+    })();
+    const result = discoverPaths(graph, 'CONTINUATION_ONLY', identityVersionId('iv-a-2'), identityVersionId('iv-a-1'));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(Object.isFrozen(result.value)).toBe(true);
+    expect(Object.isFrozen(result.value[0])).toBe(true);
+    expect(Object.isFrozen(result.value[0].edges)).toBe(true);
+    expect(Object.isFrozen(result.value[0].edges[0])).toBe(true);
+  });
+
+  test('is deterministic across repeated discovery', () => {
+    const alice = participant('participant-a');
+    const origin = descriptor({ id: 'iv-a-1', participant: 'participant-a', versionLabel: '1.0.0' });
+    const candidate = descriptor({
+      id: 'iv-a-2',
+      participant: 'participant-a',
+      versionLabel: '1.1.0',
+      lineage: [link('iv-a-1', 'CONTINUATION')],
+    });
+    const graph = buildLineageGraph(registry([alice], [origin, candidate]));
+    const first = discoverPaths(graph, 'CONTINUATION_ONLY', identityVersionId('iv-a-2'), identityVersionId('iv-a-1'));
+    const second = discoverPaths(graph, 'CONTINUATION_ONLY', identityVersionId('iv-a-2'), identityVersionId('iv-a-1'));
+    expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+  });
+
   test('treats cycles as dead ends instead of crashing', () => {
     const v1 = descriptor({ id: 'iv-v1', participant: 'participant-a', lineage: [link('iv-v2', 'CONTINUATION')] });
     const v2 = descriptor({ id: 'iv-v2', participant: 'participant-a', lineage: [link('iv-v1', 'CONTINUATION')] });
