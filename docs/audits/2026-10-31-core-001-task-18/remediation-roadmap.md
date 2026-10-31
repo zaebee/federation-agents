@@ -44,7 +44,7 @@ T18-13 depends on AEBE, not on a specific implementation task.
 | T18-01 | specification/design | T18-DEC-01, T18-DEC-02; N-138, N-143, C-1, C-2 | none | `CORE-001_RUNTIME` | P1 | Decision record (approved) | DEC-01 = `REQ-LOCAL`; DEC-02 = `OWN-ADAPTER` + `VAL-CORE` | Recorded in `decision-register.md` |
 | T18-02A | implementation + tests | N-138, CASE-C-1.a3, T-001 | DEC-01/02 approved; Core validation enforced | `CORE-001_RUNTIME` | P1 | Adapter C-1 emission + Core validation | AEBE for C-1 from adapter; validation bypass closed | `bun test tests/conformance/c.test.ts`; full suite |
 | T18-02B | implementation + tests | N-143, CASE-C-2.a2, T-002 | DEC-01/02 approved + C-2 subject-model decision | `CORE-001_RUNTIME` | P1 | Adapter C-2.a2 emission + Core validation | **BLOCKED** until C-2 model approved; AEBE for C-2.a2; C-2 stays BLOCKED | `bun test tests/conformance/c.test.ts`; full suite |
-| T18-02C | not selected | — | `OWN-CORE` not selected | `CORE-001_RUNTIME` | — | None | Do not treat as active work | — |
+| T18-02C | retired / superseded | — | none | `CORE-001_RUNTIME` | — | None | Historical task structure; superseded by T18-02A and T18-02B | — |
 | T18-03 | test-only | N-041, CASE-D-4.a2, T-004 | none | `CORE-001_RUNTIME` | P2 | D-4 policy input/outcome test | No auto-authorization; policy context asserted | `bun test tests/conformance/d.test.ts` |
 | T18-04 | conditional | N-019, F-005, T-005 | T18-DEC-03 | `CORE-001_RUNTIME` | P2 | Validation change or caller contract + test | Invalid SEMVER_2 rejected or contract proven | `bun test tests/unit/version-scheme.test.ts`, `entities.test.ts` |
 | T18-05 | conditional | N-084, T-011 | T18-DEC-05 | `CORE-001_RUNTIME` | P3 | `verifyDescriptorHash` or caller contract + boundary evidence | Match/mismatch/malformed; negative mismatch | `bun test tests/unit/hashing.test.ts` + caller test |
@@ -75,9 +75,9 @@ The adapter constructs/registers the C-1 Assessment using domain identity, prove
 
 The adapter path is selected, but the C-2 subject model (SCC, node, or edge) is still OPEN. T18-02B cannot begin until that separate decision is approved. It closes N-143/C-2.a2 only; it does not close C-2 and does not close N-168.
 
-### T18-02C — Not selected
+### T18-02C — Retired / superseded
 
-`T18-02C` is not the selected ownership path and must not be treated as active work. It remains a historical option only.
+`T18-02C` is not the selected task structure. Its original scope has been split into `T18-02A` (C-1) and `T18-02B` (C-2.a2). It is retired and must not be treated as active work.
 
 ### Validation enforcement
 
