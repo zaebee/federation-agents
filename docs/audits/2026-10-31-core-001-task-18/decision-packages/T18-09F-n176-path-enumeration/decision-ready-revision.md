@@ -104,7 +104,7 @@ After Lemma 1 (cycle preemption) every path that reaches assurance/closure class
 | D2 | path whose first non-satisfied edge has class X? | polynomial: `reach_{valid}(s,u)` + `reach_A(v,t)` for some `e*=(u→v) ∈ E_X`; proof in `oq4` §3 |
 | D3 | path touching a cyclic node? | **polynomial**: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; walk + loop erasure (`oq4` §4) |
 | D4 | all edges satisfied and closure fails? | polynomial: triple `(merge node m, path edge e, failing branch b)` + reachability; `oq4` §5 |
-| D6 | input-scoped mechanism? | polynomial; no path-scoped class exists |
+| D6 | input-scoped mechanism? | polynomial: prechecks, or malformed assessments **and `reach_A(s,t)`** (a path that survives cycle preemption); no path-scoped class exists |
 
 **Evidence shape:** rejection returns the class witness required by L2 — for D2 the failing edge class, for D3 one witness path touching a cyclic node, for D4 the failing branch identity, for D6 the mechanism failure. A single failing edge is not a proof for a higher-precedence class.
 
@@ -116,11 +116,15 @@ After Lemma 1 (cycle preemption) every path that reaches assurance/closure class
 
 Path 1 fails on an assurance edge, path 2 fails on a closure branch. A compact algorithm that reports "the first failure found" returns a different code from the current one; the class-existence predicates of §3.1 must be evaluated for all classes before applying precedence.
 
-### 3.4 D4 and the §8.6 discrepancy (normative decision)
+### 3.4 D4 — path edge, terminal origin, Policy purity
 
-§8.6 says all parent edges of a merge node on the path are checked; the code **skips the exact path edge** (`collectBranchFailure`). This is equivalent under the current semantics: if the path edge's assurance fails, the path is `INVALID` before closure; if it is satisfied, a re-check would be satisfied too (same edge, requirement, policy, context). **Resolution proposed: a specification clarification via `T18-SPEC-01`** — §8.6 states that the selected path edge is covered by §8.5 and closure checks the remaining parent edges. **No implementation change is required by this analysis**; if the owner requires the literal re-check anyway, the decision problem and the outcome set are unchanged.
+Three distinct issues must not be conflated:
 
-The D4 proof is under the declared semantics (path edge validated by §8.5, closure on the remaining branches) and is general over the number of parents: closure fails iff some branch in `B(m,e)` fails, where `B(m,e)` excludes only the exact path edge.
+1. **Path-edge exclusion.** §8.6 says all parent edges of a merge node on the path are checked; the code skips the exact path edge (`collectBranchFailure`). This is equivalent under §0 (pure/deterministic/exception-free Policy): if the path edge's assurance fails, the path is `INVALID` before closure; if it is satisfied, a re-check yields `SATISFIED` again. **Spec clarification proposed (`T18-SPEC-01`): §8.6 states that the selected path edge is covered by §8.5 and closure checks the remaining edges. No implementation change required.**
+2. **Terminal origin.** Closure runs for the `child` of every path edge; the origin is never a child, so a merge-node origin is not checked. §8.6/§8.7 do not say whether the endpoint counts. **This is an unresolved normative question (`OQ-11`):** choose semantics **E** (origin is an endpoint, excluded — current code) or **I** (origin checked; all its parent edges are branches since there is no outgoing path edge). D4 is polynomial under both; the proof and a conformance test must state the choice.
+3. **Policy purity.** The proofs rely on Policy callbacks being deterministic, side-effect free and non-throwing; otherwise repeated evaluation in a different order can change results and even the legacy traversal is order-dependent. This is **`OQ-12`**: freeze a pure/deterministic Policy contract or exclude impure hooks from N-176 equivalence.
+
+The D4 decision rule (independent of 2 and 3 once the semantics is fixed): closure fails iff some branch in `B(m,e)` fails, where `B(m,e)` excludes only the exact path edge; under semantics I, add the origin case (all parent edges of `t` are branches).
 
 ### 3.5 Mechanism failures
 
@@ -224,3 +228,5 @@ A benchmark record for the validity path at `k=16`; a test that a diagnostics bo
 | 7 | D4 vs §8.6 | **spec clarification proposed**, no implementation change; owner/spec-editor decision |
 | 8 | Mechanism failures input-scoped; N176-13 withdrawn | analysis resolved; no owner choice |
 | 9 | Reading A vs B, diagnostics policy, benchmark, audit wording | owner choices (`remaining-owner-questions.md` OQ-1/OQ-7/OQ-8/OQ-9/OQ-10) |
+| 10 | Terminal origin in merge closure | **owner/spec-editor choice** (`OQ-11`); both E and I polynomial |
+| 11 | Policy callbacks pure/deterministic/no-throw | **assumption §0**, or owner/spec decision `OQ-12`; without it equivalence is undefined |

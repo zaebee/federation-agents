@@ -48,7 +48,7 @@ This package does not edit `decision-register.md`. A proposed register row is in
 | `evidence-index.md` | Normative, implementation, test and issue source index |
 | `adversarial-review.md` | Review of the draft against §8.4/§8.7/§8.8, the code and B-3/B-4/B-6; nine findings |
 | `decision-ready-revision.md` | The six required outcomes (contract equivalence, canonical witness, rejection proof, A-8 preservation, compatibility/migration, resource behaviour), each with statement, anchor, counterexample, resolution, compatibility impact and closure evidence |
-| `remaining-owner-questions.md` | The owner questions (OQ-1…OQ-10), with recommendations and consequences where one is defensible |
+| `remaining-owner-questions.md` | The owner questions (OQ-1…OQ-12), with recommendations and consequences where one is defensible |
 | `oq4-complexity-adversarial-pass.md` | Revision 3: class-by-class decision problems, cycle-preemption lemma, complete polynomial arguments for D0/D2/D3/D4/D6 (D3 via walk + loop erasure), D5 proof sketch with empirical obligations, D6 withdrawn, owner options R1–R4, and an explicit correction history |
 
 ## 5. Pre-decision clarification checklist
@@ -72,7 +72,7 @@ Before `T18-DEC-18` can be approved, the owner should settle three points that t
 
 The benchmark procedure is recorded separately so the `2^k` claim can be reproduced without relying on a scratch script.
 
-These three points are developed in `decision-ready-revision.md` §1–§4. The questions that still need an owner decision are listed in `remaining-owner-questions.md`; they are choices between readings and API strategies, not analysis gaps.
+These three points are developed in `decision-ready-revision.md` §1–§4. The remaining items are mixed: owner decisions (readings, API, diagnostics, benchmark, audit wording), two specification questions (terminal origin `OQ-11`, Policy purity `OQ-12`) and one technical proof obligation (D5); they must not be merged into "owner choices" only.
 
 
 ## 6. Summary

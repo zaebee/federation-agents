@@ -41,7 +41,7 @@ Yes. `oq4` revision 3 proves:
 - **D2** first-failing-edge class: `(u→v)` in class X with `reach_{valid}(s,u)` and `reach_A(v,t)` — two reachability computations;
 - **D3** cycle-class existence: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; a walk through `c` loop-erases to a simple path that still touches a cyclic node (Lemma 4);
 - **D4** closure failure: triple `(merge node, path edge, failing branch)` with reachability; general over parent counts;
-- **D6** input-scoped mechanisms only;
+- **D6** input-scoped mechanisms only, with the corrected condition: malformed assessments produce `MECHANISM` only if `reach_A(s,t)` (a path survives cycle preemption);
 - **D5** canonical witness: greedy on the acyclic subgraph; **proof sketch with empirical obligations** (see OQ-10 / decision-ready §2.4), not yet certified.
 
 **Recommended: accept the polynomial analysis for D0–D4/D6; treat D5 as a proof obligation before implementation is called complete.**
@@ -66,6 +66,21 @@ Who owns the bound, what is returned when it is reached, and is the diagnostics 
 
 **Recommended: keep `k=16` as the conformance-oriented benchmark target, attach an executed record (date, revision, machine, counts), and state that it does not establish a bound.**
 
+## OQ-11 — Is the terminal origin subject to merge closure?
+
+Closure runs for the `child` of each path edge; the origin is never a child, so a merge-node origin is not checked today. §8.6/§8.7 do not state whether the endpoint counts.
+
+- **Semantics E (current code):** origin is an endpoint, not a node the path passes through; excluded.
+- **Semantics I (literal):** origin is checked; since it has no outgoing path edge, all its parent edges are closure branches (the last path edge is already validated by §8.5).
+
+**Owner/spec-editor choice required.** Both are polynomial for D4; the proof and a conformance test must state the choice. This is a normative question, not an implementation detail.
+
+## OQ-12 — Are Policy callbacks pure and deterministic?
+
+The equivalence proofs (including D4's path-edge exclusion and any memoisation) assume `applicableAssessments` and `conflictPredicate` are pure: same inputs → same result, no side effects, no exceptions. The type does not enforce this, and a callback that depends on call order/state makes even the legacy traversal order-dependent.
+
+**Owner/spec-editor choice required:** either freeze a pure/deterministic Policy contract (and state exception handling), or explicitly exclude impure hooks from N-176 equivalence. Without this, "equivalent result" is undefined.
+
 ## OQ-9 — Audit consequence
 
 - Reading B + accepted implementation → N-176 PASS, §8.8 PARTIAL → PASS, via a re-audit revision.
@@ -82,7 +97,7 @@ Who owns the bound, what is returned when it is reached, and is the diagnostics 
 | **R3 — Reading B, semantic change** | Walk/state-based cycle class. | **Not needed**: D3 is polynomial under current semantics. |
 | **R4 — Defer** | Keep N-176 PARTIAL; clarify §8.8 and D4/§8.6 in `T18-SPEC-01`. | No decision now; honest fallback. |
 
-**Recommended: R2** (consistent with OQ-1). **R1 is the fallback** if the owner wants no API change; R3 is unnecessary; R4 only if the owner wants spec clarification first.
+**Recommended: R2** (consistent with OQ-1), conditional on closing OQ-11 (terminal origin), OQ-12 (Policy purity) and the D5 proof obligations. **R1 is the fallback**; R3 is unnecessary; R4 if the owner wants spec clarification first.
 
 ---
 
@@ -90,7 +105,7 @@ Who owns the bound, what is returned when it is reached, and is the diagnostics 
 
 - Three-layer model L1/L2/L3 and the diagnostics classification under Reading B.
 - D0/D2/D3/D4/D6 are polynomial; D6 has no path-scoped class; `N176-13` withdrawn.
-- The D4/§8.6 discrepancy is a specification-wording issue (path edge already validated by §8.5), not an implementation change.
+- The D4/§8.6 path-edge discrepancy is a specification-wording issue (path edge already validated by §8.5), not an implementation change. Terminal-origin closure (OQ-11) and Policy purity (OQ-12) are **not** settled and are listed below.
 - Validity API must not be resource-capped; caps belong to diagnostics.
 - No new normative error code.
 
@@ -99,3 +114,5 @@ Who owns the bound, what is returned when it is reached, and is the diagnostics 
 - **D5**: formal write-up + oracle/permutation tests before calling it certified polynomial.
 - **Reading A vs B**, **5.A vs 5.B**, **diagnostics policy**, **benchmark record**, **N-176 audit wording** — owner choices above.
 - **D4/§8.6 clarification** — spec-editor choice, via `T18-SPEC-01`.
+- **OQ-11**: terminal-origin closure semantics and a conformance test.
+- **OQ-12**: pure/deterministic Policy contract, or explicit exclusion of impure hooks.

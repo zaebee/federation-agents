@@ -3,6 +3,12 @@
 **Status:** analysis only. **Supersedes revisions 1–2.** Revision 1 wrongly claimed NP-hardness for D2/D4/D6; revision 2 removed that but left D3 open and the mechanism class misclassified. This revision gives polynomial algorithms for **all** classes, marks the one remaining proof obligation (D5 empirical validation), and keeps `T18-DEC-18` PROPOSED / OPEN.
 **Normative claim:** none. This is an analysis of the current implementation's decision problems.
 
+## 0. Environment assumptions (required for every equivalence claim)
+
+All proofs below assume the `Policy` callbacks (`applicableAssessments`, `conflictPredicate`) are **deterministic and pure**: the same arguments produce the same result, with no observable side effects and no exceptions. The TypeScript type does not enforce this. A callback that depends on call count, wall-clock time or external state makes even the legacy traversal order-dependent (§8.8) and the equivalence claim undefined. Exceptions thrown by callbacks propagate (they are not `MECHANISM` outcomes) and are outside the equivalence claim.
+
+If the owner does not want to freeze this assumption, it becomes a separate decision (`OQ-12`): a pure/deterministic `Policy` contract, or an explicit exclusion of impure hooks from N-176 equivalence.
+
 ## 1. Decision problems
 
 Graph `G`, traversal scope `σ`, scoped edges `E_σ`, candidate `s`, origin `t`. `C` = the nodes in `graph.cycles` (cyclic SCCs). `A` = the subgraph induced by `V \ C` with edges whose endpoints are both outside `C`.
@@ -15,7 +21,7 @@ Graph `G`, traversal scope `σ`, scoped edges `E_σ`, candidate `s`, origin `t`.
 | **D3** | Does a simple path exist that touches a node of `C`? (`CYCLE_DETECTED` class) |
 | **D4** | Does a simple path exist whose edges are all satisfied and whose closure fails? (`ERR_MERGE_BRANCH_UNSATISFIED`) |
 | **D5** | What is the canonical (minimum `pathKey`) fully valid simple path? (acceptance witness) |
-| **D6** | Does an input-scoped mechanism failure apply? |
+| **D6** | Does an input-scoped mechanism failure apply before/at the first edge evaluation of a path that survives cycle preemption? |
 
 ## 2. Lemma 1 — cycle preemption
 
@@ -57,11 +63,18 @@ The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated 
 
 Note: the earlier reductions failed because they asked for a path through a *specific* cyclic node, while D3 asks for **some** cyclic node; Lemma 4 is what makes the difference.
 
-## 5. D4 — proof and the normative discrepancy
+## 5. D4 — proof, terminal origin, and the normative discrepancies
 
-By Lemma 6, existence is decided over triples `(m, e, b)` with reachability in `A`; the number of triples is `O(Σ out-degree²)`, and each reachability query is `O(|V|+|E|)` with precomputed sets, so the decision is polynomial.
+Under §0, by Lemma 6 existence is decided over triples `(m, e, b)` with reachability in `A`; the number of triples is `O(Σ out-degree²)`, and each reachability query is `O(|V|+|E|)` with precomputed sets, so the decision is polynomial.
 
-**Normative discrepancy.** §8.6 says "for every merge node on the selected path, all its parent edges are additionally checked". The code skips the exact path edge because §8.5 already validated it. These are equivalent: if the path edge's assurance fails, the path is `INVALID` and closure is never evaluated; if it is satisfied, re-checking it in closure would also be satisfied (same edge, same requirement/policy/context). **Resolution proposed: a specification clarification (T18-SPEC-01), not an implementation change** — §8.6 should say that the selected path edge is covered by §8.5 and closure checks the remaining parent edges. The proof above is under the declared code semantics; if the owner instead requires a literal re-check, the decision problem is unchanged (the re-check adds no new outcome), only the wording changes.
+**Normative discrepancy.** §8.6 says "for every merge node on the selected path, all its parent edges are additionally checked". The code skips the exact path edge because §8.5 already validated it. These are equivalent: if the path edge's assurance fails, the path is `INVALID` and closure is never evaluated; if it is satisfied, re-checking it in closure would also be satisfied (same edge, same requirement/policy/context). **Resolution proposed: a specification clarification (T18-SPEC-01), not an implementation change** — §8.6 should say that the selected path edge is covered by §8.5 and closure checks the remaining parent edges. This equivalence relies on §0: with impure callbacks, a re-check could return a different result. The proof above is under the declared code semantics; if the owner instead requires a literal re-check, the decision problem is unchanged (the re-check adds no new outcome), only the wording changes.
+
+**Terminal origin (a second normative discrepancy).** `collectClosureFailures` checks closure for the `child` of every path edge. The terminal origin is never a `child`, so if the origin itself is a `MERGE` node, **its parent edges are not checked**. §8.6 speaks of merge nodes "on the selected path" and §8.7 of closure requirements on the selected path; whether the endpoint counts is not stated. The current behaviour is an **endpoint exception**, not a proof:
+
+- **Semantics E (current code):** the origin is an endpoint, not a node the path passes through; closure excludes it. D4 exists as proved above.
+- **Semantics I (literal reading):** the origin is checked too; since it has no outgoing path edge, **all** its parent edges are closure branches (the last path edge is already validated by §8.5 and is skipped only as an exact path edge). D4 then adds one case: closure fails iff the path reaches `t` with all edges valid and some parent edge of `t` fails branch evaluation; polynomial (reachability to `t` plus a scan of `t`'s parent edges, plus the non-origin cases).
+
+This must not be silently embedded: **`OQ-11`** asks the spec editor/owner to choose E or I and to add a conformance test. The D4 proof is stated under E (matching the code) and is parameterised by the choice; both cases are polynomial.
 
 ## 6. D5 — greedy canonical witness
 
@@ -71,9 +84,23 @@ Valid paths lie in `A` (Lemma 1) and are all-edge-satisfied. Define `H` on edges
 
 **Proof obligations still open (qualified claim):** a written proof of the lexicographic induction for the exact `pathKey` string encoding, oracle tests against exhaustive enumeration on small generated DAGs, and invariance tests under storage/adjacency permutations. Until those tests exist the polynomial claim is a proof sketch, not an empirical certification.
 
-## 7. D6 — input-scoped mechanism failures
+## 7. D6 — input-scoped mechanism failures (condition corrected)
 
-The only reachable `MECHANISM` results are input-scoped: selector/candidate prechecks before discovery and candidate-array validation inside `assessEdge` (which fails identically for every evaluated edge). Decision: run the prechecks; if they pass, D6 is "malformed assessment array and at least one path exists" (D1), else no mechanism. Polynomial. A throwing `Policy` hook is **not** caught and propagates; it is not a mechanism outcome and creates no path-scoped class.
+The only reachable `MECHANISM` results are input-scoped: prechecks before discovery (selector compilation, candidate lookup, duplicated descriptor id) and candidate-array validation inside `assessEdge`. A throwing `Policy` hook is **not** caught and propagates; it is not a mechanism outcome and creates no path-scoped class.
+
+**The earlier condition "malformed assessments and at least one path exists (D1)" is wrong.** `evaluateBinding` evaluates discovered paths one by one; `validatePathWithIndex` returns `CYCLE_DETECTED` before `assessEdge` is called. If every existing path touches a cyclic SCC, a malformed assessment array never reaches validation and the observable result is a cycle outcome, not `MECHANISM`.
+
+Counterexample:
+
+```text
+s ───► a ───► b ───► t
+       ▲       │
+       └───────┘        (a, b are one cyclic SCC)
+```
+
+D1 is true (`s→a→b→t` exists), but the only paths are preempted by the cycle check; malformed assessments do not produce `MECHANISM`.
+
+**Correct condition:** prechecks pass, the assessment array is malformed, and **`reach_A(s,t)`** holds — at least one simple path avoids every cyclic SCC and therefore reaches `assessEdge`. If no such path exists, the cycle (or no-path) outcome wins. `reach_A` is a reachability query on the acyclic induced subgraph (Lemma 2), so D6 remains polynomial.
 
 ## 8. Result table
 
@@ -85,7 +112,7 @@ The only reachable `MECHANISM` results are input-scoped: selector/candidate prec
 | D3 | polynomial (Lemma 4; walk + loop erasure) |
 | D4 | polynomial (Lemma 5–6; triple scan + reachability) |
 | D5 | polynomial **proof sketch**; empirical obligations listed in §6 |
-| D6 | polynomial (input-scoped only) |
+| D6 | polynomial: prechecks; malformed assessments require `reach_A(s,t)` |
 
 **Consequence for N-176:** a compact exact algorithm exists for all classes; the exponential output is not required. Reading B is no longer blocked by a complexity barrier; the remaining choice is normative/API (Reading A vs B, replace vs version).
 
@@ -112,5 +139,6 @@ The only reachable `MECHANISM` results are input-scoped: selector/candidate prec
 ## 11. Limits
 
 - D5 needs the empirical evidence listed in §6 before it is called certified polynomial.
-- The D4 specification clarification is proposed, not applied; §8.6 remains unchanged.
+- The D4 specification clarification is proposed, not applied; §8.6 remains unchanged. Terminal-origin semantics is a separate owner question (`OQ-11`), and Policy purity is the assumption `OQ-12`.
+- The terminal-origin choice changes one D4 case; both are polynomial, but the proof text must name the chosen semantics.
 - No status, register, `CORE-001.md`, source or test change is made here.
