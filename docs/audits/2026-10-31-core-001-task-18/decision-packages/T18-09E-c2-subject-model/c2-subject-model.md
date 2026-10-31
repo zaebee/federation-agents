@@ -1,6 +1,6 @@
 # T18-DEC-16 / T18-DEC-17 — C-2 Subject Model, Assessment Shape and Publication/Retention
 
-**Status: OPEN. Recommendation only. Not approved.**
+**Status: APPROVED 2026-10-31. The canonical record is `decision-register.md` §3; this document remains the evidence and analysis.**
 **Related case:** §12 C-2 / N-143 / `CASE-C-2.a2`.
 **Related approved decisions:** `T18-DEC-01` (`REQ-LOCAL`, recording obligation), `T18-DEC-02` (`OWN-ADAPTER` + `VAL-CORE`).
 **Related open decisions:** `T18-DEC-13` (grant suppression observability), `T18-DEC-15` (parent coverage), `T18-DEC-17` (publication/retention ownership), `A-14` / issue #65 (cycle breadth in path validation).
@@ -199,9 +199,9 @@ One Assessment per SCC, with an anchor subject and all members in `parent_versio
 
 ---
 
-## 7. Recommended resolution and open sub-decisions
+## 7. Approved resolution and open sub-decisions
 
-**Recommendation: Option D** — one Assessment per affected lineage edge inside a cyclic SCC (`subject_version_id` = edge child, `parent_version_ids` = `[edge parent]`, `declared_relation` = edge relation), claim `CYCLE_DETECTED` unverified, constructed by the adapter, admitted by Core, persisted by the caller.
+**Approved resolution (2026-10-31): Option D** — one Assessment per affected lineage edge inside a cyclic SCC (`subject_version_id` = edge child, `parent_version_ids` = `[edge parent]`, `declared_relation` = edge relation), claim `CYCLE_DETECTED` unverified, constructed by the adapter, admitted by Core, persisted by the caller.
 
 Rationale: it adopts the T18-01 recommendation rather than replacing it; no schema change; deterministic by sorted edge order without a new mechanism; each record names exactly one participating declaration, so the claim is edge-precise for CORE-003; and the record count is bounded by the component's internal edge count. Option A is the fallback if the owner prefers fewer records; it was reconsidered as the primary and rejected because one grouped record nominally covers several edges and depends on the OPEN `T18-DEC-15` parent-set question. Option B requires a new canonical-DFS mechanism and loses non-back-edge declarations; Option C needs a `T18-SPEC-01` schema amendment.
 
@@ -252,21 +252,21 @@ Rationale: it adopts the T18-01 recommendation rather than replacing it; no sche
 
 ---
 
-## 8. Why `T18-02B` is blocked, and what unblocks it
+## 8. Why `T18-02B` was blocked, and what unblocks it
 
 `T18-02B` (C-2.a2 adapter emission + Core validation) needs:
 
-1. **`T18-DEC-16` approved** (subject model and shape/provenance). Publication/retention ownership (`T18-DEC-17`) may remain OPEN for recording but blocks publication/retention claims.
+1. **`T18-DEC-16` is approved** (2026-10-31; subject model and shape/provenance). Publication/retention ownership (`T18-DEC-17`) is also approved and does not gate this task.
 2. **The contextual admission path** for `CYCLE_DETECTED`, mirroring C-1: the generic guard at `src/core/assessment.ts:60` rejects the claim on every path while C-2 is blocked; the approved model turns it into "rejected on the generic path, admitted only through the cycle path".
 3. **AEBE from the adapter boundary** (package root, not a hand-constructed fixture), as `T18-02A` did for C-1, with Core validation and admission evidence.
 
-Closure evidence for `T18-DEC-16`: approval recorded in `decision-register.md`, the chosen subject model and shape recorded, `T18-02B` unblocked with the model and shape named in the roadmap, and an AEBE step attached to `T18-13`. Closure evidence for `T18-DEC-17`: an explicit boundary statement for storage, publication and retention, with the AEBE saying what is persisted. Task 17 statuses change only through a re-audit revision, not here.
+Approval was recorded on 2026-10-31 in `decision-register.md` §3. Closure evidence for `N-143`/`CASE-C-2.a2` is the `T18-02B` implementation plus AEBE; `T18-DEC-17`'s boundary statement is the caller-owned publication/retention scope. Task 17 statuses change only through a re-audit revision, not here.
 
 ---
 
 ## 9. Limits of this package
 
-- It recommends; it does not approve. No wording here is normative.
+- It is the evidence basis for the decision; the approval record is `decision-register.md` §3, and this analysis is not a substitute for it.
 - It does not change `docs/CORE-001.md`, Task 17 statuses, the disposition matrix, `T18-02A`, `T18-DEC-13`, `T18-DEC-15` or `T18-DEC-17`.
 - It does not implement `T18-02B` and does not pre-approve an adapter API shape beyond the C-1 precedent.
 - Option B's canonical-DFS mechanism would need its own documentation and tests; the package does not specify its exact ordering rules beyond "sorted nodes, sorted adjacency, DFS from the smallest node", because that mechanism is only relevant if the owner rejects Option D.

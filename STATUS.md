@@ -19,7 +19,7 @@ What remains is not a backlog of missing code paths. It is two kinds of work:
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | §12 cases          | 14 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 0 NOT COVERED                                                                                          | Task 17 audit, revision 1              |
 | Requirements       | 153 PASS, 9 PARTIAL, 9 BLOCKED, 5 NOT COVERED, 0 FAIL (176 total)                                                                                           | Task 17 audit, revision 1              |
-| Decisions          | 2 APPROVED, 15 OPEN (incl. post-baseline `T18-DEC-16`/`T18-DEC-17`)                                                                                         | Task 18 decision register              |
+| Decisions          | 4 APPROVED (incl. `T18-DEC-16`/`T18-DEC-17`), 13 OPEN                                                                                                       | Task 18 decision register              |
 | Non-PASS items     | 23 in revision 1 (also 23 at the Task 17 baseline): N-138 closed, N-176 new and not yet dispositioned by Task 18; remediation implemented: 1 task (T18-02A) | Task 18 disposition + audit revision 1 |
 | Readiness          | `NOT_READY`                                                                                                                                                 | Task 18 §7                             |
 | Local check matrix | green — 582 tests, 579 pass, 3 todo, 0 fail, 3646 expectations                                                                                              | `bun test` at the commit above         |
@@ -57,9 +57,9 @@ These are undefined in Rev 0.3.3. Implementing them silently would turn an inter
 ## Open decisions blocking progress
 
 - **Two P1 decisions have prepared recommendations and await approval:** `T18-DEC-06` (contradiction predicate) and `T18-DEC-07` (closure depth).
-- **`T18-DEC-16` — C-2 subject model and Assessment shape/provenance.** Registered post-baseline; it blocks `T18-02B`, and therefore C-2. Package: `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09E-c2-subject-model/`.
-- **`T18-DEC-17` — publication and retention ownership.** Registered post-baseline; it does not block recording, but blocks any claim that an assessor's record is published or retained.
-- Fifteen decisions are OPEN in total — see [`decision-register.md`](docs/audits/2026-10-31-core-001-task-18/decision-register.md).
+- **`T18-DEC-16` and `T18-DEC-17` are approved (2026-10-31).** DEC-16 approves Option D — one Assessment per affected lineage edge (`subject_version_id` = child, `parent_version_ids` = `[parent]`, `CYCLE_DETECTED` in `unverified_claims`; adapter constructs, Core validates/admits, caller persists) — and unblocks `T18-02B`. DEC-17 assigns publication and retention to the caller boundary. Approval does not make the subset `parent_version_ids` reading normative (`T18-DEC-15` stays OPEN), and `T18-02B` + AEBE are still required before N-143/CASE-C-2.a2 pass.
+- **`T18-DEC-15` remains OPEN.** It asks whether `parent_version_ids` must be the complete declared parent set or may be the covered subset; the `T18-DEC-16` approval permits the local Option D implementation but does not resolve it.
+- Thirteen decisions are OPEN in total — see [`decision-register.md`](docs/audits/2026-10-31-core-001-task-18/decision-register.md).
 
 ## Where status lives
 

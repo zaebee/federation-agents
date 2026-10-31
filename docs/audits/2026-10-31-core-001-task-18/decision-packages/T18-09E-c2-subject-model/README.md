@@ -1,6 +1,6 @@
 # T18-09E — C-2 Subject Model Decision Package
 
-**Status:** supplemental evidence, alternatives and a recommendation. **`T18-DEC-16` and `T18-DEC-17` are OPEN and not approved.**
+**Status:** supplemental evidence, alternatives and the analysis behind an approved decision. **`T18-DEC-16` and `T18-DEC-17` were approved on 2026-10-31**; the canonical record is `decision-register.md` §3. This package remains the evidence and analysis, not the approval record.
 **Repository revision:** `2d26d43` (`main`, Task 17 audit revision 1 merged).
 **Task 17 / Task 18:** historical evidence; this package fills a gap in the Task 18 decision register and does not rewrite any prior finding.
 **Package type:** documentation only. No source, test, specification, configuration or CI change.
@@ -26,7 +26,7 @@ It records:
 
 It does **not**:
 
-- approve `T18-DEC-16`, `T18-DEC-17`, `T18-DEC-13` or `T18-DEC-15`;
+- itself approve any decision — the owner approval is recorded in `decision-register.md` §3; `T18-DEC-13` and `T18-DEC-15` remain OPEN;
 - change Task 17 statuses or rollups, `docs/CORE-001.md`, or the Task 18 disposition matrix;
 - implement or pre-approve `T18-02B`;
 - resolve the A-14 cycle-breadth question in path validation (#65) — the subject model here is graph-level recording, not binding-level rejection.
@@ -35,10 +35,10 @@ It does **not**:
 
 | Decision | Status | Recommendation | Approval |
 | --- | --- | --- | --- |
-| `T18-DEC-16` — C-2 subject model and Assessment shape/provenance | **OPEN** | Option D — one Assessment per affected lineage edge | Not approved |
-| `T18-DEC-17` — publication and retention ownership | **OPEN** | caller-managed storage stands; publication/retention assigned to the caller boundary (see §7.7) | Not approved |
+| `T18-DEC-16` — C-2 subject model and Assessment shape/provenance | **APPROVED** | Option D — one Assessment per affected lineage edge | Approved 2026-10-31 (`decision-register.md` §3) |
+| `T18-DEC-17` — publication and retention ownership | **APPROVED** | caller-managed storage stands; publication/retention assigned to the caller boundary (see §7.7) | Approved 2026-10-31 (`decision-register.md` §3) |
 
-The recommendation is a project-owner review input, not a normative resolution. It must not be cited as approved semantics. Approving `T18-DEC-16` would permit the local Option D implementation; it would not make the subset reading of `parent_version_ids` normative, because `T18-DEC-15` stays OPEN.
+The recommendations became the approved resolution on 2026-10-31; the register §3 is the normative record. Approving `T18-DEC-16` permits the local Option D implementation; it does not make the subset reading of `parent_version_ids` normative, because `T18-DEC-15` stays OPEN.
 
 ## 3. Source hierarchy
 
@@ -61,6 +61,6 @@ Implementation behaviour is never promoted to normative meaning. The fact that t
 
 - **Normative requirement.** `T18-DEC-01` approved the reading that CORE-001 requires a local Assessment recording `CYCLE_DETECTED` for a detected cycle (§11.2, §12 C-2). `T18-DEC-02` approved the boundary: adapter constructs, Core validates and admits, persistent storage is caller-managed. What the specification does **not** say is what the Assessment's subject is — the closing declaration, the node, or the component — nor what `parent_version_ids` and `declared_relation` mean for a cycle.
 - **Current implementation.** The graph reports sorted SCCs; binding-level traversal returns `CYCLE_DETECTED` per path with the union of touched cycles. No Assessment records the claim (`tests/conformance/c.test.ts:66` is a `todo`). Since the #49 change, the generic validator rejects `CYCLE_DETECTED` on every admission path while C-2 is blocked (`src/core/assessment.ts:60`).
-- **Why `T18-02B` is blocked.** It needs (i) `T18-DEC-16` approved, and (ii) a contextual admission path for the cycle claim, mirroring the C-1 `registerOrphanAssessments` path — the current generic guard is correct for the generic path but cannot stay absolute once C-2 is decided. `T18-DEC-17` does not block recording.
-- **Recommendation.** Option D — one Assessment per affected lineage edge inside a cyclic SCC. It adopts the T18-01 package's recommendation rather than replacing it, reuses the approved C-1 adapter/Core boundary, needs no schema change, is deterministic by sorted edge order, and gives CORE-003 the exact participating-edge set it needs for grant suppression (`CASE-C-2.a3`, `T18-DEC-13`).
-- **What approval would close.** `T18-DEC-16` approval plus `T18-02B` + AEBE closes `N-143` and `CASE-C-2.a2`; the C-2 **case** remains BLOCKED on `CASE-C-2.a3` (CORE-003, `T18-DEC-13`). `T18-DEC-17` is independent: it blocks claims that the assessment is published or retained.
+- **Why `T18-02B` was blocked and is now eligible.** It needed (i) `T18-DEC-16` approved — done 2026-10-31 — and (ii) a contextual admission path for the cycle claim, mirroring the C-1 `registerOrphanAssessments` path; the current generic guard is correct for the generic path but cannot stay absolute once C-2 is implemented. `T18-DEC-17` is approved independently and does not gate recording.
+- **Approved resolution (2026-10-31).** Option D — one Assessment per affected lineage edge inside a cyclic SCC. It adopts the T18-01 package's recommendation rather than replacing it, reuses the approved C-1 adapter/Core boundary, needs no schema change, is deterministic by sorted edge order, and gives CORE-003 the exact participating-edge set it needs for grant suppression (`CASE-C-2.a3`, `T18-DEC-13`).
+- **What the approval closes and does not close.** `T18-DEC-16` approval unblocks `T18-02B`; together with its implementation and AEBE it closes `N-143` and `CASE-C-2.a2`. The C-2 **case** remains BLOCKED on `CASE-C-2.a3` (CORE-003, `T18-DEC-13`). `T18-DEC-17` is approved independently and governs claims that the assessment is published or retained.

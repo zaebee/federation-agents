@@ -73,10 +73,12 @@ The project owner approved:
 
 - `T18-DEC-01` = **`REQ-LOCAL`**: CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle. This is a recording obligation; it does not assign construction/publication to Core.
 - `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation)**: adapter constructs the Assessment; Core owns semantic validation and admission; the registered representation is immutable; persistent storage is caller-managed. See `decision-register.md` §3 for the canonical scope; publication/retention remain OPEN. `T18-02A` is planning- and acceptance-eligible.
+- `T18-DEC-16` = **Option D** (approved 2026-10-31): one Assessment per affected lineage edge inside a cyclic SCC; adapter constructs, Core validates and admits, caller persists. Approval permits the local implementation and does not make the subset `parent_version_ids` reading normative (`T18-DEC-15` remains OPEN); it unblocks `T18-02B`.
+- `T18-DEC-17` = **caller boundary** (approved 2026-10-31): the caller owns persistence, publication and retention; the Core contract ends at the immutable admitted representation.
 
 The canonical approved record is `decision-register.md` §3. The T18-01 package is a historical proposal snapshot; it is not the approval record.
 
-Still OPEN: `T18-DEC-16` (C-2 subject model and exact Assessment shape/provenance; sub-parts 16.a–16.b), `T18-DEC-17` (publication/retention ownership), `T18-DEC-15` parent-coverage semantics, and C-2.a3 / CORE-003. Package: `decision-packages/T18-09E-c2-subject-model/`.
+Still OPEN: `T18-DEC-15` parent-coverage semantics, C-2.a3 / CORE-003, and the other Task 18 decisions. `T18-DEC-16` and `T18-DEC-17` are approved; `T18-02B` is unblocked.
 
 ### T18-DEC-15 — parent coverage semantics (OPEN)
 
