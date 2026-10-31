@@ -241,7 +241,7 @@ Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-
 
 Implemented at the boundary: the experimental reference adapter emits a `PARENT_UNRESOLVED` Assessment (T18-02A, §12 C-1); Core validates and admits that Assessment and owns the immutable registered representation. Retention and publication remain caller-managed and are OPEN (`T18-DEC-15` and the publication-ownership question).
 
-Not implemented: an Assessment recording `CYCLE_DETECTED` (C-2), which also needs grant suppression owned by CORE-003, so the case stays BLOCKED.
+Implemented at the boundary: the experimental C-2 adapter records `CYCLE_DETECTED` in one Assessment per affected cyclic edge under the approved `T18-DEC-16` Option D model; Core validates and admits it, and the representation is caller-managed (T18-02B, `aebe/C-2.a2.md`). Not implemented: dependent-grant suppression (CORE-003), so §12 C-2 stays BLOCKED.
 
 Conformance **status** is not the same as implementation: the assertion-level audit (Task 17) found no normative violation, yet several requirements and §12 cases are not PASS, for reasons recorded in the decision register. Audit revision 1 records C-1 as PASS and §8.8 as PARTIAL (the non-enumeration `MUST NOT`, N-176). Counts, per-case results and the readiness label are maintained in [`STATUS.md`](../STATUS.md); the evidence is in [`audits/`](./audits/). This section describes what exists in the code, not what has been certified.
 
