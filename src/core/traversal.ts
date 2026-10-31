@@ -572,6 +572,60 @@ function evaluateClosureBranch(
   };
 }
 
+function closureBranchKey(branch: EdgeRef): string {
+  return `${String(branch.child)}\u0000${String(branch.parent)}\u0000${branch.relation}`;
+}
+
+function collectBranchFailure(
+  failures: Map<string, MergeClosureBranchFailure>,
+  edge: EdgeRef,
+  branch: EdgeRef,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<undefined> {
+  if (branch.parent === edge.parent && branch.relation === edge.relation) {
+    return { ok: true, value: undefined };
+  }
+  const key = closureBranchKey(branch);
+  if (failures.has(key)) {
+    return { ok: true, value: undefined };
+  }
+
+  const failure = evaluateClosureBranch(branch, assessments, requirement, policy, ctx);
+  if (!failure.ok) {
+    return failure;
+  }
+  if (failure.value !== undefined) {
+    failures.set(key, failure.value);
+  }
+  return { ok: true, value: undefined };
+}
+
+function collectEdgeClosureFailures(
+  failures: Map<string, MergeClosureBranchFailure>,
+  edge: EdgeRef,
+  graph: LineageGraph,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<undefined> {
+  const branches = directParentBranches(graph, edge.child);
+  if (!branches.some((branch) => branch.relation === 'MERGED_FROM')) {
+    return { ok: true, value: undefined };
+  }
+
+  for (const branch of branches) {
+    const collected = collectBranchFailure(failures, edge, branch, assessments, requirement, policy, ctx);
+    if (!collected.ok) {
+      return collected;
+    }
+  }
+  return { ok: true, value: undefined };
+}
+
 function collectClosureFailures(
   path: Path,
   graph: LineageGraph,
@@ -583,27 +637,9 @@ function collectClosureFailures(
   const failures = new Map<string, MergeClosureBranchFailure>();
 
   for (const edge of path.edges) {
-    const branches = directParentBranches(graph, edge.child);
-    if (!branches.some((branch) => branch.relation === 'MERGED_FROM')) {
-      continue;
-    }
-
-    for (const branch of branches) {
-      if (branch.parent === edge.parent && branch.relation === edge.relation) {
-        continue;
-      }
-      const key = `${String(branch.child)}\u0000${String(branch.parent)}\u0000${branch.relation}`;
-      if (failures.has(key)) {
-        continue;
-      }
-
-      const failure = evaluateClosureBranch(branch, assessments, requirement, policy, ctx);
-      if (!failure.ok) {
-        return failure;
-      }
-      if (failure.value !== undefined) {
-        failures.set(key, failure.value);
-      }
+    const collected = collectEdgeClosureFailures(failures, edge, graph, assessments, requirement, policy, ctx);
+    if (!collected.ok) {
+      return collected;
     }
   }
 

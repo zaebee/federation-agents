@@ -447,8 +447,10 @@ export function expectClosureFailure(
   if (survived?.closure?.status !== 'UNSATISFIED') {
     throw new Error('expected an UNSATISFIED closure');
   }
-  const parents = survived.closure.failures.map((item) => String(item.branch.parent)).sort();
-  expect(parents).toEqual([...expectedParents].sort());
+  const parents = survived.closure.failures
+    .map((item) => String(item.branch.parent))
+    .sort((left, right) => left.localeCompare(right));
+  expect(parents).toEqual([...expectedParents].sort((left, right) => left.localeCompare(right)));
   return survived.closure.failures;
 }
 
