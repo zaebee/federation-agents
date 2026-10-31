@@ -1,0 +1,65 @@
+# Task 13 — PR #31 Audit Corrections
+
+Repository: `zaebee/federation-agents`  
+PR: #31  
+Audited commit: `6f12e70`
+
+## Required corrections
+
+### 1. Validate SignatureVerifier runtime output (P1)
+
+`runVerifier()` currently catches thrown exceptions but trusts the returned value without runtime validation.
+
+This creates a fail-open condition: an unknown result such as `{ status: "UNKNOWN" }` passes through `cryptographicHistorical()` without being recognized as a failure. The evaluation can then proceed as if signature verification succeeded.
+
+Required:
+- Validate the verifier result at runtime.
+- Accept only `VERIFIED`, `INVALID`, `CRYPTO_UNAVAILABLE`, `CRYPTO_UNSUPPORTED`.
+- Never interpret malformed or unknown results as successful verification.
+- Return a mechanism failure through `Result`, or another explicitly defined safe failure outcome.
+- Do not collapse malformed output into `INVALID_SIGNATURE`.
+
+Tests:
+- verifier returns `undefined`;
+- verifier returns `null`;
+- verifier returns an unknown status;
+- verifier returns a malformed object;
+- valid four outcomes remain distinct.
+
+### 2. Bind Revocation Record to the evaluated Credential (P1)
+
+`evaluateHistoricalSignature()` does not currently verify:
+
+`input.credential.credential_id === input.revocation.credential_id`
+
+A revocation record belonging to Credential B can therefore invalidate a historical signature evaluated against Credential A.
+
+Required:
+- When revocation is supplied, validate exact `credential_id` correspondence before applying revocation semantics.
+- On mismatch, return a mechanism failure through `Result`.
+- Do not produce a historical validity or claim status from a mismatched record.
+
+Tests:
+- matching credential/revocation pair succeeds;
+- mismatched credential/revocation pair fails;
+- no revocation remains supported.
+
+## Scope constraints
+
+- Do not modify `docs/CORE-001.md`.
+- Do not add normative fields to CredentialDescriptor or CredentialRevocationRecord.
+- Do not introduce grant-producing APIs.
+- Do not change D-3/D-4 semantics.
+- Do not merge Tasks 14/15 into this correction.
+- Preserve all existing public API behavior except the two required safety corrections.
+
+Run the complete test suite, typecheck, lint, format check and build.
+
+Report:
+- changed files;
+- exact behavior changes;
+- new adversarial tests;
+- full check results;
+- new commit SHA.
+
+Do not merge until the corrected diff has been independently reviewed.
