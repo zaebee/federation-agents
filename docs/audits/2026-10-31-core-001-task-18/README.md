@@ -146,7 +146,7 @@ Decision packages may record decisions and prepare proposals. T18-06 in particul
 
 ## 7. Current readiness assessment
 
-**`NOT_READY`.** C-1 is **PASS** (Task 17 audit revision 1, `docs/audits/2026-10-31-core-001-task-17-revision-1/`), C-2 is BLOCKED, D-2 is BLOCKED, D-1 and D-4 are PARTIAL, and independent implementation compatibility is not evidenced. This is a reporting label; it does not change Task 17 statuses.
+**`NOT_READY`.** C-1 is **PASS** (Task 17 audit revision 1) and C-2.a2/N-143 are **PASS** (revision 2), but the C-2 **case** is BLOCKED on `CASE-C-2.a3`; D-2 is BLOCKED, D-1 and D-4 are PARTIAL, and independent implementation compatibility is not evidenced. This is a reporting label; it does not change Task 17 statuses.
 
 ## 8. Known Task 17 inconsistencies
 

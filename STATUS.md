@@ -15,19 +15,20 @@ What remains is not a backlog of missing code paths. It is two kinds of work:
 
 ## At a glance
 
-| Measure            | Value                                                                                                                                                                 | Source                                 |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| §12 cases          | 14 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 0 NOT COVERED                                                                                                    | Task 17 audit, revision 1              |
-| Requirements       | 153 PASS, 9 PARTIAL, 9 BLOCKED, 5 NOT COVERED, 0 FAIL (176 total)                                                                                                     | Task 17 audit, revision 1              |
-| Decisions          | 4 APPROVED (incl. `T18-DEC-16`/`T18-DEC-17`), 13 OPEN                                                                                                                 | Task 18 decision register              |
-| Non-PASS items     | 23 in revision 1 (also 23 at the Task 17 baseline): N-138 closed, N-176 new and not yet dispositioned by Task 18; remediation implemented: 2 tasks (T18-02A, T18-02B) | Task 18 disposition + audit revision 1 |
-| Readiness          | `NOT_READY`                                                                                                                                                           | Task 18 §7                             |
-| Local check matrix | green — 596 tests, 593 pass, 3 todo, 0 fail, 3713 expectations                                                                                                        | `bun test` at the commit above         |
+| Measure            | Value                                                                                                                                                                      | Source                                 |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| §12 cases          | 14 PASS, 2 PARTIAL (D-1, D-4), 2 BLOCKED (C-2, D-2), 0 NOT COVERED                                                                                                         | Task 17 audit, revision 2              |
+| Requirements       | 154 PASS, 9 PARTIAL, 8 BLOCKED, 5 NOT COVERED, 0 FAIL (176 total)                                                                                                          | Task 17 audit, revision 2              |
+| Decisions          | 4 APPROVED (incl. `T18-DEC-16`/`T18-DEC-17`), 13 OPEN                                                                                                                      | Task 18 decision register              |
+| Non-PASS items     | 22 in revision 2 (23 at the Task 17 baseline): N-138 and N-143 closed, N-176 new and not yet dispositioned by Task 18; remediation implemented: 2 tasks (T18-02A, T18-02B) | Task 18 disposition + audit revision 2 |
+| Readiness          | `NOT_READY`                                                                                                                                                                | Task 18 §7                             |
+| Local check matrix | green — 596 tests, 593 pass, 3 todo, 0 fail, 3713 expectations                                                                                                             | `bun test` at the commit above         |
 
-Three statuses need a caveat:
+Four statuses need a caveat:
 
 - **C-1 is PASS in audit revision 1.** Task 17 recorded it as NOT COVERED because at its commit no Assessment recorded `PARENT_UNRESOLVED`; revision 1 re-audits all four C-1 assertions at `1440ca4` and moves the case to PASS. The PASS covers construction and admission only: retention and publication remain caller-managed and `T18-DEC-15` / the publication-ownership question stay OPEN, outside §12 C-1's Expected Result.
 - **§8.8 is PARTIAL in audit revision 1.** The revision inventories the §8.8 `MUST NOT` about explicit path enumeration as N-176; `discoverPaths` enumerates every simple path, so the requirement is not satisfied on the literal reading. Whether the public per-path result makes enumeration part of the required result is the open question in #25 / `T18-SPEC-01`.
+- **C-2.a2 is PASS in audit revision 2.** T18-02B implemented the approved `T18-DEC-16` Option D emission; revision 2 moves N-143 and `CASE-C-2.a2` to PASS. The C-2 **case** stays BLOCKED on `CASE-C-2.a3` (CORE-003 / `T18-DEC-13`), and the self-loop sub-decision remains OPEN.
 - **D-4** gained a future-authorization boundary test after the audit; that test does not assert §12 D-4's second MUST, so the PARTIAL status stands.
 
 ## Check matrix
@@ -69,7 +70,7 @@ These are undefined in Rev 0.3.3. Implementing them silently would turn an inter
 | Why is the architecture shaped this way?               | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                                               |
 | What is the protocol requirement?                      | [`docs/CORE-001.md`](docs/CORE-001.md)                                                                       |
 | What was audited, at which commit, and what was found? | [`docs/audits/2026-10-31-core-001-task-17/`](docs/audits/2026-10-31-core-001-task-17/)                       |
-| Which audit revision is current, and what changed?     | [`docs/audits/2026-10-31-core-001-task-17-revision-1/`](docs/audits/2026-10-31-core-001-task-17-revision-1/) |
+| Which audit revision is current, and what changed?     | [`docs/audits/2026-10-31-core-001-task-17-revision-2/`](docs/audits/2026-10-31-core-001-task-17-revision-2/) |
 | What is each gap dispositioned to?                     | [`docs/audits/2026-10-31-core-001-task-18/`](docs/audits/2026-10-31-core-001-task-18/)                       |
 | What is planned, and in what order?                    | [`docs/ROADMAP.md`](docs/ROADMAP.md) and the Task 18 remediation roadmap                                     |
 | How was each plan task closed?                         | [Implementation plan](docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md) — historical tracker |
