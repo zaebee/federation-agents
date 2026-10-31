@@ -1,7 +1,7 @@
 # Decision Register — Task 18
 
 **Audit base:** `2a83c65`.
-**Status of decisions:** 2 APPROVED (`T18-DEC-01`, `T18-DEC-02`); 13 OPEN.
+**Status of decisions:** 2 APPROVED (`T18-DEC-01`, `T18-DEC-02`); 13 OPEN at the Task 18 baseline, plus `T18-DEC-16` and `T18-DEC-17` registered after that baseline — **15 OPEN**.
 
 This register records the normative and boundary questions. Approved resolutions are recorded in §3; all other decisions remain OPEN.
 
@@ -34,6 +34,25 @@ Status values: `APPROVED` (explicit project-owner approval recorded here) or `OP
 | **T18-DEC-13** | How is grant suppression observed if grants belong to CORE-003? | §11.2, §13, §14.2 | — | CORE-003 owner | CORE-003 acceptance criteria and observable evidence | C-2.a3 remains BLOCKED; C-2 cannot close | N-145, CASE-C-2.a3, T18-10 | — | OPEN |
 | **T18-DEC-14** | Who performs independent implementation compatibility, and what evidence closes §16? | §16 | — | project owner | Independent implementation/audit plan and acceptance criteria | N-170/N-175 remain NOT COVERED; readiness cannot be READY | N-170, N-175, T18-11 | — | OPEN |
 | **T18-DEC-15** | Does `ContinuityAssessment.parent_version_ids` denote the full declared parent set for `(subject_version_id, declared_relation)`, or only the subset covered by the Assessment? | §6.2, §6.2.1, §5.2, §8.5, §8.6 | `T18-DEC-01` (recording obligation), `T18-DEC-02` (ownership) | spec editor | Normative reading of “оценка декларации”, the plural `parent_version_ids`, per-edge applicability in §8.5/§8.6, and the B-3 per-edge examples; proposed wording; any amendment via `T18-SPEC-01` | Option B remains a local choice; no normative claim about parent coverage; a future clarification may require adapter/validator change | Normative closure of parent-coverage semantics (not T18-02A build) | `OPTION-B-LOCAL` (non-normative local disposition) | **OPEN** |
+| **T18-DEC-16** | What is the subject of an Assessment recording `CYCLE_DETECTED` — the closing edge, a node, or the strongly connected component — and what exact Assessment shape and provenance identify the record? | §11.2, §12 C-2, §6.2.1, §6.2.2, §8.8 | Related, not blockers: `T18-DEC-01`/`02` (approved), `T18-DEC-13` (C-2.a3, after recording), `T18-DEC-15` (parent coverage, OPEN), `T18-DEC-17` (publication/retention, OPEN) | spec editor + project owner | `T18-09E` decision package; approval of the subject model and shape; `T18-02B` AEBE from the adapter boundary | `T18-02B` stays BLOCKED; N-143 and CASE-C-2.a2 stay NOT COVERED; C-2 stays BLOCKED | `T18-02B` | recommend Option D — one Assessment per affected lineage edge (`T18-09E` §7); not approved | **OPEN** |
+| **T18-DEC-17** | Who owns publication and retention of an Assessment, and what does that require for the C-2 evidence? | §6.2, §11.1, §11.2, §12 C-1/C-2 | Related, not blockers: `T18-DEC-02` (canonical scope: storage caller-managed, publication/retention OPEN), `T18-DEC-16` (recording shape) | spec editor + project owner | `T18-09E` decision package §7.7; boundary statement for storage, publication and retention; AEBE statement of what is persisted | No claim that an Assessment is published or retained is valid; recording itself is not blocked | readiness/publication claims (`T18-13`, `T18-11`), not `T18-02B` | recommends that `T18-DEC-02`'s caller-managed storage stands and publication/retention be assigned to the caller boundary; not approved | **OPEN** |
+
+*Column semantics:* **`Distinct from` lists related decisions, not approval prerequisites.** Only **`Blocks`** names what a decision's approval gates — for `T18-DEC-16` that is `T18-02B` only; `T18-DEC-13`, `T18-DEC-15` and `T18-DEC-17` are related questions and do not have to be resolved first.
+
+### T18-DEC-16 — C-2 subject model and Assessment shape/provenance (registered after the baseline, OPEN)
+
+Registered in response to the independent audit (issue #55). The baseline register listed "C-2 subject model" and "exact Assessment shape/provenance" as id-less open items; this decision gives them an identifier, an owner, options and closure evidence, with two sub-parts:
+
+- **16.a — subject model:** closing edge, node, or strongly connected component;
+- **16.b — exact shape and provenance:** `subject_version_id`, `parent_version_ids`, `declared_relation`, claim list, method fields.
+
+Evidence, candidate models, adversarial cases and a reviewed recommendation are in `decision-packages/T18-09E-c2-subject-model/`. Approval of this decision unblocks `T18-02B` and depends on no other decision: `T18-DEC-13` (later C-2.a3 evidence), `T18-DEC-15` (parent coverage) and `T18-DEC-17` (publication/retention) are related questions, not prerequisites. This section approves nothing and does not change any Task 18 baseline status. An approval also does not make the Option D subset reading of `parent_version_ids` normative: `T18-DEC-15` remains OPEN and may impose a different rule.
+
+### T18-DEC-17 — publication and retention ownership (registered after the baseline, OPEN)
+
+Split out of the original `T18-DEC-16` draft because the register has one status per decision and `T18-02B` must not wait for a storage decision. It asks what remains OPEN under `T18-DEC-02`'s canonical scope statement: who persists, publishes and retains an Assessment beyond the caller-managed storage already approved.
+
+Approval of `T18-DEC-16` is enough to record the C-2 Assessment; this decision blocks any claim that the record is *published* or *retained*, and applies to the readiness/publication evidence (`T18-13`, `T18-11`) rather than to `T18-02B`.
 
 ## 3. Approved decisions
 
@@ -72,10 +91,9 @@ The `Resolution` column is the register's generic field name. For `T18-DEC-15` i
 
 ### Still open
 
-- C-2 Assessment subject model: SCC, node, or edge. Edge-level is a proposal only.
-- Exact Assessment data shape and provenance contract.
-- Persistent storage, publication and retention ownership.
-- C-2 `CYCLE_DETECTED` admission policy (T18-02B; not part of T18-02A).
+- **C-2 subject model and Assessment shape/provenance — registered as `T18-DEC-16`** (OPEN; evidence, models and the reviewed Option D recommendation in `decision-packages/T18-09E-c2-subject-model/`). Model and shape are no longer id-less; the recommendation is not approved.
+- **Publication and retention ownership — registered as `T18-DEC-17`** (OPEN). Persistent storage remains caller-managed under `T18-DEC-02`; what remains is publication and retention.
+- C-2 `CYCLE_DETECTED` admission policy (T18-02B; not part of T18-02A) — depends on `T18-DEC-16`.
 - Parent-coverage semantics (`T18-DEC-15`).
 - C-2.a3 grant suppression and other cross-specification decisions, including CORE-003.
 
