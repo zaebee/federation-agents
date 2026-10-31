@@ -264,9 +264,9 @@ interface EvaluationRecord {
 
 `EvaluationRef`, `InputSetRef`, `ContextRef`, `PolicyRef`, `PredicateRef`,
 `RequirementRef`, and `DeclarationProvenance` are opaque reference types. Each
-carries an identifier and, where the contract states it, a version and/or digest.
-Their concrete encoding is API design work; the contract requires only that the
-references are resolvable and distinguish the claims they identify.
+carries a non-empty identifier and, where the contract states it, a version and/or
+digest. Their concrete encoding is API design work; the contract requires only that
+the references are resolvable and distinguish the claims they identify.
 
 ### 6.3 Context dispositions and derived sets
 
@@ -408,14 +408,17 @@ function pairKey(pair: PairRef, order: 'UNORDERED_CANONICAL' | 'ORDERED'): PairK
 
 `compareIds` uses lexicographic ordering by UTF-16 code unit. `JSON.stringify`
 provides an injective encoding for string pairs, so IDs containing delimiters
-cannot collide. `AssessmentID` is constrained to `string` for this contract;
-`compareIds` and `pairKey` are defined only for that type.
+cannot collide. `AssessmentID` is constrained to a non-empty `string` for this
+contract; empty identifiers are invalid, and `compareIds`/`pairKey` are defined only
+for that type.
 
 - In `UNORDERED_CANONICAL` mode, `(A, B)` and `(B, A)` have the same `PairKey`.
 - In `ORDERED` mode, order is part of the key; reversed pairs are distinct.
 - Duplicate expected pairs, duplicate pair evaluations, and reversed duplicates are
   detected by `PairKey`.
-- Canonical ordering is ascending `PairKey`.
+- Canonical ordering is ascending `PairKey` for derived views. Stored
+  `expected_pairs` and `pair_evaluations` arrays MAY be in any order; E9 constrains
+  derived key order, not serialisation order.
 - Expected pairs in `UNORDERED_CANONICAL` are stored with `left < right`.
 
 #### Construction modes
@@ -439,6 +442,18 @@ For `RULE_SELECTED`:
 `PAIRWISE_ALL_CONSIDERED` MUST NOT be combined with `pair_order = ORDERED`. The
 ordered expected universe is not defined by this contract; it remains OPEN and is
 available only through `RULE_SELECTED` with an explicit orientation rule.
+
+For `expected_pairs ⊆ pairs(considered)`:
+
+- `UNORDERED_CANONICAL`: `pairs(considered)` is the set of unordered distinct pairs
+  of `considered` IDs;
+- `ORDERED`: `pairs(considered)` is the set of ordered pairs of distinct `considered`
+  IDs, including both orientations.
+
+`RULE_SELECTED` MAY legitimately yield an empty `expected_pairs`. In that case
+`pair_coverage_status = NO_PAIRS`; `predicate_execution_status = NOT_INVOKED` if a
+predicate is configured, otherwise `NOT_CONFIGURED`. Empty rule output is not a
+configuration error, but the rule refs and evidence remain required.
 
 The default `PAIRWISE_ALL_CONSIDERED` is **PROPOSED**.
 
@@ -549,7 +564,7 @@ A Finding remains a detection result, not a Ruling or resolution.
 |---|---|
 | **`record_schema_version`** | Identifies the record contract version (e.g. `dec-06-evaluation-record@1`). Not an evaluation identity |
 | **`record_id`** | Identity of this record. Uniqueness is validated across a record set, not by inspecting an isolated record; not globally unique |
-| **`evaluation_ref`** | Identity of the evaluation configuration/input tuple. Not a unique execution ID; repeated executions of the same configuration/input may share it |
+| **`evaluation_ref`** | Identity of the evaluation configuration/input tuple. Not a unique execution ID; repeated executions of the same configuration/input may share it. MUST be distinct when `input_set_ref`, `context_ref`, `policy_ref`, `predicate_ref`, or `requirement_ref` differs; exact composition remains OPEN |
 | **`context_ref`** | Identity of the policy/context declaration |
 | **`input_set_ref`** | Binding to the supplied input set; not proof of completeness |
 | **`structural_validation`** | Record-internal consistency validation |
@@ -567,8 +582,11 @@ A Finding remains a detection result, not a Ruling or resolution.
   and E21. It does not check E2 or E20's evidence-binding clause.
 - `evidence_validation.status = PASSED` requires non-empty `validator_ref` and
   `evidence_ref`, satisfaction of E2 and E20's evidence-binding clause, and
-  resolvability of the origin/symmetry evidence references. It is separate from
-  structural validation.
+  resolvability of the origin/symmetry evidence references. It MUST also verify
+  that every `SymmetryCheck.evidence_ref` contributing to a symmetry status is
+  resolvable and relevant, and that a `MECHANISM_ASSERTED` attestation binds the
+  claimed `evaluation_ref` and `expected_pairs`. It is separate from structural
+  validation.
 - `symmetry_verification.status = VERIFIED` requires the `MATCH`-check evidence
   defined in §6.11; `MECHANISM_ASSERTED` requires the attestation evidence defined
   there.
@@ -585,9 +603,11 @@ A Finding remains a detection result, not a Ruling or resolution.
   `evidence_validation.status = PASSED`.
 - A record is **evidence-validated** only if `evidence_validation.status = PASSED`.
   Evidence validation does not imply core origin or structural acceptance.
-- An external record may be `structurally_validated_external`; structural validation
-  does not imply core origin, evidence validation, completeness, policy legitimacy,
-  or predicate semantic correctness.
+- An external record with `claimed_origin = EXTERNAL` and
+  `structural_validation.status = PASSED` is structurally validated with external
+  origin; there is no separate `structurally_validated_external` field. Structural
+  validation does not imply core origin, evidence validation, completeness, policy
+  legitimacy, or predicate semantic correctness.
 
 ### 6.11 Symmetry verification
 
@@ -616,9 +636,11 @@ comparison = MATCH          if forward_status and reverse_status are terminal an
 - `forward_status` MUST equal the `pair_evaluations` status for the same pair
   orientation: the canonical orientation in `UNORDERED_CANONICAL`, or the exact
   `(left, right)` orientation of the check in `ORDERED`.
-- `reverse_status` is trace-only unless the reversed pair is itself an expected
-  pair (possible only with `RULE_SELECTED` + `ORDERED`); in that case it MUST equal
-  that pair's `pair_evaluations` status.
+- `reverse_status` MUST always be evaluated and recorded for the `comparison`
+  derivation. It is not an independent expected-pair result and is not counted in
+  `terminalKeys`/`failedKeys` unless the reversed pair is itself an expected pair
+  (possible only with `RULE_SELECTED` + `ORDERED`); in that case it MUST equal that
+  pair's `pair_evaluations` status.
 - `comparison` is derived from the two statuses; a serialised value must match.
 - `evidence_ref` is mandatory for every check that contributes to `VERIFIED`,
   `OBSERVED_MATCH`, `OBSERVED_MISMATCH`, `VIOLATION`, or `INCONCLUSIVE`. A failed or
@@ -635,7 +657,7 @@ comparison = MATCH          if forward_status and reverse_status are terminal an
 | **`OBSERVED_MISMATCH`** | At least one `MISMATCH` exists; `symmetry_declaration ≠ SYMMETRIC` |
 | **`VERIFIED`** | `pair_order = UNORDERED_CANONICAL`; `expected_pairs` is non-empty; every expected pair is covered by a `MATCH` check with `evidence_ref`; `symmetry_declaration = SYMMETRIC` |
 | **`VIOLATION`** | `pair_order = UNORDERED_CANONICAL`; at least one `MISMATCH` with `evidence_ref` exists; `symmetry_declaration = SYMMETRIC` |
-| **`MECHANISM_ASSERTED`** | `pair_order = UNORDERED_CANONICAL`; `expected_pairs` is non-empty; `pair_coverage_status = COVERED`; `predicate_execution_status = INVOKED`; `symmetry_declaration = SYMMETRIC`; `mechanism_ref` and `evidence_ref` bind to `evaluation_ref` and `expected_pairs`; no `MISMATCH` check exists |
+| **`MECHANISM_ASSERTED`** | `pair_order = UNORDERED_CANONICAL`; `expected_pairs` is non-empty; `pair_coverage_status = COVERED`; `predicate_execution_status = INVOKED`; `symmetry_declaration = SYMMETRIC`; `mechanism_ref` and `evidence_ref` bind to `evaluation_ref` and `expected_pairs`; no `MISMATCH` check exists; no recorded check has `comparison = INCONCLUSIVE` |
 | **`INCONCLUSIVE`** | At least one check with `evidence_ref` was performed; no `MISMATCH`; either not all expected pairs are covered or at least one comparison is `INCONCLUSIVE` |
 
 When `expected_pairs` is empty, `symmetry_verification.status` MUST be `NOT_PERFORMED`; it cannot be `VERIFIED`, `OBSERVED_MATCH`, or `MECHANISM_ASSERTED` vacuously.
@@ -660,14 +682,17 @@ approved.
 
 **Precedence:** if any `symmetry_check` has `comparison = MISMATCH`, the status MUST
 be `VIOLATION` when `symmetry_declaration = SYMMETRIC`, otherwise
-`OBSERVED_MISMATCH`. `MECHANISM_ASSERTED` and `VERIFIED` are impossible in that
-case.
+`OBSERVED_MISMATCH`. If any recorded check has `comparison = INCONCLUSIVE`,
+`INCONCLUSIVE` takes precedence over `MECHANISM_ASSERTED`; `MECHANISM_ASSERTED` is
+permitted only when every recorded check is `MATCH`. `VERIFIED` and
+`MECHANISM_ASSERTED` are impossible when a `MISMATCH` or `INCONCLUSIVE` comparison
+exists.
 
 ### 6.12 Structural invariants
 
 | ID | Invariant |
 |---|---|
-| **E1** | No duplicate IDs within any single list |
+| **E1** | No duplicate IDs within any single list; all `AssessmentID` values are non-empty strings |
 | **E2** | `structural_candidates` contains only IDs present in the input set referenced by `input_set_ref` |
 | **E3** | The `assessment_id` set of `context_disposition_facts` equals `structural_candidates` exactly; no extra or missing facts; absent `policy_ref`/`context_ref` inherit the parent, present values equal the parent |
 | **E4** | Every structural candidate has exactly one `ContextDispositionFact` |
@@ -682,8 +707,8 @@ case.
 | **E13** | `predicate_execution_status` matches the definitions in §6.8 |
 | **E14** | Only the legal status combinations in §9.2 are permitted |
 | **E15** | Derived `conflict_findings` equals the canonical `CONFLICT` projection of `pair_evaluations`; no stored duplicate may conflict with it |
-| **E16** | `VERIFIED` requires non-empty `expected_pairs`, full `MATCH` check coverage with `evidence_ref`, `symmetry_declaration = SYMMETRIC`, and `UNORDERED_CANONICAL`; `MECHANISM_ASSERTED` requires `COVERED` + `INVOKED` + `SYMMETRIC` + evidence binding + no `MISMATCH`; any `MISMATCH` forces `VIOLATION` (with `evidence_ref`) or `OBSERVED_MISMATCH`; `INCONCLUSIVE` requires evidence on its performed checks; `ORDERED` permits observation statuses only; `expected_pairs = ∅` implies `NOT_PERFORMED` |
-| **E17** | `record_schema_version`, `record_id`, `evaluation_ref`, `input_set_ref`, `context_ref`, and `policy_ref` are present; `record_id` uniqueness is validated at record-set level |
+| **E16** | `VERIFIED` requires non-empty `expected_pairs`, full `MATCH` check coverage with `evidence_ref`, `symmetry_declaration = SYMMETRIC`, and `UNORDERED_CANONICAL`; `MECHANISM_ASSERTED` requires `COVERED` + `INVOKED` + `SYMMETRIC` + evidence binding + no `MISMATCH` and no `INCONCLUSIVE` check; any `MISMATCH` forces `VIOLATION` (with `evidence_ref`) or `OBSERVED_MISMATCH`; any `INCONCLUSIVE` check forces `INCONCLUSIVE` over `MECHANISM_ASSERTED`; `ORDERED` permits observation statuses only; `expected_pairs = ∅` implies `NOT_PERFORMED` |
+| **E17** | `record_schema_version`, `record_id`, `evaluation_ref`, `input_set_ref`, `context_ref`, and `policy_ref` are present; `record_id` uniqueness is validated at record-set level; `evaluation_ref` is distinct whenever `input_set_ref`, `context_ref`, `policy_ref`, `predicate_ref`, or `requirement_ref` differs |
 | **E18** | No winner, preferred, canonical, resolved, selected-branch, or resolution field is present |
 | **E19** | `origin_verification.status = VERIFIED` requires non-empty `mechanism_ref` and `evidence_ref`; `structural_validation.status = PASSED` requires non-empty `validator_ref` and `evidence_ref`; `evidence_validation.status = PASSED` requires non-empty `validator_ref` and `evidence_ref`; origin, structural, evidence, and symmetry references MUST be distinct and MUST NOT be reused across claims unless a combined-evidence type is defined; `structural_validation = PASSED` certifies record-internal consistency and non-empty references only, while `evidence_validation = PASSED` is defined separately in §6.10 and §6.13 |
 | **E20** | `PAIRWISE_ALL_CONSIDERED` implies no selection-rule refs and `pair_order = UNORDERED_CANONICAL`; `RULE_SELECTED` implies rule ref, version, and evidence ref, `expected_pairs ⊆ pairs(considered)`, and the evidence binds rule version, input, and output |
@@ -865,16 +890,18 @@ PARTIAL` with `predicate_execution_status = NOT_INVOKED` and
 `VERIFIED` requires full expected-pair coverage by `MATCH` checks with evidence,
 `SYMMETRIC` declaration, and `UNORDERED_CANONICAL` mode. `MECHANISM_ASSERTED` requires
 full pair coverage, `INVOKED`, `SYMMETRIC`, `UNORDERED_CANONICAL`, and attestation
-evidence binding the mechanism to `evaluation_ref` and `expected_pairs`. `VIOLATION`
-requires a `MISMATCH` under `SYMMETRIC`; `OBSERVED_MISMATCH` records a `MISMATCH`
-without a symmetry claim. `INCONCLUSIVE` covers partial coverage, a `FAILED` side,
-or no decisive comparison. A single canonical evaluation is never `VERIFIED`.
+evidence binding the mechanism to `evaluation_ref` and `expected_pairs`.
+`INCONCLUSIVE` takes precedence over `MECHANISM_ASSERTED` when any recorded check is
+`INCONCLUSIVE`. `VIOLATION` requires a `MISMATCH` under `SYMMETRIC`;
+`OBSERVED_MISMATCH` records a `MISMATCH` without a symmetry claim. `INCONCLUSIVE`
+covers partial coverage, a `FAILED` side, or no decisive comparison. A single
+canonical evaluation is never `VERIFIED`.
 
 ### 9.4 Invariant matrix
 
 | Invariant | Check | Failure consequence |
 |---|---|---|
-| **E1** | No duplicate IDs in any list | Structural invalidation |
+| **E1** | No duplicate IDs in any list; IDs non-empty | Structural invalidation |
 | **E2** | Structural candidates derived from `input_set_ref` | Binding invalid; record incomplete |
 | **E3** | Context fact IDs equal `structural_candidates` exactly | Structural invalidation |
 | **E4** | Exactly one context disposition fact per structural candidate | Structural invalidation |
@@ -889,8 +916,8 @@ or no decisive comparison. A single canonical evaluation is never `VERIFIED`.
 | **E13** | Predicate status matches definitions | Status invalidation |
 | **E14** | Only legal status combinations | Record invalid |
 | **E15** | Derived findings equal CONFLICT projection; no stored duplicate | Finding invalid |
-| **E16** | Symmetry status matches declaration/coverage/evidence; `MECHANISM_ASSERTED` is attestation only | Symmetry claim invalid |
-| **E17** | Schema version and identity refs present; record-set uniqueness explicit | Record invalid |
+| **E16** | Symmetry status matches declaration/coverage/evidence; `INCONCLUSIVE` outranks `MECHANISM_ASSERTED`; `MECHANISM_ASSERTED` is attestation only | Symmetry claim invalid |
+| **E17** | Schema version and identity refs present; record-set uniqueness explicit; evaluation_ref bound to constituent refs | Record invalid |
 | **E18** | No winner/canonical/resolved/selected-branch/resolution field | Structural invalidation |
 | **E19** | VERIFIED/PASSED require mechanism/validator/evidence refs; refs are distinct across origin/structural/evidence/symmetry; structural PASSED is internal only | Status invalid |
 | **E20** | Pair-construction mode matches rule refs, `pair_order`, and `expected_pairs ⊆ pairs(considered)` | Record invalid |

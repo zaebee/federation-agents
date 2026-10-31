@@ -1,7 +1,7 @@
 # T18-09A — Assurance Semantics Decision Package
 
 **Status:** Supplemental evidence, alternatives and recommendations. **Neither decision is approved.**
-**Repository revision:** `454af8c` (`main`, T18-02A merged).
+**Repository revision:** `454af8c` (package base; the DEC-06 v2.5 addendum is layered on top and is tracked in PR #63).
 **Task 17:** historical evidence; unchanged by this package.
 **Package type:** documentation only. No source, test, specification, configuration or CI change.
 
