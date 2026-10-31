@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { RuntimeLifecycleEvent, RuntimeRegistry } from '../../src/core/runtime.js';
 import { createRuntimeLifecycleEvent, createRuntimeRegistry, recordRuntimeEvent } from '../../src/core/runtime.js';
+import { validateRuntimeInstanceDescriptor } from '../../src/core/entities.js';
 import { identityVersionId, runtimeInstanceId, timestamp } from '../../src/core/primitives.js';
 import { BASE_TIME } from '../support/fixtures.js';
 import { failureEvent, runtimeDescriptor, runtimeRegistry } from '../support/runtime.js';
@@ -98,13 +99,23 @@ describe('RuntimeLifecycleEvent', () => {
     }
   });
 
-  test('allows an empty RuntimeInstanceID consistently with the entity validator', () => {
-    const registry = runtimeRegistry(runtimeDescriptor(''));
-    const event = failureEvent('');
-    const updated = expectOk(recordRuntimeEvent(registry, event));
+  test('rejects an empty RuntimeInstanceID consistently with the entity validator', () => {
+    const descriptor = validateRuntimeInstanceDescriptor({
+      id: runtimeInstanceId(''),
+      identity_version_id: identityVersionId('iv-a-1'),
+      execution_context_ref: 'context-1',
+      instantiated_at: timestamp(BASE_TIME),
+    });
+    expect(descriptor.ok).toBe(false);
+    if (!descriptor.ok) {
+      expect(descriptor.error.kind).toBe('MECHANISM');
+      expect(descriptor.error.message).toContain('expected non-empty string');
+    }
 
-    expect(updated.events()).toHaveLength(1);
-    expect(updated.stateOf(runtimeInstanceId(''))).toBe('RUNNING');
+    const event = createRuntimeLifecycleEvent({ runtime_instance_id: runtimeInstanceId(''), kind: 'FAILURE' });
+    expect(event.ok).toBe(false);
+
+    expect(createRuntimeRegistry([rawRuntime('')]).ok).toBe(false);
   });
 
   test('rejects arrays with extra or symbol properties', () => {

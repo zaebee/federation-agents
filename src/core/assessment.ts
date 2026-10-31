@@ -508,7 +508,8 @@ export function evaluateAssurance(
   }
 
   const disallowedClaims = new Set(requirement.disallowed_claims ?? []);
-  const missing = requirement.required_claims.filter((claim) => !verified.has(claim)).sort(compareStrings);
+  const requiredClaims = [...new Set(requirement.required_claims)];
+  const missing = requiredClaims.filter((claim) => !verified.has(claim)).sort(compareStrings);
   const disallowed = [...verified].filter((claim) => disallowedClaims.has(claim)).sort(compareStrings);
 
   if (missing.length > 0 || disallowed.length > 0) {
@@ -732,7 +733,11 @@ function admitAssessments(
   const cycles = validateNoSupersessionCycles(links, candidates);
   if (!cycles.ok) return cycles;
 
-  return { ok: true, value: Object.freeze([...base, ...candidates]) };
+  // The stored representation is canonical (sorted by assessment_id), so two
+  // admission orders of the same set serialise identically. Supersession does
+  // not depend on order.
+  const ordered = [...base, ...candidates].sort(compareAssessments);
+  return { ok: true, value: Object.freeze(ordered) };
 }
 
 /**

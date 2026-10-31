@@ -87,6 +87,9 @@ export function createRuntimeLifecycleEvent(value: unknown): Result<DeepReadonly
   if (!known.ok) return known;
   const runtimeInstanceId = requireString(json.value.runtime_instance_id, '$.runtime_instance_id');
   if (!runtimeInstanceId.ok) return runtimeInstanceId;
+  if (runtimeInstanceId.value.length === 0) {
+    return invalid('$.runtime_instance_id', 'expected non-empty string');
+  }
   if (json.value.kind !== 'FAILURE') {
     return invalid('$.kind', 'expected FAILURE');
   }

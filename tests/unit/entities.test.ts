@@ -2,6 +2,7 @@ import { describe, test, expect } from 'bun:test';
 import { isOk, isFailure, mechanismFailure, specFailure, CanonicalizationError } from '../../src/core/errors.js';
 import {
   validateCredentialDescriptor,
+  validateIdentityVersionDescriptor,
   validateLineageLink,
   validateParticipantRecord,
   validateRuntimeInstanceDescriptor,
@@ -224,5 +225,48 @@ describe('entity constructors', () => {
 
     expect(result.value.algorithm_family).toBe('ed25519');
     expect(result.value.usage).toEqual(['SIGNING']);
+  });
+});
+
+function rawDescriptor(): Record<string, unknown> {
+  return {
+    id: identityVersionId('iv-1'),
+    participant_id: participantId('participant-a'),
+    version_label: '1.0.0',
+    version_scheme: 'SEMVER_2',
+    declared_protocols: [],
+    public_credentials: [],
+    lineage: [],
+    published_at: timestamp(BASE_TIME),
+  };
+}
+
+describe('identifier discipline', () => {
+  test('descriptor identifiers must be non-empty', () => {
+    for (const field of ['id', 'participant_id', 'version_label'] as const) {
+      const result = validateIdentityVersionDescriptor({ ...rawDescriptor(), [field]: '' });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.kind).toBe('MECHANISM');
+        expect(result.error.message).toContain('expected non-empty string');
+      }
+    }
+  });
+
+  test('participant, credential, lineage and runtime identifiers must be non-empty', () => {
+    expect(validateParticipantRecord({ ...rawParticipant(), id: '' }).ok).toBe(false);
+    expect(validateParticipantRecord({ ...rawParticipant(), home_domain: '' }).ok).toBe(false);
+    expect(validateCredentialDescriptor({ ...rawCredential(), credential_id: '' }).ok).toBe(false);
+    expect(validateCredentialDescriptor({ ...rawCredential(), public_key_canonical: '' }).ok).toBe(false);
+    expect(validateLineageLink({ ...rawLineageLink(), parent_version_id: '' }).ok).toBe(false);
+    expect(validateRuntimeInstanceDescriptor({ ...rawRuntime(), id: '' }).ok).toBe(false);
+  });
+
+  test('two descriptors cannot collide through an empty id, because neither validates', () => {
+    const first = validateIdentityVersionDescriptor({ ...rawDescriptor(), id: '' });
+    const second = validateIdentityVersionDescriptor({ ...rawDescriptor(), id: '', version_label: '2.0.0' });
+
+    expect(first.ok).toBe(false);
+    expect(second.ok).toBe(false);
   });
 });

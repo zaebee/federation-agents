@@ -195,6 +195,17 @@ function requireString(value: JsonValue | undefined, path: string): Result<strin
   return { ok: true, value };
 }
 
+function requireNonEmptyString(value: JsonValue | undefined, path: string): Result<string> {
+  const result = requireString(value, path);
+  if (!result.ok) {
+    return result;
+  }
+  if (result.value.length === 0) {
+    return invalid(path, 'expected non-empty string');
+  }
+  return result;
+}
+
 function requireTimestamp(value: JsonValue | undefined, path: string): Result<Timestamp> {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return invalid(path, 'expected finite timestamp');
@@ -254,9 +265,9 @@ export function validateCredentialRevocationRecord(value: unknown): Result<DeepR
   const known = rejectUnknownFields(object.value, REVOCATION_FIELDS, '$');
   if (!known.ok) return known;
 
-  const credential = requireString(object.value.credential_id, '$.credential_id');
+  const credential = requireNonEmptyString(object.value.credential_id, '$.credential_id');
   if (!credential.ok) return credential;
-  const revokedBy = requireString(object.value.revoked_by_domain, '$.revoked_by_domain');
+  const revokedBy = requireNonEmptyString(object.value.revoked_by_domain, '$.revoked_by_domain');
   if (!revokedBy.ok) return revokedBy;
   const revokedAt = requireTimestamp(object.value.revoked_at, '$.revoked_at');
   if (!revokedAt.ok) return revokedAt;

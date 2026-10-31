@@ -403,6 +403,7 @@ function validateRuntimeInstanceDescriptor(value: unknown): Result<DeepReadonly<
 **Semantics**
 
 - Each validator runs `validateJsonValue`, rejects unknown fields at every level, rejects present-`undefined` optional fields (via strict JSON validation), builds the record and deep-freezes it.
+- Identifier fields must be non-empty strings: descriptor `id`, `participant_id`, `version_label`; participant `id`, `home_domain`; credential `credential_id`, `issuer_domain`, `algorithm_family`, `public_key_canonical`; lineage `parent_version_id`; runtime `id`, `identity_version_id`, `execution_context_ref`. Strict JSON accepts `''`, so this is an explicit boundary rule (`E_UNKNOWN_BOUNDARY_REJECTED`). Without it two distinct records could share an identifier and one would silently displace the other in a descriptor hash or a graph node.
 - Validators do **not** enforce normative lineage semantics: cardinality, the CONTINUATION participant constraint, self-parent rejection and version-label grammar belong to `validateDescriptor`, `compileSelector` and `validateVersionLabel`.
 - `validateIdentityVersionDescriptor` accepts a descriptor whose parents are not registered. Delayed-parent handling belongs to the graph.
 - `credential.usage` is an array of known enum values; duplicates are preserved.
@@ -724,7 +725,7 @@ function registerOrphanAssessments(
 - `evaluateAssurance` first checks `WeakSet` membership. An unbranded value — including a structurally identical object, a forged string property or an object inheriting a branded one — returns a `MECHANISM` result (`status: 'MECHANISM'`, code `E_APPLICABLE_ASSESSMENTS_UNBRANDED`) before any assurance logic runs.
 - Trusted assessors resolve as `requirement.trusted_assessors ?? policy.trustedAssessorDefault ?? []`. There is no trust-all default; an empty list means no assessment is trusted.
 - Only trusted assessments contribute verified claims. If `policy.conflictPredicate` is defined and fires for any pair, the result is `CONTESTED`; this check runs before the missing/disallowed computation. By default the predicate is `undefined`, so `CONTESTED` is unreachable.
-- `missing` is the sorted set of required claims absent from the union of verified claims; `disallowed` is the sorted set of verified claims listed in `disallowed_claims`. Either non-empty yields `UNSATISFIED` with `ERR_ASSURANCE_PREDICATE_UNSATISFIED` and the fixed `note`. No negative finding about a claim is established.
+- `missing` is the sorted set of required claims absent from the union of verified claims; duplicate entries in `required_claims` are collapsed first, symmetric with `disallowed_claims`. `disallowed` is the sorted set of verified claims listed in `disallowed_claims`. Either non-empty yields `UNSATISFIED` with `ERR_ASSURANCE_PREDICATE_UNSATISFIED` and the fixed `note`. No negative finding about a claim is established.
 - `unverified_claims` is not read by assurance evaluation at all: it neither supports nor refutes a required claim. Only `verified_claims` count.
 - `validateContinuityAssessment` is the generic runtime validator. It uses strict JSON/ownership validation, rejects unknown fields, requires the §6.2.1 fields, checks the relation enum, requires non-empty strings for identifiers, parent IDs, claims and evidence references, rejects duplicate/self parents, and requires a finite `assessed_at`. The non-empty rule for claims and evidence is a local safety decision, not an additional normative CORE-001 requirement. It returns an owned, deeply frozen copy. It does not interpret claim semantics.
 - `registerAssessment` is copy-on-write and validates its `unknown` successor before admission. It rejects `PARENT_UNRESOLVED` in either claim list with `E_UNKNOWN_BOUNDARY_REJECTED`; that claim is admission metadata, not claim semantics, and requires the C-1 contextual path. A self-supersession or a supersession chain that would cycle returns `CYCLE_DETECTED`; a duplicate `assessment_id` or unknown `supersedes_assessment_id` returns `E_UNKNOWN_BOUNDARY_REJECTED`. Existing records are copied and frozen, never mutated.
@@ -732,6 +733,7 @@ function registerOrphanAssessments(
 - `PARENT_UNRESOLVED` is declaration-scoped, not edge-scoped. `assessEdge` may return the same Assessment for a resolved edge and an unresolved edge in the same declaration; that applicability does not make the resolved edge unresolved. `unverified_claims` remains unread by assurance evaluation.
 - Batch admission checks duplicate IDs within the batch, against `existing`, and within `existing` itself; validates supersession references against the complete prospective state; and rejects cycles. On failure it returns no new representation; `existing` is unchanged. Callback side effects and caller-managed persistence are outside Core atomicity.
 - Supersession does not remove the predecessor from applicability and there is no "latest wins" rule. Choosing between a predecessor and its successor is left to `Policy.applicableAssessments`.
+- The admitted representation is sorted by `assessment_id`, so two arrival orders of the same set serialise identically. Supersession semantics do not depend on that order.
 
 **Failure modes:** `E_APPLICABLE_ASSESSMENTS_UNBRANDED`, `E_UNKNOWN_BOUNDARY_REJECTED`, `E_OWNERSHIP_UNSUPPORTED`, `E_JSON_VALUE_INVALID`, `CYCLE_DETECTED`, and the `UNSATISFIED`/`CONTESTED` values above.
 
@@ -958,6 +960,7 @@ function evaluateBinding(
 - `validatePath` and `validateMergeClosure` also require **every path edge to exist in the supplied graph**; otherwise they return `E_UNKNOWN_BOUNDARY_REJECTED`. `discoverPaths` output is in-graph by construction, and `evaluateBinding` evaluates only discovered paths. The traversal functions therefore accept a structurally valid graph — including one rebuilt by the caller — and verify the path against it; they do not require builder provenance. `isBuiltLineageGraph` stays module-internal and is required only where Core admits records (the C-1 batch path).
 - `validatePath` returns `CYCLE_DETECTED` when any node on the path belongs to a cyclic SCC of `graph.cycles`, before evaluating any edge.
 - `evaluateBinding` returns `ERR_AUTHORITY_BINDING_MISMATCH` for a participant mismatch or a selector mismatch; selector syntax, scheme and label problems are mechanism failures.
+- `evaluateBinding` rejects a duplicate descriptor id in `state.descriptors` with `E_UNKNOWN_BOUNDARY_REJECTED`; taking the first match would make the result depend on array order.
 - `evaluateBinding` returns `ERR_NO_TRAVERSAL_PATH` with empty `details` when discovery fails; discovered paths always produce `details.perPath`, including on success.
 - `closure` is present only when the path-level outcome is `VALID`. Closure is not evaluated for an `INVALID`, `CONTESTED` or `CYCLE_DETECTED` path.
 
@@ -1154,6 +1157,7 @@ function recordRuntimeEvent(
 **Semantics**
 
 - `createRuntimeRegistry` validates an array of `RuntimeInstanceDescriptor` values, rejects duplicate ids, and returns a branded, frozen registry with an empty event list.
+- An empty `runtime_instance_id` is rejected by both the descriptor validator and `createRuntimeLifecycleEvent`: strict JSON permits empty strings, so identifier discipline is an explicit boundary rule.
 - `createRuntimeLifecycleEvent` validates the only event kind CORE-001 needs for D-1: `FAILURE`. The full event format is CORE-002.
 - `recordRuntimeEvent` requires a branded registry and a branded event, rejects events for unknown runtimes, and returns a new registry with copied descriptors and a copied event list. Existing events and descriptors are never mutated or shared. Events are not deduplicated because CORE-001 defines no event identity.
 - `stateOf` returns `RUNNING` for a known runtime and `undefined` otherwise. Recording a failure does **not** transition lifecycle state; this is why `rt-1` still reports `RUNNING` in D-1 while the failure is recorded as a separate event.
@@ -1442,7 +1446,7 @@ Discovery failure short-circuits earlier with `ERR_NO_TRAVERSAL_PATH` and empty 
 
 ### 3.5 Determinism
 
-The following are sorted or order-independent: graph nodes, graph edges, unresolved parent lists, cycle components, adjacency lists, discovered paths, closure branches, closure failures, applicable assessments, `missing`, `disallowed` and `contestedClaims`. Storage order, edge insertion order, descriptor lineage order and assessment arrival order do not change the result. P1–P3 assert this; B-7 asserts it for all six permutations of a three-assessment set.
+The following are sorted or order-independent: graph nodes, graph edges, unresolved parent lists, cycle components, adjacency lists, discovered paths, closure branches, closure failures, applicable assessments, `missing`, `disallowed` and `contestedClaims`. Storage order, edge insertion order, descriptor lineage order and assessment arrival order do not change the result. P1–P3 assert this; B-7 asserts it for all six permutations of a three-assessment set. Admission order does not change the admitted representation either: the assessment store is sorted by `assessment_id`. The acceptance ledger and the runtime event store are append-only histories, so their order is arrival order by design and no evaluation reads them as a set.
 
 ### 3.6 Scope versus closure
 
