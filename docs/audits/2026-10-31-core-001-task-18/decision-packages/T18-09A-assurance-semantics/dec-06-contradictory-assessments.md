@@ -1,6 +1,7 @@
 # T18-DEC-06 — Contradictory Trusted Assessments
 
 **Status: OPEN. Recommendation only. Not approved.**
+**Decision-support addendum:** `dec-06-owner-decision-addendum-v2.5.md` (PROPOSED; does not change this package's status or Task 17 results).
 **Related ambiguity:** `AMBIG-A-4b`.
 **Task 17:** N-078 **BLOCKED**, N-107 **BLOCKED**, N-172 **PARTIAL**.
 **Related but separate:** N-079 / `T18-DEC-10` (contested-claim decision gating), `A-8` (aggregation precedence), `T18-DEC-15` (parent coverage).
