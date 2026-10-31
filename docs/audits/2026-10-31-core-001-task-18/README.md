@@ -15,7 +15,7 @@ Task 18 does not:
 - change Task 17 statuses or findings;
 - modify `docs/CORE-001.md`, source, tests, or configuration;
 - implement remediation;
-- infer approvals beyond the two explicitly recorded decisions; all other decisions remain OPEN;
+- infer approvals beyond the four explicitly recorded decisions (`T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16`, `T18-DEC-17`); all other decisions remain OPEN;
 - claim that a plan closes a gap.
 
 ## 2. Method

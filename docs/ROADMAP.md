@@ -95,7 +95,7 @@ The protocol core is implemented through immediate merge closure and scope × cl
 | 12   | Done   | Property-based tests: determinism, order independence, brute-force equivalence |
 | 17   | Done (audit) | Assertion-level conformance audit recorded in the audit trail; verdict `NOT_READY`. Counts and per-case status: [`STATUS.md`](../STATUS.md) |
 
-The audit replaced Task 17's planned "final report and tag": no `uia-core-001-refimpl-0.1.0` tag was created, and no full-conformance claim was made. Its findings were dispositioned in Task 18 (`docs/audits/2026-10-31-core-001-task-18/`), which is now the live remediation track. Audit revision 1 (`docs/audits/2026-10-31-core-001-task-17-revision-1/`) moves C-1 to PASS and §8.8 to PARTIAL; Task 17 files remain frozen.
+The audit replaced Task 17's planned "final report and tag": no `uia-core-001-refimpl-0.1.0` tag was created, and no full-conformance claim was made. Its findings were dispositioned in Task 18 (`docs/audits/2026-10-31-core-001-task-18/`), which is now the live remediation track. Audit revision 1 (`docs/audits/2026-10-31-core-001-task-17-revision-1/`) moves C-1 to PASS and §8.8 to PARTIAL; revision 2 (`docs/audits/2026-10-31-core-001-task-17-revision-2/`) moves C-2.a2 and N-143 to PASS while the C-2 case stays BLOCKED on `CASE-C-2.a3`. Task 17 files remain frozen.
 
 **Exit criteria for P3:**
 
