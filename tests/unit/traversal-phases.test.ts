@@ -268,56 +268,42 @@ describe('discoverPaths (phase 1)', () => {
     const a = participant('participant-a');
     const b = participant('participant-b');
     const dave = participant('participant-d');
-    const origin = descriptor({ id: 'iv-a-1', participant: 'participant-a' });
-    const x = descriptor({ id: 'iv-x', participant: 'participant-b', lineage: [link('iv-y', 'CONTINUATION')] });
-    const y = descriptor({
-      id: 'iv-y',
+    const origin = descriptor({ id: 'iv-base', participant: 'participant-a' });
+    const loop = descriptor({
+      id: 'iv-loop',
       participant: 'participant-b',
-      lineage: [link('iv-x', 'CONTINUATION'), link('iv-a-1', 'CONTINUATION')],
+      lineage: [link('iv-back', 'CONTINUATION')],
     });
-    const good = descriptor({ id: 'iv-good', participant: 'participant-a', lineage: [link('iv-a-1', 'CONTINUATION')] });
-    const candidate = descriptor({
-      id: 'iv-d',
+    const back = descriptor({
+      id: 'iv-back',
+      participant: 'participant-b',
+      lineage: [link('iv-loop', 'CONTINUATION'), link('iv-base', 'CONTINUATION')],
+    });
+    const clean = descriptor({
+      id: 'iv-clean',
+      participant: 'participant-a',
+      lineage: [link('iv-base', 'CONTINUATION')],
+    });
+    const root = descriptor({
+      id: 'iv-root',
       participant: 'participant-d',
-      lineage: [link('iv-x', 'MERGED_FROM'), link('iv-good', 'MERGED_FROM')],
+      lineage: [link('iv-loop', 'MERGED_FROM'), link('iv-clean', 'MERGED_FROM')],
     });
-    const graph = buildLineageGraph(registry([a, b, dave], [origin, x, y, good, candidate]));
+    const graph = buildLineageGraph(registry([a, b, dave], [origin, loop, back, clean, root]));
 
-    const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId('iv-d'), identityVersionId('iv-a-1'));
+    const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId('iv-root'), identityVersionId('iv-base'));
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value).toHaveLength(2);
     expect(result.value.map(pathNodes)).toEqual([
-      ['iv-d', 'iv-good', 'iv-a-1'],
-      ['iv-d', 'iv-x', 'iv-y', 'iv-a-1'],
+      ['iv-root', 'iv-clean', 'iv-base'],
+      ['iv-root', 'iv-loop', 'iv-back', 'iv-base'],
     ]);
   });
 
   test('treats visited as path-local across sibling branches', () => {
-    const alice = participant('participant-a');
-    const bob = participant('participant-b');
-    const dave = participant('participant-d');
-    const a = descriptor({ id: 'iv-a-1', participant: 'participant-a', versionLabel: '1.0.0' });
-    const b = descriptor({
-      id: 'iv-b',
-      participant: 'participant-b',
-      versionLabel: '1.0.0',
-      lineage: [link('iv-a-1', 'FORKED_FROM')],
-    });
-    const c = descriptor({
-      id: 'iv-c',
-      participant: 'participant-a',
-      versionLabel: '1.0.0',
-      lineage: [link('iv-a-1', 'CONTINUATION')],
-    });
-    const d = descriptor({
-      id: 'iv-d',
-      participant: 'participant-d',
-      versionLabel: '2.0.0',
-      lineage: [link('iv-b', 'MERGED_FROM'), link('iv-c', 'MERGED_FROM')],
-    });
-    const graph = buildLineageGraph(registry([alice, bob, dave], [a, b, c, d]));
+    const graph = diamondState().graph;
 
     const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId('iv-d'), identityVersionId('iv-a-1'));
 
