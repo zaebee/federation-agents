@@ -1,6 +1,6 @@
 # T18-09F — N-176 Path Enumeration Decision Package
 
-**Status:** DRAFT — decision-support only. **Not approved.**
+**Status:** DRAFT — decision-support only. **Not approved.** Decision-ready revision added (`decision-ready-revision.md`); `T18-DEC-18` remains PROPOSED / OPEN.
 **Proposed decision:** `T18-DEC-18` — path-enumeration and equivalent-result semantics.
 **Repository revision:** `e01d77c` (`main`; Task 17 audit revision 1 and T18-09E merged).
 **Related:** issue #25, issue #53 / audit revision 1, `AMBIG-A-8`, `T18-SPEC-01`.
@@ -46,6 +46,9 @@ This package does not edit `decision-register.md`. A proposed register row is in
 | `n176-path-enumeration.md` | Normative analysis, current implementation, options, adversarial cases, recommendation, open sub-decisions, proposed register row, closure evidence |
 | `benchmark-procedure.md` | Reproducible merge-diamond generator and measurement procedure for the `2^k` case |
 | `evidence-index.md` | Normative, implementation, test and issue source index |
+| `adversarial-review.md` | Review of the draft against §8.4/§8.7/§8.8, the code and B-3/B-4/B-6; nine findings |
+| `decision-ready-revision.md` | The six required outcomes (contract equivalence, canonical witness, rejection proof, A-8 preservation, compatibility/migration, resource behaviour), each with statement, anchor, counterexample, resolution, compatibility impact and closure evidence |
+| `remaining-owner-questions.md` | The nine questions that genuinely need a project-owner decision, with a recommendation and the consequence of choosing otherwise |
 
 ## 5. Pre-decision clarification checklist
 
@@ -68,6 +71,8 @@ Before `T18-DEC-18` can be approved, the owner should settle three points that t
 
 The benchmark procedure is recorded separately so the `2^k` claim can be reproduced without relying on a scratch script.
 
+These three points are developed in `decision-ready-revision.md` §1–§4. The questions that still need an owner decision are listed in `remaining-owner-questions.md`; they are choices between readings and API strategies, not analysis gaps.
+
 
 ## 6. Summary
 
@@ -75,5 +80,5 @@ The benchmark procedure is recorded separately so the `2^k` claim can be reprodu
 - **Current implementation.** `discoverPaths` materialises every simple candidate→origin path; `evaluateBinding` validates every discovered path; the public `BindingResult` exposes `acceptedPaths` and `details.perPath` for every path. The enumeration is therefore an output lower bound, not only an internal implementation detail.
 - **Measured risk.** A chain of `k` merge diamonds yields `2^k` paths. Issue #25 records `k=16` → 65 536 paths / ~2.7 s; roughly 61 nodes can reach ~1 M paths. Input size is linear; output is exponential.
 - **Core ambiguity.** Whether `acceptedPaths` and `details.perPath` are part of the required normative result. If they are, N-176's conditional may not bite. If a compact validity result is equivalent, the current implementation violates N-176.
-- **Recommendation (not approved).** Adopt a compact binding result: one canonical accepted path plus closure evidence for acceptance; a deterministic failure witness for rejection; optional bounded diagnostic enumeration outside the required validity path. No new normative error code. A-8 precedence remains OPEN.
+- **Recommendation (not approved; specified in `decision-ready-revision.md`).** Adopt Reading B with a compact binding result: one canonical accepted path plus closure evidence for acceptance; a polynomial class-existence rejection proof that reproduces the current top-level code; diagnostics outside the required validity path. A versioned API is recommended over silently changing `BindingResult`. No new normative error code; A-8 precedence and A-14 remain OPEN. The remaining choices are in `remaining-owner-questions.md`.
 - **What this package does not do.** It does not approve `T18-DEC-18`, change Task 17 statuses, resolve A-8, change closure depth, or authorise implementation.
