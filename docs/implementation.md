@@ -1552,7 +1552,7 @@ Recursive closure — applying `ALL_BRANCHES_MUST_SATISFY` transitively inside p
 
 The §12 corpus has 18 cases: A-1…A-5, B-1…B-7, C-1, C-2, D-1…D-4.
 
-**Current status: C-1 and C-2.a2 are implemented with assertion-level evidence; C-2 remains BLOCKED on `CASE-C-2.a3` (CORE-003 / `T18-DEC-13`), so the corpus is not full conformance evidence.** C-1's assessment emission exists since T18-02A (`src/adapters/orphan-assessment.ts`); **audit revision 1 records C-1 as PASS at `1440ca4`**. C-2.a2 emission exists since T18-02B (`src/adapters/cycle-assessment.ts`, AEBE [`aebe/C-2.a2.md`](./audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md)); the grant-suppression assertion is a separate `test.todo` owned by CORE-003. See [`revision-1`](./audits/2026-10-31-core-001-task-17-revision-1/README.md) and [`STATUS.md`](../STATUS.md). No document, commit message or report may claim full §12 conformance.
+**Current status: C-1 and C-2.a2 are implemented with assertion-level evidence; C-2 remains BLOCKED on `CASE-C-2.a3` (CORE-003 / `T18-DEC-13`), so the corpus is not full conformance evidence.** C-1's assessment emission exists since T18-02A (`src/adapters/orphan-assessment.ts`); **audit revision 1 records C-1 as PASS at `1440ca4`**. C-2.a2 emission exists since T18-02B (`src/adapters/cycle-assessment.ts`, AEBE [`aebe/C-2.a2.md`](./audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md)); **audit revision 2 records `CASE-C-2.a2` and N-143 as PASS at `c0abdf0`**, while the C-2 case stays BLOCKED on `CASE-C-2.a3` (CORE-003); the grant-suppression assertion is a separate `test.todo`. See [`revision-1`](./audits/2026-10-31-core-001-task-17-revision-1/README.md), [`revision-2`](./audits/2026-10-31-core-001-task-17-revision-2/README.md) and [`STATUS.md`](../STATUS.md). No document, commit message or report may claim full §12 conformance.
 
 ### 4.2 Category A — `tests/conformance/a.test.ts`
 
@@ -1594,7 +1594,7 @@ Describe blocks: `§12 Category B: conditional binding and traversal (Task 9 sub
 
 **Audit status.** Task 17 recorded C-1 as NOT COVERED because at its commit no Assessment recorded `PARENT_UNRESOLVED`. Revision 1 re-audits the case at `1440ca4`: all four C-1 assertions are asserted against the current tests, and the case is **PASS**. The PASS covers construction and admission; retention and publication remain caller-managed (`T18-DEC-15` and the publication-ownership question are OPEN) and are outside §12 C-1's Expected Result. See [`revision-1`](./audits/2026-10-31-core-001-task-17-revision-1/README.md).
 
-Why C-2 remains BLOCKED: §12 C-2 requires an Assessment that records `CYCLE_DETECTED` **and** suppression of dependent grants. C-2.a2 evidence now exists (T18-02B, AEBE [`aebe/C-2.a2.md`](./audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md)); suppression is CORE-003 (`T18-DEC-13`) and has no referent in this repository by design. Task 17 statuses are unchanged: the case stays BLOCKED until a re-audit revision records a2 and the CORE-003 boundary.
+Why C-2 remains BLOCKED: §12 C-2 requires an Assessment that records `CYCLE_DETECTED` **and** suppression of dependent grants. C-2.a2 evidence now exists (T18-02B, AEBE [`aebe/C-2.a2.md`](./audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md)); audit revision 2 records `CASE-C-2.a2` and N-143 as **PASS**, while the case stays BLOCKED because suppression is CORE-003 (`T18-DEC-13`) and has no referent in this repository by design.
 
 **Partial, non-substitute coverage.** `tests/unit/lineage-graph.test.ts` asserts graph-level facts that C-1/C-2 depend on:
 
@@ -1949,7 +1949,7 @@ Recorded as `D-007` in the Task 17 register and dispositioned as `T18-12` (docum
 
 ### 9.5 What remains unverified
 
-- C-2.a2 has assertion-level evidence (T18-02B, `docs/audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md`), but the C-2 case stays BLOCKED on `CASE-C-2.a3` (CORE-003 / `T18-DEC-13`). C-1 is PASS in audit revision 1; its retention/publication ownership remains unresolved and is outside the case's Expected Result.
+- C-2.a2 is PASS in audit revision 2 (T18-02B, `docs/audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md`), but the C-2 case stays BLOCKED on `CASE-C-2.a3` (CORE-003 / `T18-DEC-13`). C-1 is PASS in audit revision 1; its retention/publication ownership remains unresolved and is outside the case's Expected Result.
 - §8.8's non-enumeration `MUST NOT` (N-176, revision 1) is PARTIAL: `discoverPaths` enumerates every simple path. Adjudication is #25 / `T18-SPEC-01`, not a test edit.
 - Recursive closure and origin closure are blocked interpretations.
 - Default conflict detection is absent.

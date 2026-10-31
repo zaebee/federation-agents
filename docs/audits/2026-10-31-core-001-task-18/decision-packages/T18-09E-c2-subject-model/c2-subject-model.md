@@ -260,7 +260,7 @@ Rationale: it adopts the T18-01 recommendation rather than replacing it; no sche
 2. **The contextual admission path** for `CYCLE_DETECTED`, mirroring C-1: the generic guard at `src/core/assessment.ts:60` rejects the claim on every path while C-2 is blocked; the approved model turns it into "rejected on the generic path, admitted only through the cycle path".
 3. **AEBE from the adapter boundary** (package root, not a hand-constructed fixture), as `T18-02A` did for C-1, with Core validation and admission evidence.
 
-Approval was recorded on 2026-10-31 in `decision-register.md` §3, and `T18-02B` is implemented with AEBE in `docs/audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md`. Closure evidence for `N-143`/`CASE-C-2.a2` is that implementation plus AEBE, pending a re-audit revision; C-2 remains BLOCKED on `CASE-C-2.a3`. `T18-DEC-17`'s boundary statement is the caller-owned publication/retention scope. Task 17 statuses change only through a re-audit revision, not here.
+Approval was recorded on 2026-10-31 in `decision-register.md` §3, and `T18-02B` is implemented with AEBE in `docs/audits/2026-10-31-core-001-task-18/aebe/C-2.a2.md`. Closure evidence for `N-143`/`CASE-C-2.a2` is that implementation plus AEBE; audit revision 2 records them PASS, while C-2 remains BLOCKED on `CASE-C-2.a3` (CORE-003). `T18-DEC-17`'s boundary statement is the caller-owned publication/retention scope. Task 17 statuses change only through a re-audit revision, not here.
 
 ---
 
