@@ -56,6 +56,7 @@ T18-13 depends on AEBE, not on a specific implementation task.
 | T18-09C | specification decision | N-128; T18-DEC-09 | none | `EXTERNAL_READINESS` | P2 | Trusted-time requirement definition | Normative requirement before external mechanism | Review |
 | T18-09D | specification decision | N-172; T18-DEC-06 | T18-09A (A-4b decision) | `CORE-001_RUNTIME` | P2 | N-172 readiness evidence decision | Conflict tests only after approved predicate | Review |
 | T18-09E | specification/design | C-2 subject model; `T18-DEC-16`/`T18-DEC-17` | none | `CORE-001_RUNTIME` | P1 | C-2 subject-model decision package (evidence, models, approval record) | `T18-DEC-16` and `T18-DEC-17` approved 2026-10-31 (register §3) | Review |
+| T18-09F | specification/design | N-176; §8.8; `T18-DEC-18` (proposed) | none | `CORE-001_RUNTIME` | P1 | N-176 path-enumeration decision package | Package recorded; N-176 remains PARTIAL until owner decision and re-audit; no implementation | Review |
 | T18-10 | cross-spec integration | N-026, N-145, N-156, N-169, N-174; T18-DEC-11/12/13 | receiving owners | `CROSS_SPEC` (N-145 `AUTHORITY_BOUNDARY`) | P3 | Handoff records | Receiving spec and acceptance criteria named | Review |
 | T18-11 | external | N-170, N-175; T18-DEC-14 | none | `EXTERNAL_READINESS` | P3 | External audit plan | Independent evidence criteria defined | Review |
 | T18-12 | documentation-only | D-001…D-008 | audit acceptance | `CORE-001_RUNTIME` | P3 | Corrected `docs/implementation.md`/plan statuses | No Task 17 edits | `bun run format:check` (docs excluded) + review |
@@ -71,6 +72,10 @@ The project owner approved `T18-DEC-01 = REQ-LOCAL` and `T18-DEC-02 = OWN-ADAPTE
 ### T18-09E — C-2 subject model decision package (registered; DEC-16/DEC-17 approved)
 
 Package: `decision-packages/T18-09E-c2-subject-model/`. Records `T18-DEC-16` (subject model and exact shape/provenance; Option D — one Assessment per affected lineage edge) and `T18-DEC-17` (publication/retention ownership). Both were **approved on 2026-10-31**; the canonical record is `decision-register.md` §3. `T18-02B` is unblocked. No Task 17 status changes here.
+
+### T18-09F — N-176 path-enumeration decision package (draft)
+
+Package: `decision-packages/T18-09F-n176-path-enumeration/`. Prepares a proposed `T18-DEC-18` for the §8.8 `MUST NOT` on explicit path enumeration. It records current enumeration behavior, the `2^k` merge-diamond risk, the full-per-path-result vs compact-equivalent-result readings, and options (cap, compact result, lazy, hybrid). **N-176 remains PARTIAL; `T18-DEC-18` is proposed and not registered/approved.** No implementation is authorised by the package.
 
 ### T18-02A — C-1 adapter emission (implemented; acceptance evidence in AEBE)
 
