@@ -1,0 +1,512 @@
+мержим
+
+---
+
+да сделай плиз чистку того, что можешь и что безопасно
+
+---
+
+гуд. идем дальше=)
+---
+# Task T18-01 — Assessment Emission Decision Package
+
+## Mode
+
+**Plan Mode only.** Repository investigation and decision-package planning.
+
+Do not implement anything. Do not modify source code, tests, normative specifications, or Task 17 audit artifacts.
+
+## Context
+
+We are working on UIA-CORE-001 Rev 0.3.3.
+
+Task 17 (Full CORE-001 Conformance Verification) is merged. Its final audit must remain historically unchanged.
+
+Task 18 is the approved follow-up: Conformance Gap Disposition & Remediation Roadmap.
+
+The approved Task 18 plan identifies two unresolved decisions:
+
+- **T18-DEC-01:** Does CORE-001 normatively require Assessment emission for the relevant orphan/unresolved-parent and cycle-detection conditions?
+- **T18-DEC-02:** If Assessment emission is required, which boundary owns it: CORE-001 Core API or the host adapter?
+
+These decisions affect the remediation path for:
+
+- **C-1:** Assessment emission for an unresolved/orphan parent condition.
+- **C-2.a2:** Assessment emission for a cycle-detection condition.
+- **C-2.a3:** Application/suppression of dependent grants, which is a separate CORE-003 concern and must not be conflated with Assessment emission.
+
+The current Task 17 statuses are historical facts and must not be rewritten:
+
+- Overall: 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL.
+- §12: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED.
+- C-1 is NOT COVERED.
+- C-2 is BLOCKED.
+- C-2.a1 (graph cycle detected) is PASS.
+- C-2.a2 (Assessment record with `CYCLE_DETECTED`) is NOT COVERED.
+- C-2.a3 (dependent grants not applied) is BLOCKED and belongs to a separate authority-boundary question.
+
+Do not reinterpret these historical statuses based on your own preferred architecture.
+
+## Objective
+
+Produce an evidence-backed decision package that allows the project owner to decide:
+
+1. Whether Assessment emission is a normative CORE-001 requirement for C-1 and C-2.a2.
+2. If it is required, whether the Core API or host adapter owns emission.
+3. What exact decision-register entries should be recorded for T18-DEC-01 and T18-DEC-02.
+4. Which remediation branch follows from each possible decision.
+
+This is an investigation and recommendation, not an implementation task. Keep unresolved normative questions OPEN unless the repository provides sufficient evidence to resolve them.
+
+## Investigation scope
+
+Read the actual repository state, not just the Task 18 plan.
+
+At minimum inspect:
+
+1. `docs/CORE-001.md`
+   - §11.1
+   - §11.2
+   - §12, especially C-1 and C-2
+   - §16 where relevant
+2. Task 17 audit artifacts:
+   - `docs/audits/2026-10-31-core-001-task-17/`
+3. Task 18 artifacts:
+   - `docs/audits/2026-10-31-core-001-task-18/`
+4. Implementation:
+   - Assessment types and constructors
+   - Traversal and graph validation
+   - Cycle detection
+   - Orphan/unresolved-parent handling
+   - Public Core API exports, including `src/core/index.ts`
+   - Relevant tests and test fixtures
+
+Locate the exact implementation paths and call sites. Do not infer behavior from filenames or type names alone.
+
+## Questions to answer
+
+### A. Is Assessment emission normatively required?
+
+For each case independently:
+
+**C-1 — unresolved/orphan parent**
+
+- What exact normative text applies?
+- Does it require the system to detect the condition only?
+- Does it require the condition to be represented as an Assessment?
+- Does it specify the Assessment claim, subject, provenance, or emission boundary?
+- Is the requirement explicit, implied by normative definitions, or absent/ambiguous?
+
+**C-2.a2 — cycle detection**
+
+- What exact normative text applies?
+- Does it require cycle detection only?
+- Does it require a `CYCLE_DETECTED` Assessment?
+- Does it specify where or by whom this Assessment must be produced?
+- Is the Assessment requirement explicit, implied, or absent/ambiguous?
+
+Do not treat a test expectation as normative evidence unless the specification itself establishes the requirement.
+
+Distinguish carefully between:
+
+- detecting a condition;
+- constructing an Assessment object;
+- emitting/registering an Assessment;
+- making an Assessment available to downstream consumers;
+- applying a downstream authority or grant consequence.
+
+These are different obligations.
+
+### B. Who owns emission, if required?
+
+Evaluate both ownership models:
+
+**Option 1 — Core API ownership**
+
+The Core API detects the relevant condition and constructs/emits the corresponding Assessment as part of its public behavior.
+
+**Option 2 — Host adapter ownership**
+
+Core exposes sufficient validated information about the condition. The host adapter constructs and emits the Assessment at the integration boundary.
+
+For each option, analyze:
+
+- normative fit with CORE-001;
+- consistency with the existing Core API and architecture;
+- provenance and trust implications;
+- whether the adapter can reliably distinguish the condition without reconstructing hidden internal state;
+- whether the implementation would require new public APIs or change existing contracts;
+- testability and conformance implications;
+- risk of duplicating or contradicting Core validation;
+- impact on other consumers of the Core library.
+
+Do not assume that an adapter-owned Assessment is valid merely because an adapter can construct the object.
+
+Do not assume that Core ownership is correct merely because the relevant detection currently happens inside Core.
+
+### C. No normative emission requirement
+
+Explicitly evaluate the third possible outcome:
+
+**Option 3 — CORE-001 does not normatively require Assessment emission.**
+
+If supported by the evidence:
+
+- explain what CORE-001 does require instead;
+- explain why C-1 and/or C-2.a2 cannot be treated as implementation gaps;
+- identify whether a clarification or normative amendment is still desirable;
+- explain the separate specification-change process needed to introduce such a requirement.
+
+Do not silently convert a missing normative requirement into an implementation task.
+
+### D. Relationship to C-2.a3
+
+Keep C-2.a3 separate throughout.
+
+Assessment emission (`C-2.a2`) does not prove that dependent grants are suppressed (`C-2.a3`).
+
+An Assessment object does not itself create, revoke, or suppress authority.
+
+Identify the CORE-003 dependency and explain why resolving T18-DEC-01/02 cannot independently close C-2.
+
+## Required deliverables
+
+Prepare a decision package under:
+
+`docs/audits/2026-10-31-core-001-task-18/`
+
+Use a new subdirectory:
+
+`decision-packages/T18-01-assessment-emission/`
+
+Create the following files:
+
+### 1. `README.md`
+
+Include:
+
+- objective and scope;
+- repository revision/commit inspected;
+- files and implementation areas inspected;
+- concise executive conclusion;
+- decision status for DEC-01 and DEC-02;
+- recommended next action;
+- explicit statement that no implementation or normative change was made.
+
+### 2. `normative-analysis.md`
+
+For C-1 and C-2.a2 separately, include:
+
+- exact normative references;
+- short quotations only where necessary;
+- interpretation;
+- distinction between detection, construction, emission, and downstream use;
+- whether emission is explicit, implied, absent, or ambiguous;
+- evidence that supports and evidence that weakens the interpretation.
+
+Clearly separate normative text from your interpretation.
+
+### 3. `implementation-analysis.md`
+
+Document:
+
+- actual execution paths;
+- relevant types, functions, constructors, and exports;
+- current behavior;
+- what information is available at the Core/adapter boundary;
+- whether each ownership model is technically feasible;
+- required API or implementation changes under each model.
+
+Cite exact file paths and line numbers. Do not make claims about runtime behavior without tracing the relevant code.
+
+### 4. `decision-recommendation.md`
+
+Compare all three outcomes:
+
+1. Core-owned emission;
+2. adapter-owned emission;
+3. no normative emission requirement.
+
+Include:
+
+- advantages;
+- disadvantages;
+- normative risks;
+- implementation risks;
+- compatibility risks;
+- unresolved questions;
+- recommended option and rationale.
+
+A recommendation is not an approved decision. Keep DEC-01 and DEC-02 OPEN unless there is unambiguous authority in the specification to close them.
+
+### 5. `decision-register-proposal.md`
+
+Provide exact proposed entries for:
+
+- `T18-DEC-01`
+- `T18-DEC-02`
+
+For each entry include:
+
+- question;
+- current status;
+- relevant evidence;
+- possible outcomes;
+- recommendation;
+- decision owner/action required;
+- consequences for the remediation roadmap.
+
+Do not mark either decision APPROVED or CLOSED.
+
+### 6. `remediation-branch-map.md`
+
+Describe the next steps for all possible decision paths.
+
+**Path A — Core ownership**
+
+- T18-02A: C-1 Core emission.
+- T18-02B: C-2.a2 Core emission.
+- Define the evidence required for the shared Assessment Emission Boundary Evidence (AEBE) deliverable.
+- Explain how T18-13 readiness depends on this evidence.
+
+**Path B — Adapter ownership**
+
+- T18-02C: adapter emission evidence.
+- Define how the adapter's responsibility and actual emission will be demonstrated.
+- Include negative evidence: resolved parent and acyclic graph must not produce the corresponding Assessment.
+- Explain how T18-13 readiness depends on this evidence.
+
+**Path C — No normative emission requirement**
+
+- Do not create implementation tasks for C-1/C-2.a2 merely to satisfy a test expectation.
+- Prepare a separate T18-SPEC-01 proposal if clarification or a normative amendment is desirable.
+- Require explicit approval and a subsequent conformance re-audit before changing historical conformance conclusions.
+- T18-13 must not treat the issue as resolved before the required decision and evidence exist.
+
+For all paths:
+
+- keep C-2.a3 separate;
+- preserve Task 17 statuses;
+- do not treat an accepted BLOCKED status as automatically READY;
+- distinguish a decision from evidence that the chosen design is actually implemented.
+
+## AEBE — Assessment Emission Boundary Evidence
+
+Treat AEBE as a shared evidence deliverable, not as an independent implementation task.
+
+Where applicable, require evidence of:
+
+1. The actual owning boundary produces the Assessment.
+2. The exact claim is correct:
+   - `PARENT_UNRESOLVED` (or the exact claim established by the specification) for C-1;
+   - `CYCLE_DETECTED` for C-2.a2.
+3. Negative cases do not produce the corresponding Assessment:
+   - resolved parent;
+   - acyclic graph.
+4. Assessment is validated and registered through the intended path.
+5. The graph and relevant descriptors remain unchanged by Assessment emission.
+6. The evidence comes from the actual owning boundary, not a hand-constructed Assessment fixture.
+7. The evidence identifies the implementation revision and reproducible test command.
+
+Do not invent claim names if the normative source uses different terminology. Record any mismatch as an explicit question.
+
+## Constraints
+
+- No source-code changes.
+- No test changes.
+- No changes to `docs/CORE-001.md`.
+- No edits to Task 17 audit artifacts.
+- No commits, branches, PRs, or merges.
+- No changes to existing Task 18 decisions or statuses outside this decision package.
+- Do not resolve ambiguity by implementation fiat.
+- Do not introduce a grant-producing API.
+- Do not introduce automatic revocation semantics.
+- Do not imply that Assessment, Credential, Lineage, or Local Acceptance grants authority.
+- Do not conflate identity lineage with authority inheritance.
+- Do not conflate event provenance, claim provenance, and artifact provenance.
+
+## Quality requirements
+
+- Every material claim must have a file path and line reference.
+- Separate specification facts, implementation facts, and your interpretation.
+- Record contradictory evidence rather than hiding it.
+- If a file, test, or implementation path cannot be inspected, mark it NOT VERIFIED.
+- Do not invent missing requirements or API behavior.
+- Do not use test names as proof of normative obligations.
+- Do not modify the original Task 17 rollups.
+- Do not turn a recommendation into an approved decision.
+- Keep the package concise enough to review, but sufficiently detailed to support an architectural decision.
+
+## Final response
+
+After preparing the package, report:
+
+1. Files created.
+2. Repository revision inspected.
+3. DEC-01 conclusion and status.
+4. DEC-02 conclusion and status.
+5. Recommended path.
+6. Any unresolved or NOT VERIFIED evidence.
+7. Confirmation that no source, tests, CORE-001, or Task 17 artifacts were modified.
+
+Stop after the decision package is prepared. Wait for explicit project-owner approval before starting any implementation or specification-change work.
+
+---
+
+# T18-01 Supplement — Adapter Boundary and Assessment Contract
+
+Continue the existing T18-01 investigation. Do not rewrite the package from scratch.
+
+The current recommendation is adapter-owned Assessment emission, but the investigation identified unresolved architectural questions that must be addressed before the decision package is ready for approval.
+
+## 1. Public API verification
+
+Verify whether `registerAssessment` is actually exported through `src/core/index.ts`.
+
+Distinguish:
+
+- public package API;
+- internal module export;
+- test-only/internal helper.
+
+Trace the import path an external host adapter would use.
+
+If the adapter must import an internal module, explicitly identify this as an API boundary gap.
+
+Do not describe an internal module export as an existing public integration contract.
+
+## 2. Assessment validation boundary
+
+The current implementation analysis says `registerAssessment` performs copy/freeze and duplicate/supersession checks but does not validate Assessment fields.
+
+Investigate:
+
+- which fields are structurally validated today;
+- which invariants are checked;
+- which invariants are not checked;
+- whether malformed Assessment objects can be registered;
+- whether any other public API validates these objects.
+
+Evaluate three possible validation owners:
+
+A. Core validator, called by the adapter.
+
+B. Host adapter performs validation under a normative contract.
+
+C. Assessment construction and validation are both owned by Core.
+
+For each option, identify required APIs, invariants, and tests.
+
+Do not assume that deep copy/freeze constitutes semantic validation.
+
+## 3. Define the minimum Assessment contract
+
+Analyze C-1 and C-2 separately.
+
+For C-1, identify the minimum information necessary to represent an unresolved-parent condition.
+
+For C-2, compare:
+
+- one Assessment per SCC;
+- one Assessment per cycle node;
+- one Assessment per affected lineage edge.
+
+For each model, discuss subject identity, parent references, provenance, determinism, duplicate handling, and downstream interpretation.
+
+Do not silently choose one model. If CORE-001 does not specify it, mark it as an explicit specification question.
+
+## 4. Reconcile normative obligation and implementation ownership
+
+Clarify the distinction between:
+
+- the normative obligation for a local assessment to record a condition;
+- the mechanism that constructs the Assessment;
+- the mechanism that validates it;
+- the mechanism that registers or exposes it.
+
+Propose a more precise wording for DEC-01 and DEC-02.
+
+DEC-01 may be recommended for approval based on the cited normative text, but do not mark it approved.
+
+DEC-02 must remain OPEN unless the public API and validation boundary are sufficiently established.
+
+## 5. Reassess AEBE
+
+Update AEBE acceptance criteria so that they explicitly identify:
+
+- Assessment construction owner;
+- Assessment validation owner;
+- registration/publication mechanism;
+- public API used;
+- positive and negative test evidence;
+- provenance and reproducibility requirements.
+
+A hand-constructed test fixture is not sufficient evidence of actual boundary behavior.
+
+## 6. Deliverable
+
+Create a supplemental section in the existing T18-01 package:
+
+`boundary-and-contract-analysis.md`
+
+Also propose minimal amendments to the existing decision recommendation and remediation branch map.
+
+Do not modify source, tests, CORE-001, Task 17 artifacts, or existing Task 18 decisions.
+
+Do not create implementation tasks yet.
+
+Keep all decisions OPEN and report any evidence that could not be verified.
+
+---
+
+# T18-01 Build Mode — Final Documentation Constraints
+
+Proceed with creating the six-file T18-01 decision package and the supplemental `boundary-and-contract-analysis.md`, applying the proposed amendments.
+
+Before writing, incorporate these additional requirements:
+
+1. Correct the public API finding everywhere:
+   - `registerAssessment` is publicly exported through `src/core/index.ts` and the package root.
+   - There is no public Assessment factory or semantic validator.
+   - Do not describe registration as an API boundary gap.
+
+2. Record validation bypass as an explicit architectural risk:
+   - Determine whether public `registerAssessment` can be called without first invoking a validator.
+   - Compare a separate validator with validation enforced inside `registerAssessment`.
+   - Do not silently assume that callers will always follow a `validate → register` convention.
+   - Record the recommended enforcement boundary as a proposal, not an approved decision.
+
+3. Keep the C-2 Assessment subject model OPEN:
+   - Compare SCC-, node-, and edge-level Assessment models.
+   - You may recommend one, but do not establish it as normative or implementation policy.
+   - Do not create implementation tasks that assume one model.
+
+4. Preserve the distinction between:
+   - construction;
+   - validation;
+   - registration;
+   - publication;
+   - downstream consumption.
+
+   Do not use these terms interchangeably.
+
+5. DEC-01 and DEC-02 remain OPEN.
+   - DEC-01 may carry a strong recommendation based on §11.1, §11.2 and §12.
+   - DEC-02 must remain unresolved until ownership and validation boundaries are approved.
+   - Adapter ownership is a recommendation, not an accepted architecture.
+
+6. Do not modify source code, tests, `docs/CORE-001.md`, Task 17 artifacts, or existing Task 18 decision statuses.
+
+7. After writing, perform a consistency check across all seven files:
+   - identical DEC-01/DEC-02 wording and status;
+   - consistent public API description;
+   - no accidental promotion of recommendations to decisions;
+   - no invented publication mechanism;
+   - no C-2 subject model silently selected;
+   - Task 17 rollups preserved exactly.
+
+Stop after documentation creation and consistency verification. Do not commit, create a PR, or start implementation.
+
+---
+
+делаем PR
