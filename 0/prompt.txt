@@ -1,0 +1,409 @@
+да записываем и мержим
+
+---
+
+# Task 15 — Local Acceptance + Ruling Preservation (D-2)
+
+Implement Task 15 of the approved UIA-CORE-001 Rev E (0.3.3) implementation plan.
+
+**Repository:** `zaebee/federation-agents`  
+**Normative source:** `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3  
+**Implementation plan:** `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`, Rev E  
+**Task:** 15 — Local Acceptance + ruling preservation, D-2.
+
+Task 14 is merged. Work from the current default branch and inspect the actual existing implementation before changing anything.
+
+## 1. Objective
+
+Implement §9 Local Acceptance and its lifecycle, with particular attention to D-2:
+
+- A Local Acceptance Record is an immutable normative act issued by a domain.
+- Lifecycle events are separate records and MUST NOT mutate the original acceptance decision.
+- Lifecycle transitions are evaluated relative to the previous state and an explicitly injected local policy.
+- There is no universal automatic transition policy.
+- Historical decisions and assessments remain preserved even when later events or assessments change the current evaluation.
+- A later credential revocation or superseding assessment must not rewrite historical rulings.
+- Local Acceptance is contextual; it is NOT a universal prerequisite for interactions and is NOT an Authority Grant.
+
+This is a pure reference implementation, not a distributed event system.
+
+## 2. Required files
+
+Create:
+
+- `src/core/acceptance.ts`
+- `src/core/ledger.ts`
+- `tests/unit/acceptance.test.ts`
+
+Extend:
+
+- `tests/conformance/d.test.ts` — add D-2 coverage in a separate `describe` block.
+
+Update exports:
+
+- `src/core/index.ts`
+- `src/index.ts`
+
+Do not modify unrelated Credential, RuntimeInstance, lineage, or traversal implementation.
+
+## 3. Normative data model — §9.1
+
+Implement `LocalAcceptanceRecord` using the exact normative fields:
+
+```ts
+type AcceptanceID = string;
+
+type AcceptanceDecision = 'ACCEPTED' | 'REJECTED';
+
+interface LocalAcceptanceRecord {
+  acceptance_id: AcceptanceID;
+  subject_version_id: IdentityVersionID;
+  accepting_domain: DomainID;
+  context_scope: string;
+  grounding_assessments: AssessmentID[];
+  decision: AcceptanceDecision;
+  policy_rule_ref: string;
+  decided_by_principal: string;
+  decided_at: Timestamp;
+}
+```
+
+Use the repository's existing branded ID types and conventions where available. Do not introduce incompatible duplicate ID types.
+
+Implement:
+
+```ts
+createLocalAcceptanceRecord(value: unknown): Result<DeepReadonly<LocalAcceptanceRecord>>
+```
+
+Requirements:
+
+- Validate the entire untrusted input before constructing a domain record.
+- Reject unknown fields and malformed structures.
+- Deep-copy and recursively deep-freeze the constructed record.
+- Mutating the caller's original input after construction MUST NOT affect the stored record.
+- Reject unsupported structures according to Global Constraint 5.
+- No public record or semantic result may expose unvalidated `unknown`.
+- Do not add fields to the normative record.
+- Do not put lifecycle state or lifecycle events inside the acceptance record.
+- Do not add a `ruling_id`, `revocation_id`, or other invented normative fields.
+
+The acceptance record is an immutable decision, not a mutable entity whose decision changes over time.
+
+## 4. Lifecycle model — §9.3
+
+Implement the normative states:
+
+```ts
+type AcceptanceLifecycleState =
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'REINSTATED'
+  | 'REVOKED'
+  | 'EXPIRED';
+```
+
+Implement the lifecycle event with exactly the normative fields:
+
+```ts
+interface LocalAcceptanceLifecycleEvent {
+  event_id: string;
+  acceptance_id: AcceptanceID;
+  new_state: AcceptanceLifecycleState;
+  transition_reason: string;
+  evidence_refs: string[];
+  effective_at: Timestamp;
+}
+```
+
+Lifecycle event validation must follow the same strict boundary and ownership rules as other public records.
+
+**Critical invariants:**
+
+1. An event MUST NOT mutate the corresponding `LocalAcceptanceRecord`.
+2. An event MUST NOT replace or rewrite an earlier event.
+3. An event is a separate historical record.
+4. A transition is evaluated relative to the previous lifecycle state.
+5. Transition validity is determined only by an injected local policy.
+6. The implementation MUST NOT invent a universal state-transition table or default policy.
+7. `effective_at` is a declared timestamp, not evidence that the timestamp is trusted.
+8. Timestamp selection follows `TemporalContext.basis`; timestamp trust remains a separate external assessment.
+
+Do not silently infer transition validity from enum ordering, timestamps, or event arrival order.
+
+## 5. Lifecycle API
+
+Implement the plan's interface:
+
+```ts
+applyLifecycle(
+  record: DeepReadonly<LocalAcceptanceRecord>,
+  event: DeepReadonly<LocalAcceptanceLifecycleEvent>,
+  previousState: AcceptanceLifecycleState,
+  ctx: TemporalContext,
+  policy?: LifecyclePolicy,
+): Result<AcceptanceLifecycleState>
+```
+
+The exact `LifecyclePolicy` shape should be derived from the existing `Policy` and temporal conventions in the repository. Keep it minimal and explicitly typed.
+
+Requirements:
+
+- Validate that the event refers to the supplied acceptance record.
+- Validate the input records and relevant lifecycle state.
+- Use `TemporalContext.basis` to select the declared timestamp relevant to the lifecycle query.
+- Do not derive timestamp trust from timestamp presence.
+- Do not treat `effective_at` as trusted merely because it exists.
+- When a policy is supplied, use it to determine whether the proposed transition is valid relative to `previousState`.
+- Do not invent transition rules when policy is absent.
+- Return a discriminated `Result`; do not use exceptions or bare booleans for semantic failures.
+- Preserve the normative/mechanism error distinction.
+
+**No implicit policy:** absence of a policy must not silently mean “allow all transitions” or “deny all transitions” as a universal semantic rule. Follow the approved plan's explicit distinction: lifecycle events can be recorded without a transition policy, but lifecycle queries require an explicit policy.
+
+If the exact behavior of an absent policy at a particular API boundary is not fully determined by the plan or spec, document the ambiguity and keep the mechanism conservative. Do not resolve it by inventing normative semantics.
+
+## 6. Contextual applicability — §9.2
+
+Implement:
+
+```ts
+isAcceptable(...)
+```
+
+The exact typed signature should be derived from the plan and existing repository conventions.
+
+It must answer a contextual applicability question, not a universal identity-validity question.
+
+Requirements:
+
+- Applicability is evaluated for the relevant subject, accepting domain, and context scope.
+- A policy must be explicitly supplied for a lifecycle-sensitive query.
+- Do not treat an acceptance record from another domain as binding on the local domain.
+- Do not assume that the existence of an acceptance record automatically means it applies to every interaction.
+- Do not make Local Acceptance a prerequisite for generic interactions.
+- Do not make Local Acceptance an Authority Grant.
+- Do not add any grant-producing API or capability semantics.
+
+The implementation must preserve the distinction between the historical decision and its current lifecycle applicability.
+
+## 7. In-memory append-only ledger — mechanism only
+
+Implement `src/core/ledger.ts` as a minimal pure in-memory mechanism for storing:
+
+- Local Acceptance Records;
+- Local Acceptance Lifecycle Events;
+- historical records needed to demonstrate D-2 preservation.
+
+The ledger is an implementation mechanism, not a new normative protocol entity and not CORE-002.
+
+Requirements:
+
+- Decisions and lifecycle events are stored separately.
+- Append operations do not mutate previously stored records.
+- Existing entries remain byte-identical after later appends.
+- The ledger owns deep-copied, deeply frozen records.
+- Do not expose mutable internal arrays or mutable references.
+- Do not implement persistence, network delivery, distributed consensus, event envelopes, signatures, or replay semantics.
+- Do not invent event deduplication or idempotency guarantees absent from the normative specification.
+- Do not add fields to normative records to make the ledger easier to implement.
+
+Use copy-on-write or another approach consistent with the existing ownership model. Keep the API minimal and strongly typed.
+
+If the precise ledger API is not prescribed, derive it from existing registry/assessment patterns and document it as a mechanism choice, not normative semantics.
+
+## 8. D-2 — required conformance scenario
+
+Implement D-2 in `tests/conformance/d.test.ts`.
+
+Scenario:
+
+1. A Credential is used for a historical action.
+2. An initial assessment supports a historical ruling/acceptance decision.
+3. A Local Acceptance Record is created and stored.
+4. Preserve a deep snapshot of:
+   - the original acceptance/ruling record;
+   - the original supporting assessment;
+   - the corresponding historical ledger state.
+5. Later, a `CredentialRevocationRecord` is registered.
+6. A new superseding `ContinuityAssessment` is registered, reflecting compromise or a contested historical basis.
+7. Perform a fresh evaluation using the updated information.
+8. The fresh evaluation must be able to return a compromised/contested result according to the existing Task 13 semantics and applicable policy.
+9. Verify that all historical records remain unchanged.
+
+Required assertions:
+
+- The original Local Acceptance Record is byte-identical before and after later events.
+- The original supporting assessment is byte-identical before and after supersession.
+- The original historical ruling/decision remains in the ledger.
+- The later lifecycle/revocation/assessment records are additional records, not replacements.
+- Fresh evaluation reflects the new evidence/assessment state.
+- Historical decision preservation does not force the fresh evaluation to remain positive.
+- No credential or identity descriptor is deleted or rewritten.
+- No authority grant is created, revoked, or inherited by this task.
+
+Do not fake the fresh compromised/contested result with a hardcoded Task 15 outcome. Reuse Task 13's actual evaluation semantics and explicit policy inputs.
+
+If the exact relationship between a CORE-001 Local Acceptance Record and a CORE-004 Ruling is not represented in the current model, preserve the distinction. Do not invent a CORE-004 Ruling type or claim that Local Acceptance implements the full CORE-004 model. Use the plan's D-2 terminology and explicitly document the boundary.
+
+## 9. Unit-test matrix
+
+`tests/unit/acceptance.test.ts` must cover at least:
+
+### Record construction and ownership
+- Valid ACCEPTED record.
+- Valid REJECTED record.
+- Missing required field.
+- Invalid decision discriminant.
+- Unknown field.
+- Malformed nested `grounding_assessments`.
+- Unsupported structures.
+- Caller mutation after construction does not affect the record.
+- Deep freeze prevents nested mutation.
+
+### Lifecycle event validation
+- Valid event for each lifecycle state.
+- Unknown fields rejected.
+- Invalid state rejected.
+- Invalid timestamp rejected.
+- Invalid evidence refs rejected.
+- Event ownership and deep immutability.
+- Event for a different acceptance ID rejected by lifecycle evaluation.
+
+### Policy-driven transitions
+- Explicit policy accepts a permitted transition.
+- Explicit policy rejects a forbidden transition.
+- Transition is checked against the supplied previous state.
+- Different policies can legitimately produce different outcomes.
+- No universal transition table is assumed.
+- Missing policy does not silently produce a semantic transition result.
+- TemporalContext basis selects the declared timestamp used by the lifecycle query.
+- Timestamp presence does not imply trust.
+- Trust assessment unavailable/unassessed/untrusted is not silently converted into trusted.
+
+### Ledger and history
+- Records and events stored separately.
+- Append preserves previous entries.
+- Stored records are deeply frozen.
+- Caller mutation cannot change ledger contents.
+- Returned collections cannot mutate internal ledger state.
+- Duplicate IDs / repeated events are handled only according to an explicitly documented mechanism decision; do not claim normative deduplication semantics.
+
+### Contextual applicability
+- Acceptance for one context does not automatically apply to another.
+- Acceptance from another domain is not automatically accepted locally.
+- ACCEPTED and REJECTED remain distinct historical decisions.
+- Lifecycle state affects applicability only through explicit policy.
+- Generic interactions do not require Local Acceptance by default.
+
+## 10. Explicit exclusions
+
+Do NOT:
+
+- Modify `docs/CORE-001.md`.
+- Resolve any existing BLOCKED ambiguity (A-4b, A-5 recursive closure, A-11 origin closure, A-9 trusted-time mechanism).
+- Implement CORE-002 event envelopes, delivery, provenance, persistence, or distributed ledger.
+- Implement CORE-003 grants, capabilities, delegation, or execution authorization.
+- Implement CORE-004 Evidence, Finding, Examination, or full Ruling semantics.
+- Add automatic revocation of identity, credentials, runtime instances, or authority.
+- Add a universal lifecycle transition policy.
+- Mutate historical Local Acceptance Records, assessments, or rulings.
+- Change Task 13 or Task 14 behavior to make Task 15 easier.
+- Introduce `any`, unvalidated `unknown` in public records, or runtime-specific imports in `src/core/`.
+
+Preserve all existing Global Constraints 1–18.
+
+## 11. Implementation process
+
+Follow the repository's existing test-first approach:
+
+1. Inspect current default branch, Task 13/14 APIs, `TemporalContext`, assessment supersession, ownership helpers, error model, and export conventions.
+2. Write failing unit tests for acceptance construction, lifecycle, policy behavior, and ledger immutability.
+3. Implement the smallest API that satisfies the normative contract.
+4. Add D-2 conformance coverage using the actual Credential and Assessment APIs.
+5. Run the complete test suite, not only Task 15 tests.
+6. Run:
+   - `bun test`
+   - `bun run typecheck`
+   - `bun run lint`
+   - `bun run format:check`
+   - `bun run build`
+   - `jscpd` (if configured)
+7. Inspect the final diff for scope creep and unintended changes.
+8. Update the approved implementation plan's Task 15 status/implementation notes only if that is the repository's established practice. Do not change the normative specification.
+9. Commit with:
+
+`feat(core): local acceptance records and lifecycle (D-2)`
+
+10. Open a PR. Do not merge it.
+
+## 12. Final report required
+
+Report:
+
+- Commit SHA and PR URL.
+- Files changed.
+- Public API signatures and export paths.
+- Exact Local Acceptance and lifecycle semantics implemented.
+- Ledger mechanism decisions, clearly distinguished from normative requirements.
+- D-2 assertions and how historical immutability was demonstrated.
+- Test counts, pass/fail/todo, assertion count.
+- Typecheck/lint/format/build/jscpd results.
+- Any deviations from Rev E.
+- Any unresolved ambiguities or behavior intentionally left blocked.
+- Confirmation that no normative spec changes, authority grants, CORE-002/003/004 semantics, or Task 13/14 regressions were introduced.
+
+**Completion criterion:** Task 15 is implemented and independently reviewable in an open PR. Do not claim D-2 conformance unless the historical-preservation assertions and fresh reevaluation assertions are both present and passing.
+
+---
+
+Да, согласен с обоими изменениями сигнатур. Более того, предложенный вариант семантически точнее буквального API из плана.
+
+Здесь важно сохранить границу между тремя разными результатами:
+
+- Mechanism / validation failure — `Result.err`: некорректные данные, нарушение инвариантов, исключение или сбой механизма.
+- Policy rejection — `Result.ok({ status: 'REJECTED', ... })`: политика рассмотрела переход и отказала.
+- Policy absence — `Result.ok({ status: 'POLICY_REQUIRED' })`: решение невозможно без явно заданной политики.
+
+Если свести последние два случая к `Result<AcceptanceLifecycleState>`, мы потеряем значимую информацию или начнём использовать ошибки не по назначению.
+
+### Решение по API
+
+
+
+APPROVED
+
+`applyLifecycle → Result<LifecycleTransition>`
+
+
+
+
+
+APPROVED
+
+`isAcceptable → Result<AcceptanceApplicability>`
+
+
+
+Остальные предложенные границы тоже поддерживаю:
+
+1. `effective_at` — входное значение для policy, но не доказательство доверенного времени.
+2. Отсутствие policy не превращается ни в allow-all, ни в deny-all.
+3. `ACTIVE` само по себе не означает `APPLICABLE`.
+4. Ledger сохраняет записи и события, но не интерпретирует порядок и не выводит текущее состояние.
+5. Повторный `event_id` не дедуплицируется: не следует придумывать семантику идентичности событий, которой нет в CORE-001.
+6. D-2 проверяет сохранность исторических данных отдельно от свежей оценки с учётом revocation. Не нужно изображать, будто Task 13 уже потребляет ContinuityAssessment.
+
+### Два небольших замечания перед реализацией
+
+1\. Исключения из policy callbacks.
+
+Если `allowsTransition()` или `isApplicable()` выбрасывает исключение, это должно быть mechanism failure, а не `REJECTED`. Иначе сбой исполнения политики будет неотличим от осознанного отказа. Не возвращать частичный результат.
+
+2\. Связь ledger и record.
+
+При `appendLifecycleEvent` проверять наличие `acceptance_id` в ledger — правильно. Но не выводить из этого автоматически допустимость перехода или актуальность события. Это остаётся задачей отдельного lifecycle evaluation с policy.
+
+### Итог
+
+План готов к реализации. Передай агенту эти две утверждённые сигнатуры и два уточнения выше. Task 15 можно запускать без изменения нормативного CORE-001. При ревью я отдельно проверю, что `isAcceptable` не превратился в глобальный gate, а ledger не стал незаявленной реализацией CORE-002.
