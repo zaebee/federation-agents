@@ -66,3 +66,28 @@ This is a traceability observation, not a new finding. Task 18 does not invent r
 - Task 17 §12 case statuses: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED.
 
 Any future correction to Task 17 text or status requires a separate audit revision with its own review. Task 18 only records the discrepancy.
+
+## 6. T18-DEC-01 and T18-DEC-02 approval
+
+The project owner approved:
+
+- `T18-DEC-01` = **`REQ-LOCAL`**: CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle. This is a recording obligation; it does not assign construction/publication to Core.
+- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE`**: adapter constructs/registers the Assessment; Core owns normative semantic validation; validation must be enforced on every supported registration path, and the old public registration API must not remain a bypass.
+
+The canonical approved record is `decision-register.md` §3. The T18-01 package is a historical proposal snapshot; it is not the approval record.
+
+Still OPEN: C-2 subject model (SCC/node/edge; edge-level is a proposal only), exact Assessment shape/provenance, publication/retention ownership details, and C-2.a3 / CORE-003.
+
+## 7. PATH-B correction
+
+The T18-01 package's `PATH-B` row listed `VAL-CORE-CONSTRUCTION` as an adapter-path validation option. That is inconsistent: `VAL-CORE-CONSTRUCTION` means Core construction and validation, which contradicts adapter construction.
+
+The selected path is `OWN-ADAPTER` + `VAL-CORE`. `VAL-CORE-CONSTRUCTION` is only compatible with `OWN-CORE` and is not an adapter option. This correction is recorded in `remediation-roadmap.md` §2 and here; the historical package text is not rewritten.
+
+## 8. Task 17 historical statuses
+
+Approval of `T18-DEC-01` and `T18-DEC-02` is not conformance evidence and does not change Task 17:
+
+- 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL.
+- §12: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED.
+- C-1 remains NOT COVERED; C-2 remains BLOCKED.

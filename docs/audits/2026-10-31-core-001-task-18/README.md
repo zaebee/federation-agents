@@ -1,6 +1,6 @@
 # CORE-001 Conformance Gap Disposition — Task 18
 
-**Status:** Planning and disposition artifact. No remediation implemented. No normative decision approved.
+**Status:** Planning and disposition artifact. Two decisions approved (`T18-DEC-01`, `T18-DEC-02`); all others OPEN. No remediation implemented.
 **Audit base:** commit `2a83c65` (`main`, Task 17 merged).
 **Normative source:** `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3.
 **Task 17 inputs:** `docs/audits/2026-10-31-core-001-task-17/` (README, requirement matrix, conformance matrix, registers).
@@ -15,7 +15,7 @@ Task 18 does not:
 - change Task 17 statuses or findings;
 - modify `docs/CORE-001.md`, source, tests, or configuration;
 - implement remediation;
-- approve any decision in `T18-DEC-01…T18-DEC-14`;
+- infer approvals beyond the two explicitly recorded decisions; all other decisions remain OPEN;
 - claim that a plan closes a gap.
 
 ## 2. Method
@@ -78,14 +78,21 @@ No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work
 | P3 | 12 | N-004, N-020, N-026, N-079, N-084, N-140, N-145, N-156, N-169, N-170, N-174, N-175 |
 | **Total** | **23** | |
 
+### 4.1 Approved decisions
+
+- **T18-DEC-01 — `REQ-LOCAL`:** CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` and `CYCLE_DETECTED`. This is a recording obligation; it does not assign construction/publication to Core.
+- **T18-DEC-02 — `OWN-ADAPTER` + `VAL-CORE`:** adapter constructs the Assessment; Core owns semantic validation; validation must be enforced on every supported registration path so the old public API cannot bypass it.
+
+Still OPEN: C-2 subject model, exact Assessment shape/provenance, publication/retention ownership, and C-2.a3 / CORE-003.
+
 ## 5. Roadmap overview
 
 | Task | Type | Priority | Risk scope |
 | --- | --- | --- | --- |
 | T18-01 Assessment-emission decision package | specification/design | P1 | `CORE-001_RUNTIME` |
-| T18-02A C-1 core emission (conditional) | implementation + tests | P1 | `CORE-001_RUNTIME` |
-| T18-02B C-2.a2 core emission (conditional) | implementation + tests | P1 | `CORE-001_RUNTIME` |
-| T18-02C Adapter emission evidence (conditional) | adapter contract + tests | P1 | `CORE-001_RUNTIME` |
+| T18-02A C-1 adapter emission (eligible) | implementation + tests | P1 | `CORE-001_RUNTIME` |
+| T18-02B C-2.a2 adapter emission (blocked on C-2 model) | implementation + tests | P1 | `CORE-001_RUNTIME` |
+| T18-02C Not selected | — | — | `CORE-001_RUNTIME` |
 | T18-03 D-4 future-authorization evidence | test-only | P2 | `CORE-001_RUNTIME` |
 | T18-04 Version-label boundary (conditional) | decision + implementation/test or docs | P2 | `CORE-001_RUNTIME` |
 | T18-05 Digest verification (conditional) | decision + implementation/test or docs | P3 | `CORE-001_RUNTIME` |
@@ -105,12 +112,12 @@ No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work
 Milestones:
 
 - **M0** — decisions registered and owners assigned (T18-DEC-01…14).
-- **M1** — CORE-001 implementation gaps resolved or explicitly dispositioned (T18-02A/B/C, T18-04, T18-05).
+- **M1** — CORE-001 implementation gaps resolved or explicitly dispositioned (T18-02A eligible; T18-02B blocked; T18-02C inactive; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
 
-Critical path: T18-DEC-01/02 → T18-01 → T18-02A or T18-02C → AEBE → T18-13; C-2 additionally needs T18-DEC-13/T18-10 for `CASE-C-2.a3`; readiness additionally needs T18-11 for N-170/N-175. N-172 is tracked separately as T18-09D (P2).
+Critical path: `T18-DEC-01`/`T18-DEC-02` → T18-01 → T18-02A → AEBE → T18-13; C-2 additionally needs the C-2 model decision and T18-02B, plus T18-DEC-13/T18-10 for `CASE-C-2.a3`; readiness additionally needs T18-11 for N-170/N-175. N-172 is tracked separately as T18-09D (P2).
 
 ## 6. Key separations preserved
 
@@ -151,12 +158,12 @@ Recorded in `reconciliation-notes.md`; Task 17 files are untouched.
 | `README.md` | Purpose, method, reconciliation summary, roadmap overview, readiness, limits |
 | `disposition-matrix.md` | 23 rows with disposition, risk scope, priority, dependencies, closure evidence |
 | `remediation-roadmap.md` | Tasks, dependency graph, milestones, critical path, acceptance criteria |
-| `decision-register.md` | `T18-DEC-01…14`, all OPEN |
-| `reconciliation-notes.md` | N-169 erratum, N-140 reclassification proposal, traceability gaps |
+| `decision-register.md` | `T18-DEC-01…14`; 2 APPROVED, 12 OPEN |
+| `reconciliation-notes.md` | `T18-DEC-01`/`T18-DEC-02` approval, PATH-B correction, N-169 erratum, N-140 reclassification proposal, traceability gaps |
 
 ## 10. Limits
 
-- No decision in this package is approved.
+- Only `T18-DEC-01` and `T18-DEC-02` are approved; all other decisions remain OPEN.
 - No remediation task is implemented.
 - No Task 17 status is changed.
 - No CORE-001 normative text is amended.
