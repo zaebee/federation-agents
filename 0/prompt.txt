@@ -1,0 +1,5 @@
+### Medium finding
+
+**Location:** `tests/property/support/dag-fixtures.ts:267`
+
+`buildCase` selects `nodeCount - 1` as the candidate (lines 221–222), but this last node, `iv-v6`, has no parents. Consequently, the property at `tests/property/merge-closure-dag.test.ts:70–75` always compares no-path results without evaluating assessments or merge closure. Move the mixed merge to the selected candidate or allow this fixture to select its candidate explicitly.
