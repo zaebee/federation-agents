@@ -5,7 +5,7 @@ import { evaluateCredentialUsage, evaluateHistoricalSignature } from '../../src/
 import { appendAcceptance, createAcceptanceLedger } from '../../src/core/ledger.js';
 import { createRuntimeLifecycleEvent, createRuntimeRegistry, recordRuntimeEvent } from '../../src/core/runtime.js';
 import { acceptanceId, assessmentId, runtimeInstanceId, timestamp } from '../../src/core/primitives.js';
-import { credential as credentialFixture, descriptor } from '../support/fixtures.js';
+import { BASE_TIME, credential as credentialFixture, descriptor } from '../support/fixtures.js';
 import { acceptanceRecord } from '../support/acceptance.js';
 import {
   SIGNED_AT,
@@ -196,7 +196,10 @@ describe('§12 Category D: historical Local Acceptance preservation', () => {
     // Later, independent operations: validate a new revocation and register
     // a superseding assessment. Task 13 evaluation consumes the revocation,
     // not the ContinuityAssessment; the assessment history is preserved here.
-    const laterRevocation = revocationFixture({ evidence_refs: ['d2-later'] });
+    const laterRevocation = revocationFixture({
+      revoked_at: timestamp(BASE_TIME + 150),
+      evidence_refs: ['d2-later'],
+    });
     const superseding = {
       ...assessmentRecord({
         id: 'a-2',
@@ -224,6 +227,7 @@ describe('§12 Category D: historical Local Acceptance preservation', () => {
     );
 
     expect(laterRevocation).not.toEqual(revocation);
+    expect(Number(acceptance.decided_at)).toBeLessThan(Number(laterRevocation.revoked_at));
     expect(fresh.historical).toEqual({ status: 'INVALID' });
     expect(history).toHaveLength(2);
     expect(history[0]).toEqual(supporting);
