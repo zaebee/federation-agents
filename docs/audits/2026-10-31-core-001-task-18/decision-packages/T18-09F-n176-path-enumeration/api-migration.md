@@ -13,8 +13,7 @@ Keep `BindingResult` (v1) unchanged and frozen. Add a versioned compact API (`v2
 ```ts
 type WitnessSelection =
   | 'PATH_KEY_MINIMUM'          // D5 closed: canonical under pathKey
-  | 'DETERMINISTIC_NON_MINIMUM' // deterministic, but not proven pathKey-minimum
-  | 'ARBITRARY_VALID';          // any fully valid path
+  | 'DETERMINISTIC_NON_MINIMUM'; // deterministic, storage-independent, not pathKey-minimum
 
 interface AcceptedPathWitness {
   readonly selection: WitnessSelection;
@@ -23,7 +22,9 @@ interface AcceptedPathWitness {
 }
 ```
 
-No v2 guarantee of canonicality is exposed unless D5 is closed. If the owner chooses `ARBITRARY_VALID`, the API must not call the field `canonical` or document it as minimum.
+The type deliberately has **no** non-deterministic mode. §8.8 requires identical results for identical inputs independent of storage, declaration arrival and node traversal order, so a witness selected by a non-deterministic rule is not a valid implementation option. `ARBITRARY_VALID` is therefore not a type member; the valid fallback is `DETERMINISTIC_NON_MINIMUM`, whose selection rule must be specified and storage-order-independent.
+
+No v2 guarantee of canonicality is exposed unless D5 is closed.
 
 ## 3. Proposed types (sketch, not implemented)
 
@@ -79,6 +80,32 @@ type RejectionWitness =
       readonly cycleWitness: CycleWitness; };
 ```
 
+#### 3.2.1 `CycleWitness` shape
+
+```ts
+interface CycleWitness {
+  // A concrete, simple candidate->origin path whose node sequence includes
+  // `cyclicNode`. It is the result of loop-erasing the reachability walk,
+  // not the raw concatenated walk.
+  readonly path: {
+    readonly scope: LineageTraversalScope;
+    readonly edges: readonly DeepReadonly<LineageEdge>[];
+  };
+  readonly cyclicNode: IdentityVersionID;
+  readonly cycle: readonly IdentityVersionID[]; // one SCC entry from graph.cycles
+  readonly verification: 'SIMPLE_PATH_AND_SCC';
+}
+```
+
+**Verification rule (independently checkable):**
+
+1. `path.edges` is contiguous, scope-permitted, candidate→origin, and contains no repeated node (a simple path). The implementation must perform the loop-erasure step from the D3 proof before returning it; the raw concatenated reachability walk is never exposed.
+2. The path's node sequence contains `cyclicNode`.
+3. `cycle` is exactly one entry of `graph.cycles` (the SCC containing `cyclicNode`); it is not a union of SCCs.
+4. `verification: 'SIMPLE_PATH_AND_SCC'` states which checks the caller should rerun.
+
+This is an existence witness: it proves that some simple path touches `C`. It does not claim to be the `cycleForPath()` per-path union or a global union.
+
 ### 3.3 Evidence vs diagnostics vs repeated code
 
 - **Independently verifiable evidence:** `ASSURANCE`, `CONTESTED` and `CLOSURE` witnesses can be re-checked by evaluating the named edge/branch against the supplied assessments, policy and context. `AUTHORITY_MISMATCH` carries the precheck facts so the caller can verify the mismatch directly.
@@ -91,7 +118,7 @@ type RejectionWitness =
 
 `cycleForPath()` in the current code computes a **per-path union**: for one path, it unions every SCC whose node set intersects that path and sorts the nodes. It does not compute a global union over every discovered path.
 
-The v2 witness is deliberately narrower: a **minimal existence witness** — one concrete cyclic path (or a cyclic node `c` plus `s⇝c⇝t` witness) proving that some simple candidate→origin path touches `C`. It does **not** promise:
+The v2 witness is deliberately narrower: a **minimal existence witness** in the shape defined in §3.2.1 — one concrete, simple candidate→origin path containing a cyclic node `c`, plus the SCC entry containing `c`. The path is the loop-erased result required by the D3 proof, not the raw concatenated reachability walk. It does **not** promise:
 
 - the per-path union produced by `cycleForPath()` for any particular legacy path;
 - a global union over all cyclic paths;
@@ -123,13 +150,13 @@ function discoverPathsDiagnostic(
 
 ## 6. Witness selection modes
 
-The v2 type supports three modes, chosen by the owner:
+Three categories must be distinguished; only the first two are valid v2 modes:
 
 1. **`PATH_KEY_MINIMUM`** — only if D5's exact encoding, oracle and invariance obligations are closed.
-2. **`DETERMINISTIC_NON_MINIMUM`** — a deterministic rule (e.g., first DFS path under a fixed traversal order), documented as non-minimum.
-3. **`ARBITRARY_VALID`** — any fully valid path; weakest L2 determinism.
+2. **`DETERMINISTIC_NON_MINIMUM`** — a deterministic rule (e.g., first DFS path under a fixed storage-independent traversal order), documented as non-minimum. This is the valid fallback while D5 is open.
+3. **Arbitrary / non-deterministic** — any valid path chosen without a fixed rule. **Not a valid implementation option** under §8.8, because storage/arrival/traversal order could change the witness. It is not a member of `WitnessSelection` and must not be offered as an owner choice.
 
-The owner decision is `owner-decision-summary.md` OD-3. The v2 API shape does not depend on which mode is chosen, but the documented guarantee does.
+The owner decision is `owner-decision-summary.md` OD-3. The v2 API shape does not depend on which valid mode is chosen, but the documented guarantee does.
 
 ## 7. Compatibility and deprecation
 

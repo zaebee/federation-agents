@@ -2,7 +2,7 @@
 
 **Status:** decision-support revision of the draft package. **`T18-DEC-18` remains PROPOSED / OPEN.** This document does not approve it, register it, or change any status.
 
-**Witness terminology:** "canonical" below means the `pathKey`-minimum path **only if D5 closes**. Until then, the accepted witness is one of the three modes in `owner-decision-summary.md` OD-3 (`PATH_KEY_MINIMUM`, `DETERMINISTIC_NON_MINIMUM`, `ARBITRARY_VALID`); the v2 type uses the neutral `AcceptedPathWitness`, not a canonical guarantee.
+**Witness terminology:** "canonical" below means the `pathKey`-minimum path **only if D5 closes**. Until then, the valid choices are `PATH_KEY_MINIMUM` (conditional) or `DETERMINISTIC_NON_MINIMUM` (`owner-decision-summary.md` OD-3); a non-deterministic/arbitrary witness is not a valid §8.8 option. The v2 type uses the neutral `AcceptedPathWitness`, not a canonical guarantee.
 **Reviewed revision:** `f1d52e1` (`main`).
 **Complexity source of truth:** `oq4-complexity-adversarial-pass.md` revision 3.1. Where this document and the earlier revisions differ, revision 3.1 governs. **D2/D3/D4/D6a/D6b are polynomial; D5 is a proof sketch with named empirical obligations and is not certified until those obligations are met.**
 **Companions:** `adversarial-review.md`, `remaining-owner-questions.md`, `oq4-complexity-adversarial-pass.md`.
@@ -62,9 +62,9 @@ Breaking for callers that read `acceptedPaths`/`perPath` as validity evidence; B
 
 ### 2.1 Exact statement
 
-The canonical witness is the **minimum fully valid simple path under the existing `pathKey` order**, not the first path a DFS returns. `pathKey` is the per-edge `child\0parent\0relation` joined by `\x01`; this order is independent of storage and adjacency order.
+**Conditional statement (D5 OPEN).** If D5 closes, the canonical witness is the **minimum fully valid simple path under the existing `pathKey` order**, not the first path a DFS returns. `pathKey` is the per-edge `child\0parent\0relation` joined by `\x01`. The abstract triple order is storage-independent; the concrete string encoding has not been proven injective or order-equivalent for ids containing `\u0000`/`\u0001`, so canonicality is **not** claimed until D5's encoding obligation is discharged.
 
-Algorithm (Lemma 1–2 of `oq4` §2): valid paths lie in the acyclic induced subgraph `A`. Build `H`: an edge is allowed iff its assurance is `SATISFIED` and the closure of its source node, evaluated with that edge as the path edge, is satisfied. Then greedily extend the current prefix with the smallest outgoing allowed edge that still has an `H`-path to the origin; feasibility is reachability in the DAG `H`.
+The polynomial candidate algorithm (Lemma 1–2 of `oq4` §2) is: valid paths lie in the acyclic induced subgraph `A`. Build `H`: an edge is allowed iff its assurance is `SATISFIED` and the closure of its source node, evaluated with that edge as the path edge, is satisfied. Then greedily extend the current prefix with the smallest outgoing allowed edge that still has an `H`-path to the origin; feasibility is reachability in the DAG `H`. This establishes a polynomial **existence/witness construction under the abstract order**; it is **not** a proof that the output is the `pathKey` minimum under the exact encoding.
 
 ### 2.2 Normative anchor
 
@@ -76,7 +76,7 @@ DFS order is not `pathKey` order: a longer lexicographically larger branch explo
 
 ### 2.4 Proposed resolution and proof status
 
-Define the witness by `pathKey` minimum; use the greedy algorithm above. **The polynomial claim is qualified:** `oq4` §6 gives the lexicographic induction sketch and lists the outstanding evidence:
+If D5 closes, define the witness by `pathKey` minimum; the greedy algorithm above is the candidate. **Neither the exact-encoding minimality nor the canonical guarantee is proven today.** `oq4` §6 gives the lexicographic induction sketch and lists the outstanding evidence:
 
 - written proof for the exact `pathKey` string encoding;
 - oracle comparison against exhaustive enumeration on small generated DAGs;
@@ -223,7 +223,7 @@ A benchmark record for the validity path at `k=16`; a test that a diagnostics bo
 | # | Item | Status |
 | --- | --- | --- |
 | 1 | L1/L2/L3 split and `acceptedPaths`/`perPath` as L3 under Reading B | proposed; corpus mapping in §1.4 |
-| 2 | Canonical witness = `pathKey` minimum | algorithm proven to be greedy; **empirical obligations** §2.4 |
+| 2 | Canonical witness = `pathKey` minimum | **conditional / D5 OPEN**; greedy is a polynomial candidate under the abstract order, not proven for the exact encoding; obligations §2.4 |
 | 3 | D0/D2/D3/D4/D6a/D6b polynomial | **proven** (Lemma 1–6, `oq4` §2–§7) |
 | 4 | D5 polynomial | **proof sketch**, qualified §2.4 |
 | 5 | A-8 untouched, precedence preserved | proposed implementation rule; A-8 OPEN |

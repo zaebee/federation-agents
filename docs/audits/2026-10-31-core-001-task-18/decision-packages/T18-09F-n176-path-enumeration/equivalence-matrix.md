@@ -116,7 +116,7 @@ This order is a code fact. A-8 is OPEN; the order is an implementation compatibi
 
 **Proposed result:** `eligible: true`, with the same accepted-witness edge sequence under the chosen OD-3 mode.
 
-**Equivalence argument:** if the compact witness is defined as the `pathKey`-minimum fully valid path (D5), L2 evidence is identical. D5 is OPEN; until its encoding/oracle/invariance obligations close, this equivalence is not certified. The fallback is an explicit owner choice: "any valid witness" (weaker L2 determinism).
+**Equivalence argument:** if the compact witness is defined as the `pathKey`-minimum fully valid path (D5), L2 evidence is identical. D5 is OPEN; until its encoding/oracle/invariance obligations close, this equivalence is not certified. The valid fallback is an explicit `DETERMINISTIC_NON_MINIMUM` rule; a non-deterministic/arbitrary witness would violate §8.8.
 
 **Gap:** D5. Also, `pathKey` collisions between distinct paths are not ruled out by proof (see `complexity-proof.md` §9.2).
 
@@ -150,7 +150,7 @@ This order is a code fact. A-8 is OPEN; the order is an implementation compatibi
 
 **Current result:** `eligible: false`, code `CYCLE_DETECTED`. For each cyclic path, `cycleForPath()` unions every SCC whose node set intersects that path and sorts the result; `details.perPath` contains those per-path unions.
 
-**Proposed result:** `eligible: false`, code `CYCLE_DETECTED`, with a **minimal existence witness**: one concrete cyclic path (or a cyclic node `c` plus `s⇝c⇝t` witness) proving that some simple candidate→origin path touches `C`.
+**Proposed result:** `eligible: false`, code `CYCLE_DETECTED`, with a **minimal existence witness** in the `CycleWitness` shape: a concrete **simple** candidate→origin path whose node sequence contains a cyclic node `c`, plus the exact SCC entry from `graph.cycles` containing `c`. The path is the loop-erased result required by D3; the raw concatenated reachability walk is never exposed.
 
 **Equivalence argument:** L1 (code) is identical. The v2 witness does **not** promise the per-path `cycleForPath()` union, a global union over all cyclic paths, or a minimum-cardinality cycle. If legacy diagnostic equivalence is required, it comes from v1 `details.perPath`; v2 must not claim it.
 

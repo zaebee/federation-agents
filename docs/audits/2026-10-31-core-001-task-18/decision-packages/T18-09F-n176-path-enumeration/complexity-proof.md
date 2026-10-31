@@ -121,7 +121,7 @@ Three obligations from `oq4` §6 remain open:
 2. **Oracle tests.** No test compares the greedy witness against exhaustive enumeration on small generated DAGs. The existing property tests check storage-order invariance and immutability, not witness minimality.
 3. **Invariance tests.** No test reverses `nodes`/`edges` arrays on the exponential merge-diamond shape and compares the canonical witness. P1/P2 cover bounded DAGs only.
 
-**Conclusion: D5 remains OPEN.** The greedy is a plausible polynomial construction and the proposed direction, but it is a proof sketch, not a certified result. No implementation should rely on it until the three obligations are closed, or the owner explicitly chooses "any valid witness" as L2 evidence (`owner-decision-summary.md` OD-3).
+**Conclusion: D5 remains OPEN.** The greedy is a plausible polynomial construction and the proposed direction, but it is a proof sketch, not a certified result. No implementation should rely on it until the three obligations are closed, or the owner explicitly chooses `DETERMINISTIC_NON_MINIMUM` with a specified storage-order-independent rule as L2 evidence (`owner-decision-summary.md` OD-3). A non-deterministic/arbitrary witness is not a valid §8.8 option.
 
 ### 9.4 Required oracle cases (specification only, not executed)
 
@@ -165,4 +165,4 @@ The earlier condition "malformed assessments and at least one path exists (D1)" 
 
 ## 12. Consequence for the recommendation
 
-D0, D1, D2, D3, D4, D6a and D6b are polynomial with stated lemmas. D5 is a proof sketch with three open obligations. A compact implementation that needs a canonical witness must not be authorised until D5 is closed or the witness requirement is relaxed to "any valid witness". Reading R2 (compact API) is therefore conditional on that owner decision.
+D0, D1, D2, D3, D4, D6a and D6b are polynomial with stated lemmas. D5 is a proof sketch with three open obligations. A compact implementation that needs a canonical witness must not be authorised until D5 is closed or the witness requirement is relaxed to `DETERMINISTIC_NON_MINIMUM` with a specified storage-order-independent rule. Reading R2 (compact API) is therefore conditional on that owner decision.

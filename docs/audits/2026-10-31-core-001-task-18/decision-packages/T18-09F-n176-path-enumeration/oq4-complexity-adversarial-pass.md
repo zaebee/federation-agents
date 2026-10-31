@@ -77,11 +77,11 @@ Under §0, by Lemma 6 existence is decided over triples `(m, e, b)` with reachab
 
 This must not be silently embedded: **`OQ-11`** asks the spec editor/owner to choose E or I and to add a conformance test. The D4 proof is stated under E (matching the code) and is parameterised by the choice; both cases are polynomial.
 
-## 6. D5 — greedy canonical witness
+## 6. D5 — greedy witness candidate (OPEN; not proven canonical)
 
 Valid paths lie in `A` (Lemma 1) and are all-edge-satisfied. Define `H` on edges that are satisfied and whose source node's closure, evaluated with that edge as the path edge, is satisfied; an edge is allowed iff both hold. A full valid path is exactly an `s→t` path in `H`.
 
-**Greedy.** Maintain a prefix `P` ending at `m`; if `m == t`, stop (the path is complete). Otherwise try outgoing edges of `m` in `pathKey` order; choose the first `e` such that there is an `H`-path from the edge's parent to `t`. Feasibility is plain reachability in `H` (a DAG), so each query is `O(|V|+|E|)`; at most `|E|` queries. By lexicographic induction, the chosen path is the `pathKey`-minimum valid path: the first edge must be the smallest edge admitting a completion, and the argument repeats on the suffix.
+**Greedy.** Maintain a prefix `P` ending at `m`; if `m == t`, stop (the path is complete). Otherwise try outgoing edges of `m` in abstract-triple order; choose the first `e` such that there is an `H`-path from the edge's parent to `t`. Feasibility is plain reachability in `H` (a DAG), so each query is `O(|V|+|E|)`; at most `|E|` queries. The intended claim is that lexicographic induction makes the chosen path the `pathKey`-minimum under the abstract order; this is **not** a proof for the exact `pathKey` string encoding.
 
 **Proof obligations still open (qualified claim):** a written proof of the lexicographic induction for the exact `pathKey` string encoding, oracle tests against exhaustive enumeration on small generated DAGs, and invariance tests under storage/adjacency permutations. Until those tests exist the polynomial claim is a proof sketch, not an empirical certification.
 

@@ -43,7 +43,7 @@ Yes. `oq4` revision 3 proves:
 - **D4** closure failure: triple `(merge node, path edge, failing branch)` with reachability; general over parent counts;
 - **D6a** pre-discovery mechanisms (duplicate id, missing candidate, selector/label validation) are independent of reachability;
 - **D6b** edge-evaluation mechanisms: malformed assessments produce `MECHANISM` only if `reach_A(s,t)` and a path reaches `assessEdge`;
-- **D5** accepted-witness selection: `pathKey`-minimum (greedy on the acyclic subgraph), deterministic non-minimum, or arbitrary valid; the greedy is a **proof sketch with empirical obligations** (see OQ-10 / decision-ready §2.4), not yet certified.
+- **D5** accepted-witness selection: `pathKey`-minimum (greedy on the acyclic subgraph) or `DETERMINISTIC_NON_MINIMUM` with a specified storage-order-independent rule; a non-deterministic/arbitrary witness is not valid under §8.8. The greedy is a **proof sketch with empirical obligations** (see OQ-10 / decision-ready §2.4), not yet certified.
 
 **Recommended: accept the polynomial analysis for D0–D4/D6a/D6b; treat D5 as a proof obligation before implementation is called complete.**
 
