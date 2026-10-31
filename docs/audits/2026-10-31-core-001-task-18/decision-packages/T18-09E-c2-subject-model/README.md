@@ -14,7 +14,7 @@ This package prepares **two decisions**:
 | **`T18-DEC-16` — C-2 subject model and Assessment shape/provenance** | What is the subject of an Assessment that records `CYCLE_DETECTED` (closing edge, node, or strongly connected component), and which `subject_version_id`, `parent_version_ids`, `declared_relation`, claim list, evidence references and method fields identify that record? |
 | **`T18-DEC-17` — publication and retention ownership** | Who owns persistence, publication and retention of the Assessment, given the approved `T18-DEC-02` scope statement? |
 
-The original draft folded these into one decision with sub-parts 16.a/16.b/16.c. The register has a single status per decision (`APPROVED` or `OPEN`), so a partial approval cannot be expressed; the split keeps "16.a/16.b approved → `T18-02B` unblocked" and "publication/retention still OPEN" representable. `T18-DEC-02` already assigns construction (adapter) and validation/admission (Core) and leaves persistent storage caller-managed; `T18-DEC-17` asks only what remains OPEN there — publication and retention.
+The original draft folded these into one decision with sub-parts 16.a/16.b/16.c. The register has a single status per decision (`APPROVED` or `OPEN`), so a partial approval cannot be expressed; the split keeps "16.a/16.b approved → `T18-02B` unblocked" and "publication/retention still OPEN" representable. `T18-DEC-02` already assigns construction (adapter) and validation/admission (Core) and leaves persistent storage caller-managed; `T18-DEC-17` (approved 2026-10-31) assigns the remaining publication/retention question to the caller boundary.
 
 It records:
 

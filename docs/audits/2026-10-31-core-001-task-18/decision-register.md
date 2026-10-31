@@ -69,10 +69,10 @@ This is an obligation to record the condition. It does not, by itself, assign co
 - Core validation MUST be enforced on every supported registration path.
 - A standalone validator that callers can bypass is insufficient.
 - An old public registration API MUST NOT remain a validation bypass.
-- Publication and retention remain separate responsibilities and must be explicitly assigned by the relevant boundary.
+- Publication and retention remain separate responsibilities and must be explicitly assigned by the relevant boundary (assigned by `T18-DEC-17`, approved 2026-10-31).
 - Downstream consumption does not automatically accept the Assessment as truth or grant authority.
 
-**Scope of approval:** DEC-02 assigns adapter **construction**, Core **semantic validation**, and Core-owned **admission** with an **immutable registered representation**. The adapter constructs candidates and initiates admission through the Core API; it must not mutate admitted state. Persistent storage is **caller-managed**. Publication and retention remain **OPEN**. This paragraph is the canonical scope statement; other documents should reference it rather than paraphrase.
+**Scope of approval:** DEC-02 assigns adapter **construction**, Core **semantic validation**, and Core-owned **admission** with an **immutable registered representation**. The adapter constructs candidates and initiates admission through the Core API; it must not mutate admitted state. Persistent storage is **caller-managed**. Publication and retention remained **OPEN at the time of this approval**; `T18-DEC-17` (approved 2026-10-31) subsequently assigned them to the caller boundary. This paragraph is the canonical scope statement; other documents should reference it rather than paraphrase.
 
 ### Validation enforcement
 
@@ -86,6 +86,8 @@ Mandatory Core validation at the registration boundary is approved. The implemen
 
 **Scope of approval:** permits the local Option D implementation. It does **not** make the subset reading of `parent_version_ids` normative — `T18-DEC-15` remains OPEN and may impose a different rule. It blocks only `T18-02B`; it does not close N-143/CASE-C-2.a2 until `T18-02B` + AEBE, and does not close the C-2 case (`CASE-C-2.a3` is CORE-003 / `T18-DEC-13`).
 
+**Approval record:** project owner, 2026-10-31; the decision comment is in [issue #55](https://github.com/zaebee/federation-agents/issues/55#issuecomment-6547324593), and the record was merged in PR #69.
+
 ### T18-DEC-17 — publication and retention ownership (APPROVED, 2026-10-31)
 
 - The **caller boundary** owns persistence, publication and retention of an Assessment.
@@ -93,6 +95,8 @@ Mandatory Core validation at the registration boundary is approved. The implemen
 - Any claim that a record is *published* or *retained* requires caller-side evidence; the AEBE states what was persisted.
 
 **Scope of approval:** consistent with `T18-DEC-02`'s canonical scope (persistent storage caller-managed). It does not gate `T18-02B` and does not change `T18-DEC-16`.
+
+**Approval record:** project owner, 2026-10-31; the decision comment is in [issue #55](https://github.com/zaebee/federation-agents/issues/55#issuecomment-6547324593), and the record was merged in PR #69.
 
 ### T18-DEC-15 — parent coverage semantics (OPEN)
 

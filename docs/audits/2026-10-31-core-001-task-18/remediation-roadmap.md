@@ -14,7 +14,7 @@
 `T18-01` is complete:
 
 - `T18-DEC-01` = **`REQ-LOCAL`**: local Assessment recording required for `PARENT_UNRESOLVED` and `CYCLE_DETECTED`.
-- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation)**: adapter constructs; Core validates and admits; the registered representation is immutable; persistent storage is caller-managed; publication/retention remain OPEN (see `decision-register.md` §3).
+- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation)**: adapter constructs; Core validates and admits; the registered representation is immutable; persistent storage is caller-managed; publication/retention were OPEN at DEC-02 and are assigned by `T18-DEC-17` (approved 2026-10-31; see `decision-register.md` §3).
 
 | Status | DEC-01 | DEC-02 | Eligible remediation |
 | --- | --- | --- | --- |
@@ -74,11 +74,11 @@ Package: `decision-packages/T18-09E-c2-subject-model/`. Records `T18-DEC-16` (su
 
 ### T18-02A — C-1 adapter emission (implemented; acceptance evidence in AEBE)
 
-The adapter constructs the C-1 Assessment using domain identity, provenance and time. Core performs generic and C-1 contextual validation and owns admission; the registered representation is immutable; persistent storage is caller-managed. Publication and retention remain OPEN (see `decision-register.md` §3). AEBE comes from the adapter boundary through the package root, not a hand-constructed fixture. T18-02A closes N-138/C-1.a3 only.
+The adapter constructs the C-1 Assessment using domain identity, provenance and time. Core performs generic and C-1 contextual validation and owns admission; the registered representation is immutable; persistent storage is caller-managed. Publication and retention were OPEN at `T18-DEC-02`; `T18-DEC-17` (approved 2026-10-31) assigns them to the caller boundary (see `decision-register.md` §3). AEBE comes from the adapter boundary through the package root, not a hand-constructed fixture. T18-02A closes N-138/C-1.a3 only.
 
 `T18-DEC-15` remains OPEN. T18-02A uses Option B — full declared parent set per `(child, relation)`, at least one parent unresolved — as a local implementation choice/disposition, not a normative resolution.
 
-### T18-02B — C-2.a2 adapter emission (BLOCKED)
+### T18-02B — C-2.a2 adapter emission (eligible; DEC-16 approved)
 
 The adapter path is selected and `T18-DEC-16` is approved (2026-10-31), so T18-02B is eligible: implement Option D (one Assessment per affected lineage edge), add Core contextual validation and admission, and produce AEBE from the adapter boundary. `T18-DEC-17` is approved independently and does not gate this task. T18-02B closes N-143/C-2.a2 only; it does not close C-2 and does not close N-168.
 
@@ -115,7 +115,7 @@ graph TD
   DEC01[T18-DEC-01 APPROVED REQ-LOCAL] --> T1801[T18-01 complete]
   DEC02[T18-DEC-02 APPROVED OWN-ADAPTER + VAL-CORE] --> T1801
   T1801 --> T1802A[T18-02A C-1 adapter emission]
-  T1801 --> T1802B[T18-02B C-2.a2 adapter BLOCKED]
+  T1801 --> T1802B[T18-02B C-2.a2 adapter eligible]
   T1801 -.->|retired / superseded| T1802C[T18-02C retired / superseded]
   T1801 -.->|not selected| SPEC01[PATH-C alternative]
   T1809E[T18-09E C-2 subject model package] --> DEC16[T18-DEC-16 APPROVED Option D]
@@ -153,7 +153,7 @@ graph TD
 ### Milestones
 
 - **M0** — DEC-01 (`REQ-LOCAL`), DEC-02 (`OWN-ADAPTER` + `VAL-CORE`), DEC-16 (Option D) and DEC-17 (publication/retention) approved.
-- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A implemented and acceptance-eligible; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
+- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A implemented and acceptance-eligible; T18-02B eligible after `T18-DEC-16`; T18-02C retired / superseded; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).

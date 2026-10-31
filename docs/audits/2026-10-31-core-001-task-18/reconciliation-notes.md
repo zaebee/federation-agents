@@ -72,9 +72,11 @@ Any future correction to Task 17 text or status requires a separate audit revisi
 The project owner approved:
 
 - `T18-DEC-01` = **`REQ-LOCAL`**: CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle. This is a recording obligation; it does not assign construction/publication to Core.
-- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation)**: adapter constructs the Assessment; Core owns semantic validation and admission; the registered representation is immutable; persistent storage is caller-managed. See `decision-register.md` §3 for the canonical scope; publication/retention remain OPEN. `T18-02A` is planning- and acceptance-eligible.
+- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation)**: adapter constructs the Assessment; Core owns semantic validation and admission; the registered representation is immutable; persistent storage is caller-managed. See `decision-register.md` §3 for the canonical scope; publication/retention were **OPEN** at DEC-02 and were subsequently assigned to the caller boundary by `T18-DEC-17` (approved 2026-10-31). `T18-02A` is planning- and acceptance-eligible.
 - `T18-DEC-16` = **Option D** (approved 2026-10-31): one Assessment per affected lineage edge inside a cyclic SCC; adapter constructs, Core validates and admits, caller persists. Approval permits the local implementation and does not make the subset `parent_version_ids` reading normative (`T18-DEC-15` remains OPEN); it unblocks `T18-02B`.
 - `T18-DEC-17` = **caller boundary** (approved 2026-10-31): the caller owns persistence, publication and retention; the Core contract ends at the immutable admitted representation.
+
+The approval act is recorded in the [issue #55 decision comment](https://github.com/zaebee/federation-agents/issues/55#issuecomment-6547324593) and merged in PR #69; this list is a summary, `decision-register.md` §3 is canonical.
 
 The canonical approved record is `decision-register.md` §3. The T18-01 package is a historical proposal snapshot; it is not the approval record.
 
@@ -101,6 +103,6 @@ The historical T18-01 package used `T18-02A`/`T18-02B` for the PATH-A Core path 
 
 Approval of `T18-DEC-01` and `T18-DEC-02` is not conformance evidence and does not change Task 17:
 
-- 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL.
-- §12: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED.
-- C-1 remains NOT COVERED; C-2 remains BLOCKED.
+- 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL (Task 17 baseline).
+- §12: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED (Task 17 baseline).
+- At the Task 17 baseline C-1 was NOT COVERED and C-2 BLOCKED. Task 17 audit revision 1 records C-1 **PASS** (`docs/audits/2026-10-31-core-001-task-17-revision-1/`); C-2 remains BLOCKED.
