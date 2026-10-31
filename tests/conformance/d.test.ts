@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import type { SignatureTemporalPolicy } from '../../src/core/credential.js';
-import { evaluateHistoricalSignature } from '../../src/core/credential.js';
-import { timestamp } from '../../src/core/primitives.js';
+import { evaluateCredentialUsage, evaluateHistoricalSignature } from '../../src/core/credential.js';
+import { createRuntimeLifecycleEvent, createRuntimeRegistry, recordRuntimeEvent } from '../../src/core/runtime.js';
+import { runtimeInstanceId, timestamp } from '../../src/core/primitives.js';
+import { credential as credentialFixture, descriptor } from '../support/fixtures.js';
 import {
   SIGNED_AT,
   contextFor,
@@ -15,6 +17,7 @@ import {
   staticVerifier,
   trustInput,
 } from '../support/credential.js';
+import { runtimeDescriptor } from '../support/runtime.js';
 
 const credential = signingCredential();
 const binding = identityBinding();
@@ -116,5 +119,46 @@ describe('§12 Category D: credential revocation', () => {
     expect(result.temporal.compromise_effective_at).toBeUndefined();
     expect(acceptCalls).toBe(0);
     expect(JSON.stringify(unknownTime)).not.toContain('compromise_effective_at');
+  });
+});
+
+function expectRuntimeOk<T>(
+  result: { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: unknown },
+): T {
+  expect(result.ok).toBe(true);
+  if (!result.ok) {
+    throw new Error('expected runtime operation to succeed');
+  }
+  return result.value;
+}
+
+describe('§12 Category D: runtime independence', () => {
+  test('D-1 rt-1 failure is separate and rt-2 continues RUNNING', () => {
+    const identity = descriptor({ id: 'iv-a-1', participant: 'participant-a', versionLabel: '1.0.0' });
+    const rt1 = runtimeDescriptor('rt-1', 'iv-a-1');
+    const rt2 = runtimeDescriptor('rt-2', 'iv-a-1');
+    const registry = expectRuntimeOk(createRuntimeRegistry([rt1, rt2]));
+    const signing = credentialFixture('cred-runtime', { usage: ['SIGNING'], not_before: timestamp(0) });
+
+    const identityBefore = JSON.stringify(identity);
+    const rt1Before = JSON.stringify(rt1);
+    const rt2Before = JSON.stringify(rt2);
+    const credentialBefore = JSON.stringify(signing);
+    const usageBefore = evaluateCredentialUsage(signing, 'SIGNING');
+
+    const event = expectRuntimeOk(createRuntimeLifecycleEvent({ runtime_instance_id: 'rt-1', kind: 'FAILURE' }));
+    const updated = expectRuntimeOk(recordRuntimeEvent(registry, event));
+
+    expect(updated.events()).toEqual([event]);
+    expect(updated.stateOf(runtimeInstanceId('rt-2'))).toBe('RUNNING');
+    expect(updated.stateOf(runtimeInstanceId('rt-1'))).toBe('RUNNING');
+    expect(registry.events()).toEqual([]);
+    expect(updated.runtimes().every((runtime) => runtime.identity_version_id === identity.id)).toBe(true);
+
+    expect(JSON.stringify(updated.runtimes()[0])).toBe(rt1Before);
+    expect(JSON.stringify(updated.runtimes()[1])).toBe(rt2Before);
+    expect(JSON.stringify(identity)).toBe(identityBefore);
+    expect(JSON.stringify(signing)).toBe(credentialBefore);
+    expect(evaluateCredentialUsage(signing, 'SIGNING')).toEqual(usageBefore);
   });
 });
