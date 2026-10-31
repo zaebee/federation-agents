@@ -320,12 +320,19 @@ function rawVerifier(value: unknown): SignatureVerifier {
 
 describe('verifier runtime validation', () => {
   test('malformed verifier outputs are mechanism failures, never success', () => {
+    const malformedArray = Object.assign([], { status: 'VERIFIED' });
+    const inherited = Object.create({ status: 'VERIFIED' });
     const malformed: readonly unknown[] = [
       undefined,
       null,
       { status: 'UNKNOWN' },
       { status: 'VERIFIED', reason: 42 },
+      { status: 'VERIFIED', reason: 'unexpected' },
+      { status: 'VERIFIED', extra: true },
+      { status: 'INVALID', reason: 'unexpected' },
       {},
+      malformedArray,
+      inherited,
     ];
 
     for (const value of malformed) {
@@ -357,6 +364,21 @@ describe('verifier runtime validation', () => {
     );
     expect(unsupported.verification).toEqual({ status: 'CRYPTO_UNSUPPORTED' });
     expect(unsupported.historical).toEqual({ status: 'CRYPTO_UNSUPPORTED' });
+  });
+  test('strict verifier shape accepts optional reason only on crypto outcomes', () => {
+    const withReason = expectOk(
+      evaluate(
+        { revocation: undefined },
+        undefined,
+        staticVerifier({ status: 'CRYPTO_UNAVAILABLE', reason: 'hsm down' }),
+      ),
+    );
+    expect(withReason.verification).toEqual({ status: 'CRYPTO_UNAVAILABLE', reason: 'hsm down' });
+
+    const noReason = expectOk(
+      evaluate({ revocation: undefined }, undefined, staticVerifier({ status: 'CRYPTO_UNSUPPORTED' })),
+    );
+    expect(noReason.verification).toEqual({ status: 'CRYPTO_UNSUPPORTED' });
   });
 });
 

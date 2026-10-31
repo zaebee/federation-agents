@@ -327,20 +327,31 @@ function mechanismResult(message: string): Result<never> {
   return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', message) };
 }
 
+function hasOnlyOwnKeys(value: object, allowed: readonly string[]): boolean {
+  const keys = Reflect.ownKeys(value);
+  return keys.length <= allowed.length && keys.every((key) => typeof key === 'string' && allowed.includes(key));
+}
+
 function isVerificationOutcome(value: unknown): value is SignatureVerificationOutcome {
-  if (typeof value !== 'object' || value === null) {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  ) {
     return false;
   }
   const candidate = value as { readonly status?: unknown; readonly reason?: unknown };
-  if (candidate.reason !== undefined && typeof candidate.reason !== 'string') {
+  if (candidate.status === 'VERIFIED' || candidate.status === 'INVALID') {
+    return hasOnlyOwnKeys(value, ['status']);
+  }
+  if (candidate.status !== 'CRYPTO_UNAVAILABLE' && candidate.status !== 'CRYPTO_UNSUPPORTED') {
     return false;
   }
-  return (
-    candidate.status === 'VERIFIED' ||
-    candidate.status === 'INVALID' ||
-    candidate.status === 'CRYPTO_UNAVAILABLE' ||
-    candidate.status === 'CRYPTO_UNSUPPORTED'
-  );
+  if (!hasOnlyOwnKeys(value, ['status', 'reason'])) {
+    return false;
+  }
+  return candidate.reason === undefined || typeof candidate.reason === 'string';
 }
 
 function runVerifier(
