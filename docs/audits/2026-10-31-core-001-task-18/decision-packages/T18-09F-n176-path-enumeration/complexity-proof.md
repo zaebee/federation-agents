@@ -94,7 +94,7 @@ Proof (⇐): take a simple `s⇝u` path in `E_valid` and a simple `v⇝t` path i
 
 ## 7. D3 — cycle class and chronological loop erasure
 
-Lemma 4 gives the polynomial decision. The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated into a directed walk, then **chronologically loop-erased**. Complexity is expected `O(|V|+|E|)` with a vertex→index hash map, or `O((|V|+|E|) log |V|)` with a deterministic balanced tree. D3 is separate from D2: a cycle-preempted path never reaches assurance, so it cannot be classified by the first non-satisfied edge.
+Lemma 4 gives the polynomial decision. The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated into a directed walk, then **chronologically loop-erased**. Total complexity is expected `O(|V|+|E|)` (BFS `O(|V|+|E|)` plus loop erasure expected `O(|V|)`) with a vertex→index hash map, or `O((|V|+|E|) log |V|)` with a deterministic balanced tree. D3 is separate from D2: a cycle-preempted path never reaches assurance, so it cannot be classified by the first non-satisfied edge.
 
 ### 7.1 Chronological loop erasure (not first-occurrence deduplication)
 
@@ -119,7 +119,7 @@ for each edge (u, v) in the walk:
 
 **Invariant after each processed edge:** the stack is a contiguous directed walk in the original graph (every adjacent pair is an edge actually traversed) with no repeated vertex, and `index` maps every vertex on the stack to its exact position. Appending a new `v` preserves contiguity via edge `(u,v)` and records its index; truncating at a previous `v` keeps a prefix, makes `v` the new top, and deletes the indices of exactly the removed suffix, so the next edge continues from `v`.
 
-**Complexity:** with a hash map for `index`, membership and position lookup are expected O(1); each vertex is pushed once and popped at most once, so the loop-erasure pass is expected O(|V|+|E|). If a strict deterministic worst-case bound is required rather than expected-hash, replace the hash map with a balanced search tree, giving O((|V|+|E|) log |V|); the algorithm does not change. The earlier text that scanned the stack linearly would have been O(|V|·|E|) and is not the intended bound.
+**Complexity:** the input walk is the concatenation of two BFS predecessor paths. Each BFS path is simple and has at most `|V| - 1` edges, so the concatenated walk has `O(|V|)` edges. Loop erasure processes each input edge exactly once; total pushes are bounded by the walk length plus the initial stack element, and each individual push is popped at most once. With a hash map for `index`, lookup/update/delete are expected O(1), so loop erasure is expected `O(|V|)`; BFS is `O(|V|+|E|)`, giving expected `O(|V|+|E|)` overall. A strict deterministic bound uses a balanced tree for `index`, giving `O((|V|+|E|) log |V|)`. Linear stack scans would be `O(|V|·|E|)` and are not the intended algorithm.
 
 For `s→a→b→c→a→d→t`, the stack evolves to `s→a→d→t`: the cycle `a→b→c→a` is removed, `c` is erased, and `a` survives as the cyclic node. The result is the simple path required by Lemma 4; it still touches `C` by the chain-of-erasure argument in Lemma 4 (the surviving cyclic vertex may be reached through later erasures).
 
