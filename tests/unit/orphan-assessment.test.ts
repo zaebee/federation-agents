@@ -148,6 +148,8 @@ describe('C-1 reference adapter', () => {
     });
 
     expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('id callback failed');
     expect(calls).toBe(2);
     expect(JSON.stringify(existing)).toBe(before);
   });

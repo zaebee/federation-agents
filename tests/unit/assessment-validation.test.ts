@@ -96,6 +96,12 @@ describe('generic assessment validation', () => {
     expect(validateContinuityAssessment(assessment({ assessed_at: timestamp(Number.NaN) })).ok).toBe(false);
   });
 
+  test('rejects empty claim and evidence strings', () => {
+    expect(validateContinuityAssessment(assessment({ verified_claims: [''] })).ok).toBe(false);
+    expect(validateContinuityAssessment(assessment({ unverified_claims: [''] })).ok).toBe(false);
+    expect(validateContinuityAssessment(assessment({ evidence_refs: [''] })).ok).toBe(false);
+  });
+
   test('rejects accessor properties and symbols', () => {
     const withAccessor = { ...assessment() };
     Object.defineProperty(withAccessor, 'assessment_id', {

@@ -47,6 +47,58 @@ function compareStrings(a: string, b: string): number {
   return 0;
 }
 
+function collectRelationGroups(graph: DeepReadonly<LineageGraph>, child: IdentityVersionID): RelationGroup[] {
+  const groups = new Map<LineageRelationType, IdentityVersionID[]>();
+  for (const edge of graph.edges) {
+    if (edge.child !== child) continue;
+    const parents = groups.get(edge.relation);
+    if (parents === undefined) {
+      groups.set(edge.relation, [edge.parent]);
+    } else if (!parents.includes(edge.parent)) {
+      parents.push(edge.parent);
+    }
+  }
+
+  return [...groups.entries()]
+    .map(([relation, parents]) => ({ relation, parents: [...parents].sort(compareStrings) }))
+    .sort((left, right) => compareStrings(left.relation, right.relation));
+}
+
+function groupHasUnresolvedParent(group: RelationGroup, graph: DeepReadonly<LineageGraph>): boolean {
+  return group.parents.some((parent) => !graph.nodes.includes(parent));
+}
+
+function assessmentIdForGroup(request: OrphanAssessmentRequest, group: RelationGroup): Result<AssessmentID> {
+  let id: unknown;
+  try {
+    id = request.assessmentIdFor(group.relation, group.parents);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return mechanismRejection(`assessmentIdFor threw while constructing a C-1 candidate: ${reason}`);
+  }
+  const idValue = validateJsonValue(id);
+  if (!idValue.ok || typeof idValue.value !== 'string' || idValue.value.length === 0) {
+    return mechanismRejection('assessmentIdFor must return a non-empty string');
+  }
+  return { ok: true, value: idValue.value as AssessmentID };
+}
+
+function buildCandidate(request: OrphanAssessmentRequest, group: RelationGroup, id: AssessmentID): unknown {
+  return {
+    assessment_id: id,
+    subject_version_id: request.child,
+    parent_version_ids: group.parents,
+    declared_relation: group.relation,
+    assessment_profile_ref: request.assessment_profile_ref,
+    assessment_method_version: request.assessment_method_version,
+    verified_claims: [],
+    unverified_claims: ['PARENT_UNRESOLVED'],
+    evidence_refs: request.evidence_refs ?? [],
+    assessed_by: request.assessed_by,
+    assessed_at: request.assessed_at,
+  };
+}
+
 /**
  * Emits one declaration-scoped C-1 Assessment per `(child, relation)` group
  * whose declared parent set contains at least one parent absent from the graph.
@@ -62,51 +114,14 @@ export function emitOrphanAssessment(request: OrphanAssessmentRequest): Result<O
     return mechanismRejection('child is not present in the graph');
   }
 
-  const groups = new Map<LineageRelationType, IdentityVersionID[]>();
-  for (const edge of request.graph.edges) {
-    if (edge.child !== request.child) continue;
-    const parents = groups.get(edge.relation);
-    if (parents === undefined) {
-      groups.set(edge.relation, [edge.parent]);
-    } else if (!parents.includes(edge.parent)) {
-      parents.push(edge.parent);
-    }
-  }
-
-  const ordered: RelationGroup[] = [...groups.entries()]
-    .map(([relation, parents]) => ({ relation, parents: [...parents].sort(compareStrings) }))
-    .sort((left, right) => compareStrings(left.relation, right.relation));
-
   const candidates: unknown[] = [];
-  for (const group of ordered) {
-    if (!group.parents.some((parent) => !request.graph.nodes.includes(parent))) {
+  for (const group of collectRelationGroups(request.graph, request.child)) {
+    if (!groupHasUnresolvedParent(group, request.graph)) {
       continue;
     }
-
-    let id: unknown;
-    try {
-      id = request.assessmentIdFor(group.relation, group.parents);
-    } catch {
-      return mechanismRejection('assessmentIdFor threw while constructing a C-1 candidate');
-    }
-    const idValue = validateJsonValue(id);
-    if (!idValue.ok || typeof idValue.value !== 'string' || idValue.value.length === 0) {
-      return mechanismRejection('assessmentIdFor must return a non-empty string');
-    }
-
-    candidates.push({
-      assessment_id: idValue.value,
-      subject_version_id: request.child,
-      parent_version_ids: group.parents,
-      declared_relation: group.relation,
-      assessment_profile_ref: request.assessment_profile_ref,
-      assessment_method_version: request.assessment_method_version,
-      verified_claims: [],
-      unverified_claims: ['PARENT_UNRESOLVED'],
-      evidence_refs: request.evidence_refs ?? [],
-      assessed_by: request.assessed_by,
-      assessed_at: request.assessed_at,
-    });
+    const id = assessmentIdForGroup(request, group);
+    if (!id.ok) return id;
+    candidates.push(buildCandidate(request, group, id.value));
   }
 
   if (candidates.length === 0) {
