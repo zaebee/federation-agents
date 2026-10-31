@@ -18,7 +18,7 @@
 
 | Status | DEC-01 | DEC-02 | Eligible remediation |
 | --- | --- | --- | --- |
-| **Approved** | `REQ-LOCAL` | `OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation) | `T18-02A` planning- and acceptance-eligible; `T18-02B` blocked on C-2 model; `T18-02C` retired / superseded |
+| **Approved** | `REQ-LOCAL` | `OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation) | `T18-02A` planning- and acceptance-eligible; `T18-02B` blocked on `T18-DEC-16` (C-2 subject model); `T18-02C` retired / superseded |
 | Alternative (not selected) | `REQ-LOCAL` | `OWN-CORE` | `PATH-A`; not active |
 | Alternative (not selected) | `REQ-EXTERNAL` / `REQ-NONE` | n/a | `PATH-C`; `T18-SPEC-01` only |
 
@@ -43,7 +43,7 @@ T18-13 depends on AEBE, not on a specific implementation task.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | T18-01 | specification/design | T18-DEC-01, T18-DEC-02; N-138, N-143, C-1, C-2 | none | `CORE-001_RUNTIME` | P1 | Decision record (approved) | DEC-01 = `REQ-LOCAL`; DEC-02 = `OWN-ADAPTER` + `VAL-CORE` | Recorded in `decision-register.md` |
 | T18-02A | implementation + tests | N-138, CASE-C-1.a3, T-001 | DEC-01/02 approved; Core-owned admission approved; Core validation enforced; `T18-DEC-15` OPEN with Option B local choice | `CORE-001_RUNTIME` | P1 | Adapter C-1 emission + Core validation/admission | AEBE for C-1 from adapter; validation and admission enforced; no public generic C-1 bypass; caller-managed persistence documented; `T18-DEC-15` remains OPEN | `bun test tests/conformance/c.test.ts`; full suite |
-| T18-02B | implementation + tests | N-143, CASE-C-2.a2, T-002 | DEC-01/02 approved + C-2 subject-model decision | `CORE-001_RUNTIME` | P1 | Adapter C-2.a2 emission + Core validation | **BLOCKED** until C-2 model approved; AEBE for C-2.a2; C-2 stays BLOCKED | `bun test tests/conformance/c.test.ts`; full suite |
+| T18-02B | implementation + tests | N-143, CASE-C-2.a2, T-002 | DEC-01/02 approved + `T18-DEC-16` approved (C-2 subject model, shape/provenance) | `CORE-001_RUNTIME` | P1 | Adapter C-2.a2 emission + Core validation | **BLOCKED** until C-2 model approved; AEBE for C-2.a2; C-2 stays BLOCKED | `bun test tests/conformance/c.test.ts`; full suite |
 | T18-02C | retired / superseded | — | none | `CORE-001_RUNTIME` | — | None | Historical task structure; superseded by T18-02A and T18-02B | — |
 | T18-03 | test-only | N-041, CASE-D-4.a2, T-004 | none | `CORE-001_RUNTIME` | P2 | D-4 policy input/outcome test | No auto-authorization; policy context asserted | `bun test tests/conformance/d.test.ts` |
 | T18-04 | conditional | N-019, F-005, T-005 | T18-DEC-03 | `CORE-001_RUNTIME` | P2 | Validation change or caller contract + test | Invalid SEMVER_2 rejected or contract proven | `bun test tests/unit/version-scheme.test.ts`, `entities.test.ts` |
@@ -55,6 +55,7 @@ T18-13 depends on AEBE, not on a specific implementation task.
 | T18-09B | specification decision | N-020; T18-DEC-08 | none | `CORE-001_RUNTIME` | P3 | A-7 decision | Grammar decision recorded | Review |
 | T18-09C | specification decision | N-128; T18-DEC-09 | none | `EXTERNAL_READINESS` | P2 | Trusted-time requirement definition | Normative requirement before external mechanism | Review |
 | T18-09D | specification decision | N-172; T18-DEC-06 | T18-09A (A-4b decision) | `CORE-001_RUNTIME` | P2 | N-172 readiness evidence decision | Conflict tests only after approved predicate | Review |
+| T18-09E | specification/design | C-2 subject model; `T18-DEC-16` | none | `CORE-001_RUNTIME` | P1 | C-2 subject-model decision package (evidence, models, recommendation) | `T18-DEC-16` registered with sub-parts 16.a/16.b/16.c; recommendation recorded, not approved | Review |
 | T18-10 | cross-spec integration | N-026, N-145, N-156, N-169, N-174; T18-DEC-11/12/13 | receiving owners | `CROSS_SPEC` (N-145 `AUTHORITY_BOUNDARY`) | P3 | Handoff records | Receiving spec and acceptance criteria named | Review |
 | T18-11 | external | N-170, N-175; T18-DEC-14 | none | `EXTERNAL_READINESS` | P3 | External audit plan | Independent evidence criteria defined | Review |
 | T18-12 | documentation-only | D-001…D-008 | audit acceptance | `CORE-001_RUNTIME` | P3 | Corrected `docs/implementation.md`/plan statuses | No Task 17 edits | `bun run format:check` (docs excluded) + review |
@@ -66,6 +67,10 @@ T18-13 depends on AEBE, not on a specific implementation task.
 ### T18-01 — Assessment-emission decision package (complete)
 
 The project owner approved `T18-DEC-01 = REQ-LOCAL` and `T18-DEC-02 = OWN-ADAPTER + VAL-CORE`. The approved record is in `decision-register.md`. This task is not an implementation task.
+
+### T18-09E — C-2 subject model decision package (registered, not approved)
+
+Package: `decision-packages/T18-09E-c2-subject-model/`. Registers `T18-DEC-16` with sub-parts 16.a (subject model: closing edge, node, or SCC), 16.b (exact Assessment shape and provenance) and 16.c (publication/retention ownership). Reviewed recommendation: Option A, node- and relation-scoped. `T18-02B` unblocks when the owner approves 16.a/16.b; 16.c may remain OPEN for recording. No Task 17 status changes here.
 
 ### T18-02A — C-1 adapter emission (implemented; acceptance evidence in AEBE)
 

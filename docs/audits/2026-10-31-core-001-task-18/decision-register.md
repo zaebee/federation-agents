@@ -1,7 +1,7 @@
 # Decision Register — Task 18
 
 **Audit base:** `2a83c65`.
-**Status of decisions:** 2 APPROVED (`T18-DEC-01`, `T18-DEC-02`); 13 OPEN.
+**Status of decisions:** 2 APPROVED (`T18-DEC-01`, `T18-DEC-02`); 13 OPEN at the Task 18 baseline, plus `T18-DEC-16` registered after that baseline — **14 OPEN**.
 
 This register records the normative and boundary questions. Approved resolutions are recorded in §3; all other decisions remain OPEN.
 
@@ -34,6 +34,17 @@ Status values: `APPROVED` (explicit project-owner approval recorded here) or `OP
 | **T18-DEC-13** | How is grant suppression observed if grants belong to CORE-003? | §11.2, §13, §14.2 | — | CORE-003 owner | CORE-003 acceptance criteria and observable evidence | C-2.a3 remains BLOCKED; C-2 cannot close | N-145, CASE-C-2.a3, T18-10 | — | OPEN |
 | **T18-DEC-14** | Who performs independent implementation compatibility, and what evidence closes §16? | §16 | — | project owner | Independent implementation/audit plan and acceptance criteria | N-170/N-175 remain NOT COVERED; readiness cannot be READY | N-170, N-175, T18-11 | — | OPEN |
 | **T18-DEC-15** | Does `ContinuityAssessment.parent_version_ids` denote the full declared parent set for `(subject_version_id, declared_relation)`, or only the subset covered by the Assessment? | §6.2, §6.2.1, §5.2, §8.5, §8.6 | `T18-DEC-01` (recording obligation), `T18-DEC-02` (ownership) | spec editor | Normative reading of “оценка декларации”, the plural `parent_version_ids`, per-edge applicability in §8.5/§8.6, and the B-3 per-edge examples; proposed wording; any amendment via `T18-SPEC-01` | Option B remains a local choice; no normative claim about parent coverage; a future clarification may require adapter/validator change | Normative closure of parent-coverage semantics (not T18-02A build) | `OPTION-B-LOCAL` (non-normative local disposition) | **OPEN** |
+| **T18-DEC-16** | What is the subject of an Assessment recording `CYCLE_DETECTED` — the closing edge, a node, or the strongly connected component — and what exact shape, provenance and publication/retention ownership identify the record? | §11.2, §12 C-2, §6.2.1, §6.2.2, §8.8 | `T18-DEC-01` (recording obligation, approved), `T18-DEC-02` (boundary, approved), `T18-DEC-13` (grant suppression), `T18-DEC-15` (parent coverage) | spec editor + project owner | `T18-09E` decision package; approval of 16.a/16.b (16.c may remain OPEN for recording); `T18-02B` AEBE from the adapter boundary | `T18-02B` stays BLOCKED; N-143 and CASE-C-2.a2 stay NOT COVERED; C-2 stays BLOCKED | `T18-02B` | recommend Option A — node/relation-scoped (`T18-09E` §7); not approved | **OPEN** |
+
+### T18-DEC-16 — C-2 subject model (registered after the Task 18 baseline, OPEN)
+
+Registered in response to the independent audit (issue #55). The baseline register listed "C-2 subject model", "exact Assessment shape/provenance" and "publication/retention ownership" as id-less open items; this decision gives them an identifier, an owner, options and closure evidence, folded as named sub-parts:
+
+- **16.a — subject model:** closing edge, node, or strongly connected component;
+- **16.b — exact shape and provenance:** `subject_version_id`, `parent_version_ids`, `declared_relation`, claim list, method fields;
+- **16.c — publication and retention ownership:** what remains OPEN under `T18-DEC-02`'s canonical scope statement.
+
+Evidence, three candidate models, adversarial cases and a reviewed recommendation are in `decision-packages/T18-09E-c2-subject-model/`. Approval of 16.a/16.b unblocks `T18-02B`; this section approves nothing and does not change any Task 18 baseline status.
 
 ## 3. Approved decisions
 
