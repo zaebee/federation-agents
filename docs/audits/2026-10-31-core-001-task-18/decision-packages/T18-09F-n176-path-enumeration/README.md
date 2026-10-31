@@ -1,8 +1,8 @@
 # T18-09F — N-176 Path Enumeration Decision Package
 
-**Status:** DRAFT — decision-support only. **Not approved.**
+**Status:** DRAFT — decision-support only. **Not approved.** Decision-ready revision added (`decision-ready-revision.md`); the complexity analysis (`oq4-complexity-adversarial-pass.md`, revision 3.1) proves D0/D2/D3/D4/D6a/D6b polynomial and leaves D5 only as a **proof sketch with named proof and test obligations — not certified**. `T18-DEC-18` remains PROPOSED / OPEN; **OQ-11 (terminal origin) and OQ-12 (Policy purity) are explicitly OPEN** and are not prerequisites for merging this documentation package.
 **Proposed decision:** `T18-DEC-18` — path-enumeration and equivalent-result semantics.
-**Repository revision:** `e01d77c` (`main`; Task 17 audit revision 1 and T18-09E merged).
+**Repository revision:** `f1d52e1` (`main`; Task 17 audit revision 2 merged).
 **Related:** issue #25, issue #53 / audit revision 1, `AMBIG-A-8`, `T18-SPEC-01`.
 **Package type:** documentation only. No source, test, specification, configuration or CI change.
 
@@ -46,6 +46,16 @@ This package does not edit `decision-register.md`. A proposed register row is in
 | `n176-path-enumeration.md` | Normative analysis, current implementation, options, adversarial cases, recommendation, open sub-decisions, proposed register row, closure evidence |
 | `benchmark-procedure.md` | Reproducible merge-diamond generator and measurement procedure for the `2^k` case |
 | `evidence-index.md` | Normative, implementation, test and issue source index |
+| `adversarial-review.md` | Review of the draft against §8.4/§8.7/§8.8, the code and B-3/B-4/B-6; nine findings |
+| `decision-ready-revision.md` | The six required outcomes (contract equivalence, accepted-witness selection, rejection proof, A-8 preservation, compatibility/migration, resource behaviour), each with statement, anchor, counterexample, resolution, compatibility impact and closure evidence |
+| `remaining-owner-questions.md` | The owner questions (OQ-1…OQ-12), with recommendations and consequences where one is defensible |
+| `oq4-complexity-adversarial-pass.md` | Revision 3.1: class-by-class decision problems, cycle-preemption lemma, complete polynomial arguments for D0/D2/D3/D4/D6a/D6b (D3 via walk + loop erasure), D5 proof sketch with proof and test obligations, D6 split into pre-discovery and edge-evaluation, and an explicit correction history |
+| `complexity-proof.md` | Formal D0–D6b arguments, exact `pathKey` encoding and tie behaviour, D5 proof status (OPEN), proposed oracle and invariance test obligations |
+| `equivalence-matrix.md` | Current vs proposed compact behaviour for adversarial cases A–G, with gaps stated |
+| `api-migration.md` | Versioned compact API, witnesses, diagnostic enumeration, deprecation strategy |
+| `benchmark-record.md` | Executed merge-diamond benchmark record (empirical, not proof) |
+| `benchmark-harness.ts` | Saved, runnable benchmark generator used by `benchmark-record.md` (non-production documentation artifact) |
+| `owner-decision-summary.md` | Required owner decisions, recommended values, consequences |
 
 ## 5. Pre-decision clarification checklist
 
@@ -64,16 +74,18 @@ Before `T18-DEC-18` can be approved, the owner should settle three points that t
    This cannot be inferred from §8.8 alone.
 
 3. **Do not treat “first DFS path” as the canonical witness.**
-   The current canonical order is obtained by sorting the full path set. A non-enumerating implementation must define how it finds the same canonical witness without first materialising every path, and must define a deterministic rejection proof when different paths fail for different reasons.
+   The legacy canonical order is obtained by sorting the full path set. A non-enumerating implementation must choose an accepted-witness mode (pathKey-minimum only if D5 closes, otherwise a specified `DETERMINISTIC_NON_MINIMUM` rule), define how it finds that witness without first materialising every path, and define a deterministic rejection proof when different paths fail for different reasons.
 
 The benchmark procedure is recorded separately so the `2^k` claim can be reproduced without relying on a scratch script.
+
+These three points are developed in `decision-ready-revision.md` §1–§4. The remaining items are mixed: owner decisions (readings, API, diagnostics, benchmark, audit wording), two specification questions (terminal origin `OQ-11`, Policy purity `OQ-12`) and one technical proof obligation (D5); they must not be merged into "owner choices" only.
 
 
 ## 6. Summary
 
 - **Normative requirement.** §8.8 permits memoisation and dynamic programming and forbids requiring explicit enumeration of all possible paths when the result can be computed equivalently.
 - **Current implementation.** `discoverPaths` materialises every simple candidate→origin path; `evaluateBinding` validates every discovered path; the public `BindingResult` exposes `acceptedPaths` and `details.perPath` for every path. The enumeration is therefore an output lower bound, not only an internal implementation detail.
-- **Measured risk.** A chain of `k` merge diamonds yields `2^k` paths. Issue #25 records `k=16` → 65 536 paths / ~2.7 s; roughly 61 nodes can reach ~1 M paths. Input size is linear; output is exponential.
+- **Measured risk.** A chain of `k` merge diamonds yields `2^k` paths. The executed `benchmark-record.md` reports a median `k=16` → 65 536 paths / 2 305 ms / 458 MiB RSS delta; roughly 61 nodes can reach ~1 M paths. The `~2.7 s` figure in Issue #25 was an earlier scratch run, not the executed record. Input size is linear; output is exponential.
 - **Core ambiguity.** Whether `acceptedPaths` and `details.perPath` are part of the required normative result. If they are, N-176's conditional may not bite. If a compact validity result is equivalent, the current implementation violates N-176.
-- **Recommendation (not approved).** Adopt a compact binding result: one canonical accepted path plus closure evidence for acceptance; a deterministic failure witness for rejection; optional bounded diagnostic enumeration outside the required validity path. No new normative error code. A-8 precedence remains OPEN.
+- **Preferred direction (not approved; specified in `decision-ready-revision.md`; not a claim that it is the only complete contract).** Adopt Reading B with a compact binding result: one accepted witness (selection mode per OD-3: canonical only if D5 closes, otherwise `DETERMINISTIC_NON_MINIMUM`) plus closure evidence for acceptance; D0 acceptance, D1 no-path rejection, and D2/D3/D4 class-existence rejection proofs that reproduce the current top-level code — polynomial for D0/D1/D2/D3/D4/D6a/D6b, with D5 as a proof sketch plus proof and test obligations (`oq4-complexity-adversarial-pass.md`); diagnostics outside the required validity path. A versioned API is recommended over silently changing `BindingResult`. No new normative error code; A-8 precedence and A-14 remain OPEN. The remaining choices are in `remaining-owner-questions.md`.
 - **What this package does not do.** It does not approve `T18-DEC-18`, change Task 17 statuses, resolve A-8, change closure depth, or authorise implementation.

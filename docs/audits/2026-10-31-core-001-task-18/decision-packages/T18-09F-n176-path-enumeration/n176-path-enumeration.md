@@ -76,7 +76,7 @@ Path validation is per edge (`§8.5`), and merge closure is per direct branch (`
 - N-176 status **PARTIAL**;
 - §8.8 aggregate **PASS → PARTIAL**;
 - current evidence: `collectPaths`/`discoverPaths` materialise every simple path and `evaluateBinding` validates each;
-- measurement: a chain of `k` merge diamonds yields `2^k` paths (`k=16` → 65 536 paths / ~2.7 s);
+- measurement: a chain of `k` merge diamonds yields `2^k` paths (`k=16` → 65 536 paths / ~2.7 s, historical scratch measurement; the executed record is `benchmark-record.md`, median 2 305 ms);
 - no test asserts N-176.
 
 The revision explicitly leaves open whether the public per-path result makes enumeration part of the required result. That is the decision this package addresses.
@@ -172,7 +172,7 @@ A cap on discovered paths (option A) preserves the enumeration requirement and m
 - rejection: a deterministic failure witness (edge or closure branch) plus the reason no accepted path exists;
 - optional per-path diagnostics are not required for validity.
 
-**Pros:** directly satisfies N-176 on Reading B; resource use follows the graph/proof structure rather than path count; preserves one-accepted-path rule; keeps B-4/B-6 evidence if the witness is chosen carefully.
+**Pros:** designed to satisfy N-176 on Reading B, subject to the OQ-9 conditions and a separate audit revision; resource use follows the graph/proof structure rather than path count; preserves one-accepted-path rule; keeps B-4/B-6 evidence if the witness is chosen carefully.
 
 **Cons:** breaking `BindingResult` change; rejection proof is the hard part; `details.perPath` compatibility; A-8 precedence remains OPEN; needs a precise equivalence definition.
 
@@ -195,7 +195,7 @@ A cap on discovered paths (option A) preserves the enumeration requirement and m
 - rejection: use graph/DP/dominance reasoning to prove no path can be fully valid, returning a compact witness;
 - diagnostics: optional bounded enumeration, explicitly outside the required validity result.
 
-**Pros:** satisfies N-176 on Reading B; preserves a path witness for acceptance; offers diagnostics without making them mandatory; can retain B-4/B-6 evidence.
+**Pros:** designed to satisfy N-176 on Reading B, subject to the OQ-9 conditions and a separate audit revision; preserves a path witness for acceptance; offers diagnostics without making them mandatory; can retain B-4/B-6 evidence.
 
 **Cons:** most complex; needs a proof/witness contract; risk of divergence between compact decision and diagnostic enumeration; A-8 and closure-depth questions remain OPEN.
 
