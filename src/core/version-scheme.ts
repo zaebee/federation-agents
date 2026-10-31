@@ -6,7 +6,7 @@
 // semantics. Nothing here infers a format, digest length, or version order for
 // those schemes.
 
-import type { VersionScheme } from './entities.js';
+import { VERSION_SCHEMES, type VersionScheme } from './entities.js';
 import type { Result } from './errors.js';
 import { mechanismFailure } from './errors.js';
 import { hasLoneSurrogate } from './primitives.js';
@@ -17,7 +17,7 @@ export interface VersionLabel {
 }
 
 export interface SemVer {
-  /** Original label text; exact selectors compare this, not the parsed fields. */
+  /** Original validated label text, carried into comparator records. */
   readonly text: string;
   /** Decimal digit strings without leading zeros, compared without Number precision loss. */
   readonly major: string;
@@ -27,12 +27,9 @@ export interface SemVer {
   readonly build: readonly string[];
 }
 
-const VERSION_SCHEMES: readonly VersionScheme[] = ['SEMVER_2', 'CONTENT_HASH', 'OPAQUE_TAG'];
-
 const NUMERIC_IDENTIFIER = /^(0|[1-9]\d*)$/;
 const DIGITS = /^\d+$/;
-const ALPHANUMERIC_IDENTIFIER = /^[0-9A-Za-z-]+$/;
-const BUILD_IDENTIFIER = /^[0-9A-Za-z-]+$/;
+const IDENTIFIER = /^[0-9A-Za-z-]+$/;
 
 export function isVersionScheme(value: unknown): value is VersionScheme {
   return typeof value === 'string' && (VERSION_SCHEMES as readonly string[]).includes(value);
@@ -120,7 +117,7 @@ function prereleaseIdentifiersValid(value: string): boolean {
       if (!NUMERIC_IDENTIFIER.test(identifier)) {
         return false;
       }
-    } else if (!ALPHANUMERIC_IDENTIFIER.test(identifier)) {
+    } else if (!IDENTIFIER.test(identifier)) {
       return false;
     }
   }
@@ -129,7 +126,7 @@ function prereleaseIdentifiersValid(value: string): boolean {
 
 function buildIdentifiersValid(value: string): boolean {
   for (const identifier of value.split('.')) {
-    if (identifier.length === 0 || !BUILD_IDENTIFIER.test(identifier)) {
+    if (identifier.length === 0 || !IDENTIFIER.test(identifier)) {
       return false;
     }
   }

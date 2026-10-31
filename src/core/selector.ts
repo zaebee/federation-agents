@@ -5,9 +5,11 @@
 // `uia-ref-selector@1`; any assessment or documentation quoting the grammar
 // must identify it by that label.
 //
-// Supported forms: `=x`, `*`, and `&&`-joined comparators `> >= < <= ^ ~`.
-// Range selectors are incompatible with CONTENT_HASH and OPAQUE_TAG and are
-// reported as a MechanismFailure with S_SELECTOR_INCOMPATIBLE_SCHEME.
+// SemVer selectors support `=x`, `*`, and `&&`-joined comparators
+// `> >= < <= ^ ~`. CONTENT_HASH and OPAQUE_TAG support `*` and `=label`, where
+// the label is taken verbatim so every valid label round-trips; range
+// selectors are reported as a MechanismFailure with
+// S_SELECTOR_INCOMPATIBLE_SCHEME.
 
 import type { VersionScheme } from './entities.js';
 import type { Result } from './errors.js';
@@ -27,6 +29,16 @@ export const SELECTOR_MECHANISM_VERSION = 'uia-ref-selector@1' as const;
 
 export type SelectorOperator = '=' | '>' | '>=' | '<' | '<=' | '^' | '~';
 
+const COMPILED_SELECTOR_BRAND: unique symbol = Symbol('uia-ref-selector@1');
+
+/** Raised when a value not produced by `compileSelector` reaches `selectorMatches`. */
+export class InvalidCompiledSelectorError extends Error {
+  constructor(message = 'CompiledSelector must be produced by compileSelector') {
+    super(message);
+    this.name = 'InvalidCompiledSelectorError';
+  }
+}
+
 export interface SelectorComparator {
   readonly op: SelectorOperator;
   /** Version text for SEMVER_2, or the exact label text for the other schemes. */
@@ -36,6 +48,7 @@ export interface SelectorComparator {
 }
 
 export interface CompiledSelector {
+  readonly [COMPILED_SELECTOR_BRAND]: true;
   readonly mechanism: typeof SELECTOR_MECHANISM_VERSION;
   readonly scheme: VersionScheme;
   readonly kind: 'WILDCARD' | 'COMPARATORS';
@@ -44,7 +57,7 @@ export interface CompiledSelector {
 
 const OPERATORS: readonly SelectorOperator[] = ['>=', '<=', '=', '>', '<', '^', '~'];
 
-const RANGE_OPERATORS: ReadonlySet<SelectorOperator> = new Set(['>', '>=', '<', '<=', '^', '~']);
+const RANGE_PREFIXES: ReadonlySet<string> = new Set(['>', '<', '^', '~']);
 
 function syntaxFailure(message: string): Result<never> {
   return { ok: false, error: mechanismFailure('E_SELECTOR_SYNTAX_INVALID', message) };
@@ -54,8 +67,48 @@ function incompatibleScheme(message: string): Result<never> {
   return { ok: false, error: mechanismFailure('S_SELECTOR_INCOMPATIBLE_SCHEME', message) };
 }
 
-function freezeSelector(selector: CompiledSelector): CompiledSelector {
+function brandedSelector(fields: {
+  readonly mechanism: typeof SELECTOR_MECHANISM_VERSION;
+  readonly scheme: VersionScheme;
+  readonly kind: 'WILDCARD' | 'COMPARATORS';
+  readonly comparators: readonly SelectorComparator[];
+}): CompiledSelector {
+  const selector = { ...fields } as unknown as CompiledSelector;
+  Object.defineProperty(selector, COMPILED_SELECTOR_BRAND, {
+    value: true,
+    writable: false,
+    enumerable: false,
+    configurable: false,
+  });
   return deepFreeze(selector);
+}
+
+function assertCompiledSelector(selector: CompiledSelector): void {
+  if (
+    selector === null ||
+    typeof selector !== 'object' ||
+    (selector as unknown as Record<symbol, unknown>)[COMPILED_SELECTOR_BRAND] !== true
+  ) {
+    throw new InvalidCompiledSelectorError();
+  }
+}
+
+function wildcardSelector(scheme: VersionScheme): CompiledSelector {
+  return brandedSelector({
+    mechanism: SELECTOR_MECHANISM_VERSION,
+    scheme,
+    kind: 'WILDCARD',
+    comparators: [],
+  });
+}
+
+function exactSelector(scheme: VersionScheme, label: string): CompiledSelector {
+  return brandedSelector({
+    mechanism: SELECTOR_MECHANISM_VERSION,
+    scheme,
+    kind: 'COMPARATORS',
+    comparators: [{ op: '=', text: label }],
+  });
 }
 
 function splitOperator(segment: string): { readonly op: SelectorOperator; readonly operand: string } | undefined {
@@ -80,23 +133,21 @@ function upperBoundText(op: '^' | '~', version: SemVer): string {
   return `0.0.${incrementDecimal(version.patch)}`;
 }
 
-function expandRange(op: '^' | '~', version: SemVer): Result<readonly SelectorComparator[]> {
-  const upperText = upperBoundText(op, version);
-  const upper = parseSemVer(upperText);
-  if (upper === undefined) {
-    return syntaxFailure(`Cannot compute a valid ${op} upper bound for ${version.text}`);
-  }
-
-  return {
-    ok: true,
-    value: [
-      { op: '>=', text: version.text, version },
-      { op: '<', text: upperText, version: upper },
-    ],
-  };
+/** Builds a release-version bound from text produced by `upperBoundText`. */
+function upperBoundVersion(text: string): SemVer {
+  const [major, minor, patch] = text.split('.');
+  return Object.freeze({ text, major, minor, patch, prerelease: Object.freeze([]), build: Object.freeze([]) });
 }
 
-function parseComparatorSegment(segment: string, scheme: VersionScheme): Result<readonly SelectorComparator[]> {
+function expandRange(op: '^' | '~', version: SemVer): readonly SelectorComparator[] {
+  const upperText = upperBoundText(op, version);
+  return [
+    { op: '>=', text: version.text, version },
+    { op: '<', text: upperText, version: upperBoundVersion(upperText) },
+  ];
+}
+
+function parseSemverComparator(segment: string): Result<readonly SelectorComparator[]> {
   const split = splitOperator(segment);
   if (split === undefined) {
     return syntaxFailure(`Selector segment must start with an operator: ${JSON.stringify(segment)}`);
@@ -110,30 +161,48 @@ function parseComparatorSegment(segment: string, scheme: VersionScheme): Result<
     return syntaxFailure(`Selector operand must not contain whitespace: ${JSON.stringify(operand)}`);
   }
 
-  if (scheme !== 'SEMVER_2') {
-    if (RANGE_OPERATORS.has(op)) {
-      return incompatibleScheme(
-        `Selector ${op} is not compatible with ${scheme}; only exact match and wildcard are supported`,
-      );
-    }
-    return { ok: true, value: [{ op: '=', text: operand }] };
-  }
-
   const version = parseSemVer(operand);
   if (version === undefined) {
     return syntaxFailure(`Selector operand is not a SemVer 2.0.0 version: ${JSON.stringify(operand)}`);
   }
 
   if (op === '^' || op === '~') {
-    return expandRange(op, version);
+    return { ok: true, value: expandRange(op, version) };
   }
 
   return { ok: true, value: [{ op, text: operand, version }] };
 }
 
 /**
+ * CONTENT_HASH and OPAQUE_TAG: `*` or `=label`, with the label taken exactly as
+ * written. Splitting on `&&` and whitespace rejection are deliberately not
+ * applied here, so any label accepted by `validateVersionLabel` round-trips.
+ */
+function compileNonSemverSelector(value: string, scheme: VersionScheme): Result<CompiledSelector> {
+  if (value.trim() === '*') {
+    return { ok: true, value: wildcardSelector(scheme) };
+  }
+
+  const probe = value.trimStart();
+  if (probe.startsWith('=')) {
+    const label = probe.slice(1);
+    if (label.length === 0) {
+      return syntaxFailure('Exact selector requires a label');
+    }
+    return { ok: true, value: exactSelector(scheme, label) };
+  }
+
+  if (RANGE_PREFIXES.has(probe.charAt(0))) {
+    return incompatibleScheme(`${scheme} supports only exact match and wildcard selectors`);
+  }
+
+  return syntaxFailure(`Selector must be "*" or "=" followed by an exact label for ${scheme}`);
+}
+
+/**
  * Parses and validates a selector expression for a given version scheme.
- * The result is a frozen, owned record; parsing is separate from matching.
+ * The result is a frozen, owned record carrying a module-private runtime
+ * brand; it cannot be reproduced from a plain object.
  */
 export function compileSelector(value: unknown, scheme: VersionScheme): Result<CompiledSelector> {
   if (!isVersionScheme(scheme)) {
@@ -146,21 +215,16 @@ export function compileSelector(value: unknown, scheme: VersionScheme): Result<C
     return syntaxFailure('Selector must not contain lone surrogates');
   }
 
+  if (scheme !== 'SEMVER_2') {
+    return compileNonSemverSelector(value, scheme);
+  }
+
   const expression = value.trim();
   if (expression.length === 0) {
     return syntaxFailure('Selector must not be empty');
   }
-
   if (expression === '*') {
-    return {
-      ok: true,
-      value: freezeSelector({
-        mechanism: SELECTOR_MECHANISM_VERSION,
-        scheme,
-        kind: 'WILDCARD',
-        comparators: [],
-      }),
-    };
+    return { ok: true, value: wildcardSelector(scheme) };
   }
 
   const segments = expression.split('&&').map((segment) => segment.trim());
@@ -170,20 +234,16 @@ export function compileSelector(value: unknown, scheme: VersionScheme): Result<C
 
   const comparators: SelectorComparator[] = [];
   for (const segment of segments) {
-    const parsed = parseComparatorSegment(segment, scheme);
+    const parsed = parseSemverComparator(segment);
     if (!parsed.ok) {
       return parsed;
     }
     comparators.push(...parsed.value);
   }
 
-  if (scheme !== 'SEMVER_2' && (comparators.length !== 1 || comparators[0].op !== '=')) {
-    return incompatibleScheme(`${scheme} supports only exact match and wildcard selectors`);
-  }
-
   return {
     ok: true,
-    value: freezeSelector({
+    value: brandedSelector({
       mechanism: SELECTOR_MECHANISM_VERSION,
       scheme,
       kind: 'COMPARATORS',
@@ -219,11 +279,16 @@ function matchesComparator(comparator: SelectorComparator, labelVersion: SemVer,
 /**
  * Evaluates a compiled selector against a validated label.
  *
- * Returns `false` for a scheme mismatch rather than matching across schemes.
+ * Throws `InvalidCompiledSelectorError` when the selector was not produced by
+ * `compileSelector`; a forged object is never treated as a valid selector or
+ * as a wildcard. Returns `false` for a scheme mismatch.
+ *
  * Exact (`=`) comparison is full string identity, including build metadata;
  * all other operators use SemVer precedence, which ignores build metadata.
  */
 export function selectorMatches(selector: CompiledSelector, label: VersionLabel): boolean {
+  assertCompiledSelector(selector);
+
   if (selector.scheme !== label.scheme) {
     return false;
   }

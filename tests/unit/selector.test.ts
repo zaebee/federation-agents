@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { VersionScheme } from '../../src/core/entities.js';
 import {
+  InvalidCompiledSelectorError,
   SELECTOR_MECHANISM_VERSION,
   compileSelector,
   selectorMatches,
@@ -214,11 +215,19 @@ describe('OPAQUE_TAG and CONTENT_HASH selectors', () => {
       });
     }
 
-    test(`${scheme}: rejects comparator composition as incompatible`, () => {
-      const error = compileFailure('=a&&=a', scheme);
+    test(`${scheme}: exact selector round-trips labels verbatim`, () => {
+      for (const value of [' tag ', 'my tag', 'a&&b', '=x', '*', '  ']) {
+        expect(matches(`=${value}`, value, scheme)).toBe(true);
+      }
+    });
 
-      expect(error.kind).toBe('MECHANISM');
-      expect(error.code).toBe('S_SELECTOR_INCOMPATIBLE_SCHEME');
+    test(`${scheme}: exact operand preserves leading and trailing spaces`, () => {
+      expect(matches('= tag ', ' tag ', scheme)).toBe(true);
+      expect(matches('= tag ', 'tag', scheme)).toBe(false);
+    });
+
+    test(`${scheme}: rejects an empty exact operand`, () => {
+      expect(compileFailure('=', scheme).code).toBe('E_SELECTOR_SYNTAX_INVALID');
     });
   }
 });
@@ -274,5 +283,50 @@ describe('malformed selectors', () => {
 
   test('rejects a non-string selector', () => {
     expect(compileFailure(123 as unknown as string).code).toBe('E_SELECTOR_SYNTAX_INVALID');
+  });
+});
+
+describe('compiled selector provenance', () => {
+  const target = label('1.0.0');
+
+  function forged(overrides: Partial<CompiledSelector> = {}): CompiledSelector {
+    return {
+      mechanism: 'uia-ref-selector@1',
+      scheme: 'SEMVER_2',
+      kind: 'WILDCARD',
+      comparators: [],
+      ...overrides,
+    } as unknown as CompiledSelector;
+  }
+
+  test('rejects a structurally identical manually constructed object', () => {
+    expect(() => selectorMatches(forged(), target)).toThrow(InvalidCompiledSelectorError);
+  });
+
+  test('rejects a forged mechanism label without the runtime brand', () => {
+    expect(() => selectorMatches(forged({ mechanism: 'uia-ref-selector@1' }), target)).toThrow(
+      InvalidCompiledSelectorError,
+    );
+  });
+
+  test('rejects an unknown mechanism version', () => {
+    expect(() =>
+      selectorMatches(forged({ mechanism: 'uia-ref-selector@2' as unknown as 'uia-ref-selector@1' }), target),
+    ).toThrow(InvalidCompiledSelectorError);
+  });
+
+  test('rejects a copy that lost the non-enumerable brand', () => {
+    const compiled = selector('=1.0.0');
+    const copy = { ...compiled } as unknown as CompiledSelector;
+
+    expect(() => selectorMatches(copy, target)).toThrow(InvalidCompiledSelectorError);
+  });
+
+  test('rejects a non-object selector', () => {
+    expect(() => selectorMatches(null as unknown as CompiledSelector, target)).toThrow(InvalidCompiledSelectorError);
+  });
+
+  test('accepts a selector produced by compileSelector', () => {
+    expect(selectorMatches(selector('=1.0.0'), target)).toBe(true);
   });
 });
