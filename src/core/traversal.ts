@@ -1,9 +1,10 @@
-// Traversal phases 1 and 2 for UIA-CORE-001 §8 (Task 9).
+// Traversal phases for UIA-CORE-001 §8 (Tasks 9 and 10).
 //
 // Phase 1 (`discoverPaths`) answers scope-permitted reachability only; it never
 // consults Assessments. Phase 2 (`validatePath`) validates one concrete path
-// through Task 8's edge-bound assessment APIs. Merge Closure Validation is
-// Task 10 and is not implemented here.
+// through Task 8's edge-bound assessment APIs. Phase 3
+// (`validateMergeClosure`) closes every direct parent edge of merge nodes on a
+// VALID path; closure-only branches are not recursed (A-5).
 
 import {
   assessEdge,
@@ -730,8 +731,7 @@ function evaluateOnePath(
 }
 
 /**
- * Orchestrates §8.3 prechecks, path discovery and per-path validation.
- * Merge Closure Validation is deliberately absent until Task 10.
+ * §8.3 prechecks: target participant, selector match and version label.
  */
 function precheckCandidate(
   candidate: DeepReadonly<IdentityVersionDescriptor>,
@@ -794,6 +794,10 @@ function summarizePaths(accepted: readonly Path[], outcomes: readonly PathOutcom
   }) as BindingResult;
 }
 
+/**
+ * Orchestrates §8.3 prechecks, path discovery, per-path validation and
+ * immediate merge closure, then aggregates the per-path outcomes.
+ */
 export function evaluateBinding(
   state: {
     graph: LineageGraph;

@@ -451,7 +451,7 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
 - `MergeClosureResult` is `SATISFIED` or `UNSATISFIED { code: 'ERR_MERGE_BRANCH_UNSATISFIED', failures }`, where each failure carries `branch` plus `NO_APPLICABLE_ASSESSMENT`, `ASSURANCE_UNSATISFIED` (`missing`/`disallowed`) or `CONTESTED` (`contestedClaims`). Mechanism failures stay in `Result`, never as branch reasons.
 - `PathOutcome` gains optional `closure`; `BindingResult.details.perPath` is `PathOutcome[]` in both success and failure, because a path can be `VALID` while its closure failed. `FailedPath` remains exported but is not the perPath type.
 - Task 10 aggregation: fully accepted path → eligible; else closure failure → `ERR_MERGE_BRANCH_UNSATISFIED`; else `CYCLE_DETECTED`; else `CONTESTED`; else assurance. This is a local aggregation rule; A-8 remains OPEN.
-- Closure validates only direct `MERGED_FROM` parent edges of merge nodes on the path, skipping the edge already on the path. Closure-only branches are not recursed. B-6 checks `D→C` but not `C→X`.
+- Closure validates every direct parent edge of merge nodes on the path, whatever its relation. Merge nodes are detected from graph adjacency, not from the selected path edge's relation. Only the exact `(child, parent, relation)` edge already validated by Phase 2 is skipped; different relations to the same parent are not collapsed. Closure-only branches are not recursed. B-6 checks `D→C` but not `C→X`.
 
 ### Task 11: Scope × merge-closure internal consistency (review point 4)
 
