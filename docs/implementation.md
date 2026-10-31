@@ -1264,7 +1264,7 @@ function appendLifecycleEvent(
 
 **`Evidence` versus `Assessment`.** There is no `Evidence` type in this repository. `evidence_refs` is an array of identifiers whose semantics belong to CORE-004 (§6.2.4). A reference does not establish that the evidence is true or sufficient. A `ContinuityAssessment` is a CORE-001 local epistemic document: who assessed, under which profile and method version, which claims were verified or unverified, on which edge, with which evidence references.
 
-**`Finding` versus `Ruling`.** Neither exists as a type here. CORE-001 does not define them; CORE-004 does. The nearest construct is `LocalAcceptanceRecord`, which records a domain's decision in a context. D-2 uses a local acceptance record plus a ledger as the "historical ruling double" because no Ruling type exists; the test asserts that the record and its ledger are byte-identical after a later revocation and a superseding assessment. It does not claim that CORE-001 defines a Ruling.
+**`Finding` versus `Ruling`.** Neither exists as a type here. CORE-001 does not define them; CORE-004 does. The nearest construct is `LocalAcceptanceRecord`, which records a domain's decision in a context. D-2 uses a local acceptance record plus a ledger as a **historical Local Acceptance preservation fixture**, because no Ruling type exists. The test asserts that the acceptance record, its supporting assessment and the ledger are byte-identical after a later revocation and a superseding assessment. It does not claim that CORE-001 defines a Ruling, and the fixture is not a substitute for one.
 
 **`LocalAcceptance` versus Authority Grant.** A `LocalAcceptanceRecord` is a local recognition act. It is not a grant, does not inherit, does not delegate and does not authorize execution. `isAcceptable` reports contextual applicability only. No function in the repository returns a grant, capability or permission.
 
@@ -1474,7 +1474,7 @@ These are **not** C-1/C-2 conformance assertions: they do not create an Assessme
 | Case | Spec | Test (name; line) | Behaviour asserted | Status |
 | --- | --- | --- | --- | --- |
 | D-1 | §1.3, §3.3, §13 #5, §12 D-1 | `D-1 rt-1 failure is separate and rt-2 continues RUNNING`; :141 | `rt-1` failure recorded as a separate event; `rt-2` `RUNNING`; registry and descriptors byte-identical; identity and credential unchanged; usage result unchanged; `rt-1` state still `RUNNING` | pass |
-| D-2 | §6.3, §9, §13 #8, §12 D-2 | `D-2 later revocation and superseding assessment leave the Local Acceptance intact`; :172 | acceptance and supporting assessment byte-identical; ledger snapshot unchanged; supersession history keeps both records in order; fresh evaluation returns `INVALID` while stored rulings are untouched; descriptor and credential unchanged | pass |
+| D-2 | §6.3, §9, §13 #8, §12 D-2 | `D-2 later revocation and superseding assessment leave the Local Acceptance intact`; :172 | acceptance and supporting assessment byte-identical; ledger snapshot unchanged; supersession history keeps both records in order; fresh evaluation returns `INVALID` while the stored Local Acceptance record, its supporting assessment and the ledger remain unchanged; descriptor and credential unchanged | pass |
 | D-3 | §4.4.1, §10.2, §12 D-3 | `D-3 retrospective confirmed compromise invalidates only the compromised claim`; :48 | `VERIFIED`, `PERMITTED`, historical `INVALID`, `claim_status: CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE`; credential and revocation byte-identical and frozen | pass |
 | D-3 (untrusted) | §4.4.1, §10.1 | `D-3 does not infer invalidity when either timestamp is untrusted`; :64 | `TEMPORAL_TRUST_UNTRUSTED` with `fields:['SIGNED_AT']`; no `claim_status`; not `INVALID` | pass |
 | D-3 (evidence gate) | §4.4.1 | `D-3 evidence gate rejection yields CONTESTED_COMPROMISED, not INVALID`; :96 | `CONTESTED_COMPROMISED`; no `claim_status` | pass |
@@ -1723,7 +1723,7 @@ These are proposals for future specification work. None of them is implemented b
 
 **Alternatives already in Rev E.** (a) Immediate-only (current implementation); (b) recursive fixpoint over all reachable branch edges.
 
-**Implementation consequences.** (a) matches current behavior and keeps A-5 closed as "spec-literal". (b) requires a new traversal over closure-only branches, new cycle handling inside branches, and new conformance fixtures; the experimental nested-merge test would become normative.
+**Implementation consequences.** (a) preserves the current immediate-only implementation behavior while keeping A-5 BLOCKED pending normative clarification. (b) requires a new traversal over closure-only branches, new cycle handling inside branches, and new conformance fixtures; the experimental nested-merge test would become normative.
 
 ### 8.3 A-11 — closure over a `MERGED_FROM` origin
 
@@ -1792,13 +1792,14 @@ These are reported, not reconciled by changing code or this document's descripti
 
 ### 9.4 Repository documentation drift (follow-up, not fixed here)
 
-`docs/ARCHITECTURE.md` still describes some implemented modules as targets:
+At the PR base commit `9425d3f`, `docs/ARCHITECTURE.md` is internally inconsistent about modules that already exist:
 
-- §5 row A7 says four trust outcomes are "Target / Planned `credential.ts`"; `credential.ts` and `temporal.ts` are implemented.
-- §8 is titled "Temporal model (target)"; the model is implemented.
-- §9 lists the in-memory `core/ledger.ts` as "planned"; it exists.
+- §3 module map lists `core/temporal.ts` and `core/ledger.ts` as **Implemented** (lines 84 and 88), and §4.1 states that temporal trust and the in-memory ledger already exist.
+- §5 row A7 still says four trust outcomes are **Target / Planned `credential.ts` and temporal model** (line 157).
+- §8 is still titled **Temporal model (target)** and says the model "is planned with the credential module" (lines 189–191).
+- §9 still lists "the planned in-memory `core/ledger.ts`" (line 206).
 
-Updating that overview is a separate documentation task. It is not part of Task 16, and this document does not silently substitute for it.
+So the module map and §4.1 are current, while A7, §8 and one §9 row were not updated. Updating that overview is a separate documentation task. It is not part of Task 16, and this document does not silently substitute for it.
 
 ### 9.5 What remains unverified
 
