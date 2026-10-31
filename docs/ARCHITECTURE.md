@@ -218,20 +218,20 @@ The architecture omits these on purpose; each omission is a boundary, not an unf
 
 ## 11. Testing architecture
 
-`tests/unit/`, `tests/conformance/` (A and B suites) and `tests/experimental/` exist today; `tests/property/` is planned (see [`ROADMAP.md`](./ROADMAP.md)).
+`tests/unit/`, `tests/conformance/` (A and B suites), `tests/property/` and `tests/experimental/` exist today (see [`ROADMAP.md`](./ROADMAP.md)).
 
 | Suite                     | Purpose                                                             | Exists | Conformance claim |
 | ------------------------- | ------------------------------------------------------------------- | ------ | ----------------- |
 | `tests/unit/`             | Module behavior, rejection cases, ownership, canonicalization vectors | Yes    | Yes              |
 | `tests/conformance/`      | The §12 corpus A-1…D-4, exact fixtures and side-effect contracts       | Partial (A, B) | Yes, once present |
-| `tests/property/`         | Determinism and brute-force equivalence (fast-check)                   | No     | Yes, for immediate closure |
+| `tests/property/`         | Determinism and brute-force equivalence (fast-check)                   | Yes    | Yes, for immediate closure |
 | `tests/experimental/`     | BLOCKED interpretations (recursive closure, origin closure)            | Yes    | **No** — excluded |
 
 A passing test suite does not establish production security or interoperability; see [`THREAT-MODEL.md`](./THREAT-MODEL.md).
 
 ## 12. Status
 
-Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, the type-level temporal contracts, and §8 conditional version binding with three-phase traversal and immediate merge closure.
+Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, the type-level temporal contracts, §8 conditional version binding with three-phase traversal and immediate merge closure, and property-based invariance with an independent immediate-closure oracle.
 
 Planned: temporal trust derivation (Task 13), credentials, acceptance, ledger, and the full C-1/C-2 conformance cases (assessment recording of `PARENT_UNRESOLVED`/`CYCLE_DETECTED`).
 

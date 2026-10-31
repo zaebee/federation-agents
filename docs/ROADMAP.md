@@ -48,7 +48,7 @@ Phases are sequential at the level of dependencies, not of effort: P1 and P4 can
 
 ## 4. P1 — Identity, lineage, assessment, traversal (In progress)
 
-The protocol core is implemented through immediate merge closure; Task 11 closes P1 by asserting scope × closure consistency.
+The protocol core is implemented through immediate merge closure and scope × closure consistency. P1 remains open only for the C-1/C-2 binding-level conformance cases.
 
 | Task | Status  | Deliverable                                                          | Exit criterion |
 | ---- | ------- | -------------------------------------------------------------------- | -------------- |
@@ -59,7 +59,7 @@ The protocol core is implemented through immediate merge closure; Task 11 closes
 | 8    | Done    | Assessments: edge binding, unverified-claim semantics (§6)             | Unit-level assessment semantics and the B-5 conformance refusal |
 | 9    | Done    | Traversal phases 1 and 2                                              | Corpus B-1…B-3 pass; phases testable in isolation |
 | 10   | Done    | Immediate merge closure                                               | Corpus B-4…B-7 pass; per-path outcomes preserved |
-| 11   | Next    | Scope × closure consistency                                           | Structural argument asserted by test |
+| 11   | Done    | Scope × closure consistency                                           | Structural argument asserted by test |
 
 **Exit criteria for P1:**
 
@@ -84,12 +84,12 @@ The protocol core is implemented through immediate merge closure; Task 11 closes
 - `UNTRUSTED`, `UNASSESSED`, and `TRUST_ASSESSMENT_UNAVAILABLE` are distinguishable in every public result.
 - Acceptance never produces authority and never binds another domain.
 
-## 6. P3 — Verification hardening (Planned)
+## 6. P3 — Verification hardening (In progress)
 
-| Task | Deliverable                                                          |
-| ---- | -------------------------------------------------------------------- |
-| 12   | Property-based tests: determinism, order independence, brute-force equivalence |
-| 17   | Full conformance run with assertion-level verification                 |
+| Task | Status | Deliverable                                                          |
+| ---- | ------ | -------------------------------------------------------------------- |
+| 12   | Done   | Property-based tests: determinism, order independence, brute-force equivalence |
+| 17   | Next   | Full conformance run with assertion-level verification                 |
 
 **Exit criteria for P3:**
 
