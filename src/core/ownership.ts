@@ -134,6 +134,17 @@ function prepareCopy(input: unknown, active: Set<object>, memo: Map<object, unkn
   }
 
   const source = input as object;
+  // A node on the current path, or one already copied, was validated when it
+  // was first seen, so consulting the path and the memo before building a
+  // frame skips redundant descriptor validation. It does not change which
+  // inputs are rejected: only validated nodes reach `active` or `memo`.
+  if (active.has(source)) {
+    return { kind: 'error', error: ownershipFailure('Cyclic reference detected') };
+  }
+  if (memo.has(source)) {
+    return { kind: 'value', value: memo.get(source) };
+  }
+
   let frame: Result<CopyFrame>;
   if (Array.isArray(source)) {
     frame = arrayCopyFrame(source);
@@ -144,12 +155,6 @@ function prepareCopy(input: unknown, active: Set<object>, memo: Map<object, unkn
   }
   if (!frame.ok) return { kind: 'error', error: frame.error };
 
-  if (active.has(source)) {
-    return { kind: 'error', error: ownershipFailure('Cyclic reference detected') };
-  }
-  if (memo.has(source)) {
-    return { kind: 'value', value: memo.get(source) };
-  }
   active.add(source);
   return { kind: 'frame', frame: frame.value };
 }
@@ -333,6 +338,16 @@ function prepareJson(input: unknown, active: Set<object>, memo: Map<object, Json
   }
 
   const source = input as object;
+  // As in prepareCopy: a node on the current path or already validated was
+  // checked when first seen, so the path/memo lookup precedes the prototype
+  // and descriptor checks.
+  if (active.has(source)) {
+    return { kind: 'error', error: jsonFailure('Cyclic reference detected in JsonValue') };
+  }
+  if (memo.has(source)) {
+    return { kind: 'value', value: memo.get(source) as JsonValue };
+  }
+
   const isArray = Array.isArray(source);
   if (isArray) {
     if (Object.getPrototypeOf(source) !== Array.prototype) {
@@ -340,13 +355,6 @@ function prepareJson(input: unknown, active: Set<object>, memo: Map<object, Json
     }
   } else if (!isPlainObject(source)) {
     return { kind: 'error', error: jsonFailure(`Unsupported JsonValue type: ${typeof input}`) };
-  }
-
-  if (active.has(source)) {
-    return { kind: 'error', error: jsonFailure('Cyclic reference detected in JsonValue') };
-  }
-  if (memo.has(source)) {
-    return { kind: 'value', value: memo.get(source) as JsonValue };
   }
   if (!isArray) {
     const keyFailure = jsonObjectKeyFailure(source);
