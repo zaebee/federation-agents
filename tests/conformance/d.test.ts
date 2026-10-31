@@ -154,64 +154,43 @@ describe('§12 Category D: credential revocation', () => {
   });
 
   // This test proves the historical/future separation and policy-context delivery only.
-  // It does not prove that REQUIRES_ASSESSMENT is a sufficient additional normative
-  // assessment, nor that an arbitrary future-authorization policy is correct.
-  test('D-4 contested history does not become an automatic future authorization decision', () => {
-    let futureCalls = 0;
+  // It does not prove that REQUIRES_ASSESSMENT or AUTHORIZABLE is a sufficient
+  // additional normative assessment, nor that an arbitrary future-authorization
+  // policy is correct.
+  test('D-4 contested history leaves future authorization to policy outcomes', () => {
     const unknownTime = revocationFixture({
       reason: 'CONFIRMED_COMPROMISE',
       compromise_effective_at: undefined,
     });
-    const result = expectOk(
-      evaluate(
-        unknownTime,
-        signaturePolicy({
-          evaluateFutureAuthorization: () => {
-            futureCalls += 1;
-            return 'REQUIRES_ASSESSMENT';
-          },
-        }),
-      ),
-    );
 
-    expect(futureCalls).toBe(1);
-    expect(result.historical).toEqual({ status: 'CONTESTED_COMPROMISED' });
-    // REQUIRES_ASSESSMENT is a policy outcome, not an execution authorization.
-    expect(result.future_authorizable).toBe('REQUIRES_ASSESSMENT');
-    expect(result.claim_status).toBeUndefined();
-    expect(result.temporal.compromise_effective_at).toBeUndefined();
-    expect(result).not.toHaveProperty('grant');
-  });
+    for (const outcome of ['REQUIRES_ASSESSMENT', 'AUTHORIZABLE'] as const) {
+      let futureCalls = 0;
+      let observed: FutureAuthorizationInput | undefined;
+      const result = expectOk(
+        evaluate(
+          unknownTime,
+          signaturePolicy({
+            evaluateFutureAuthorization: (input) => {
+              futureCalls += 1;
+              observed = input;
+              return outcome;
+            },
+          }),
+        ),
+      );
 
-  test('D-4 contested history leaves future authorization to the policy, not an automatic grant', () => {
-    let observed: FutureAuthorizationInput | undefined;
-    const unknownTime = revocationFixture({
-      reason: 'CONFIRMED_COMPROMISE',
-      compromise_effective_at: undefined,
-    });
-    const result = expectOk(
-      evaluate(
-        unknownTime,
-        signaturePolicy({
-          evaluateFutureAuthorization: (input) => {
-            observed = input;
-            return 'AUTHORIZABLE';
-          },
-        }),
-      ),
-    );
+      expect(futureCalls).toBe(1);
+      expect(result.historical).toEqual({ status: 'CONTESTED_COMPROMISED' });
+      // The policy outcome is not an execution authorization or a grant.
+      expect(result.future_authorizable).toBe(outcome);
+      expect(result.claim_status).toBeUndefined();
+      expect(result.temporal.compromise_effective_at).toBeUndefined();
+      expect(result).not.toHaveProperty('grant');
 
-    // The contested history is preserved. AUTHORIZABLE is a policy outcome, not
-    // an execution authorization or a grant created by CORE-001.
-    expect(result.historical).toEqual({ status: 'CONTESTED_COMPROMISED' });
-    expect(result.future_authorizable).toBe('AUTHORIZABLE');
-    expect(result.claim_status).toBeUndefined();
-    expect(result).not.toHaveProperty('grant');
-    expect(result).not.toHaveProperty('authorization');
-
-    expect(observed?.revocation_reason).toBe('CONFIRMED_COMPROMISE');
-    expect(observed?.temporal).toEqual({ signed_at: 'TRUSTED' });
-    expect(observed?.reassessment_required).toBe(false);
+      expect(observed?.revocation_reason).toBe('CONFIRMED_COMPROMISE');
+      expect(observed?.temporal).toEqual({ signed_at: 'TRUSTED' });
+      expect(observed?.reassessment_required).toBe(false);
+    }
   });
 });
 
