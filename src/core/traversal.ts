@@ -169,6 +169,41 @@ function pathKey(path: Path): string {
     .join('\u0001');
 }
 
+function edgeKey(edge: {
+  readonly child: IdentityVersionID;
+  readonly parent: IdentityVersionID;
+  readonly relation: LineageRelationType;
+}): string {
+  return `${String(edge.child)}\u0000${String(edge.parent)}\u0000${edge.relation}`;
+}
+
+type EdgeMembership = ReadonlySet<string>;
+
+function edgeMembership(graph: LineageGraph): EdgeMembership {
+  const keys = new Set<string>();
+  for (const edge of graph.edges) {
+    keys.add(edgeKey(edge));
+  }
+  return keys;
+}
+
+/**
+ * A path is meaningful only against the graph it was discovered from. Every
+ * edge must exist in that graph; without this check a path assembled from a
+ * stale snapshot or from another domain's JSON would validate against any
+ * graph that happens to accept its declarations.
+ */
+function pathMembershipFailure(path: Path, membership: EdgeMembership): Result<void> {
+  for (const edge of path.edges) {
+    if (!membership.has(edgeKey(edge))) {
+      return pathMechanismFailure(
+        `Path edge ${String(edge.child)} -[${edge.relation}]-> ${String(edge.parent)} is not present in the supplied graph`,
+      );
+    }
+  }
+  return { ok: true, value: undefined };
+}
+
 function noPath(candidateID: IdentityVersionID, originID: IdentityVersionID): Result<never> {
   return {
     ok: false,
@@ -473,6 +508,14 @@ export function validatePath(
   policy: Policy,
   ctx: TemporalContext,
 ): Result<PathValidation> {
+  const shape = validatePathShape(path);
+  if (!shape.ok) {
+    return shape;
+  }
+  const membership = pathMembershipFailure(path, edgeMembership(graph));
+  if (!membership.ok) {
+    return membership;
+  }
   return validatePathWithIndex(path, buildCycleIndex(graph), assessments, requirement, policy, ctx);
 }
 
@@ -691,7 +734,22 @@ export function validateMergeClosure(
   if (!shape.ok) {
     return shape;
   }
+  const membership = pathMembershipFailure(path, edgeMembership(graph));
+  if (!membership.ok) {
+    return membership;
+  }
+  return validateMergeClosureAgainstGraph(path, graph, assessments, requirement, policy, ctx);
+}
 
+/** Closure over an already-checked path (evaluateBinding passes discovered paths). */
+function validateMergeClosureAgainstGraph(
+  path: Path,
+  graph: LineageGraph,
+  assessments: readonly ContinuityAssessment[],
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext,
+): Result<MergeClosureResult> {
   const collected = collectClosureFailures(path, graph, assessments, requirement, policy, ctx);
   if (!collected.ok) {
     return collected;
@@ -731,7 +789,7 @@ function evaluateOnePath(
     return { ok: true, value: { path, outcome: validation.value } };
   }
 
-  const closure = validateMergeClosure(path, graph, assessments, requirement, policy, ctx);
+  const closure = validateMergeClosureAgainstGraph(path, graph, assessments, requirement, policy, ctx);
   if (!closure.ok) {
     return closure;
   }

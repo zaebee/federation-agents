@@ -784,7 +784,7 @@ function buildLineageGraph(registry: Registry): LineageGraph;
 - `unresolvedParents` groups missing parents by child and deduplicates them for diagnostics only; it does not alter edges or nodes.
 - `cycles` contains sorted strongly connected components, including one-node self-loops. Cycle detection does not remove nodes or edges and does not throw. `CYCLE_DETECTED` is not emitted here; it is a traversal result.
 - The graph is deep-frozen and does not alias registry arrays. Duplicate version ids in a `Registry` are a caller error with unspecified behavior.
-- `buildLineageGraph` records the frozen result in a module-private `WeakSet`. `isBuiltLineageGraph` (not exported from the package root) accepts only builder-issued graphs. This proves **builder provenance**, not descriptor validity. `buildLineageGraph` is deliberately structural: it does not call `validateIdentityVersionDescriptor` or `validateDescriptor`, and it preserves declarations that §5.2 validation would reject. Descriptor validation remains a caller precondition.
+- `buildLineageGraph` records the frozen result in a module-private `WeakSet`. `isBuiltLineageGraph` (not exported from the package root) accepts only builder-issued graphs. This proves **builder provenance**, not descriptor validity. Traversal does not require it: a caller-supplied structural graph is accepted, and path membership is verified against that graph instead (§3.2, §2.13). `buildLineageGraph` is deliberately structural: it does not call `validateIdentityVersionDescriptor` or `validateDescriptor`, and it preserves declarations that §5.2 validation would reject. Descriptor validation remains a caller precondition.
 - Duplicate version ids with divergent lineage produce a builder-issued graph whose `nodes` are deduplicated and whose `edges` combine both declarations. This is current structural behavior pinned by `tests/unit/lineage-graph.test.ts`; it does not approve contradictory Registry contents.
 
 **Failure modes:** `StructuralResult` values only; graph construction does not return `Result`.
@@ -955,6 +955,7 @@ function evaluateBinding(
 
 - `Path` carries its scope, so `validatePath` can enforce §8.5(1) without another parameter.
 - `validatePath` rejects a non-contiguous path, an empty path, a path edge outside its scope, or a path that revisits a node as `E_UNKNOWN_BOUNDARY_REJECTED` mechanism failures. These are malformed inputs, not protocol rejections.
+- `validatePath` and `validateMergeClosure` also require **every path edge to exist in the supplied graph**; otherwise they return `E_UNKNOWN_BOUNDARY_REJECTED`. `discoverPaths` output is in-graph by construction, and `evaluateBinding` evaluates only discovered paths. The traversal functions therefore accept a structurally valid graph — including one rebuilt by the caller — and verify the path against it; they do not require builder provenance. `isBuiltLineageGraph` stays module-internal and is required only where Core admits records (the C-1 batch path).
 - `validatePath` returns `CYCLE_DETECTED` when any node on the path belongs to a cyclic SCC of `graph.cycles`, before evaluating any edge.
 - `evaluateBinding` returns `ERR_AUTHORITY_BINDING_MISMATCH` for a participant mismatch or a selector mismatch; selector syntax, scheme and label problems are mechanism failures.
 - `evaluateBinding` returns `ERR_NO_TRAVERSAL_PATH` with empty `details` when discovery fails; discovered paths always produce `details.perPath`, including on success.
@@ -1374,11 +1375,12 @@ validatePath(path, graph, assessments, requirement, policy, ctx): Result<PathVal
 
 **Output:** `VALID`; `INVALID` with `ERR_ASSURANCE_PREDICATE_UNSATISFIED` and the first failing edge plus `missing`/`disallowed`; `CONTESTED` with the first contested edge and `contestedClaims`; or `CYCLE_DETECTED` with the combined cycle nodes. Mechanism failures are returned in `Result`, not inside `PathValidation`.
 
-**Ordering and determinism.** Shape validation runs first. The cycle index is built once from `graph.cycles`. Edges are then evaluated in path order and the **first** failing edge is reported; the path itself is deterministic because Phase 1 produced it in canonical order. `missing`/`disallowed` are sorted in both paths: by `evaluateAssurance` when it reports them, and by the no-applicable-assessment branch in `validatePath`.
+**Ordering and determinism.** Shape validation runs first, then **membership**: every edge of the path must exist in the supplied graph. The cycle index is built once from `graph.cycles`. Edges are then evaluated in path order and the **first** failing edge is reported; the path itself is deterministic because Phase 1 produced it in canonical order. `missing`/`disallowed` are sorted in both paths: by `evaluateAssurance` when it reports them, and by the no-applicable-assessment branch in `validatePath`.
 
 **Failure semantics.**
 
 - A malformed path — empty, non-contiguous, an edge outside the declared scope, or a repeated node — is a mechanism failure (`E_UNKNOWN_BOUNDARY_REJECTED`). These are caller errors, not protocol states.
+- A path whose edges are not present in the supplied graph is a mechanism failure with the same code. A `Path` is only meaningful against the graph it was discovered from: a path from a stale snapshot or from another domain's JSON never validates by accident, because the graph it is checked against must contain it.
 - A node in a cyclic SCC yields `CYCLE_DETECTED` before any edge is evaluated.
 - An edge with no applicable assessment yields `INVALID` with `missing` equal to all required claims (sorted) and `disallowed` empty. Absence of an assessment is never success (§8.5, §13 #9).
 - An applicable set narrowed to empty by policy behaves the same way, because `assessEdge` sets `unresolved`.
@@ -1398,7 +1400,7 @@ validatePath(path, graph, assessments, requirement, policy, ctx): Result<PathVal
 validateMergeClosure(path, graph, assessments, requirement, policy, ctx): Result<MergeClosureResult>
 ```
 
-**Inputs:** the same as Phase 2. There is no scope parameter: closure is scope-independent (§3.6).
+**Inputs:** the same as Phase 2. There is no scope parameter: closure is scope-independent (§3.6). Phase 3 applies the same shape and membership checks as Phase 2 before reading closure branches.
 
 **Output:** `SATISFIED`, or `UNSATISFIED` with `ERR_MERGE_BRANCH_UNSATISFIED` and a sorted list of failing branches. Each failure carries the branch `EdgeRef` and one reason: `NO_APPLICABLE_ASSESSMENT`, `ASSURANCE_UNSATISFIED` with `missing`/`disallowed`, or `CONTESTED` with `contestedClaims`. Mechanism failures stay in `Result` and are never converted into branch failures.
 
@@ -1892,7 +1894,7 @@ Value exports (types are omitted here; see §2):
 | `selector` | `SELECTOR_MECHANISM_VERSION`, `InvalidCompiledSelectorError`, `compileSelector`, `selectorMatches` |
 | `temporal` | `trustOutcome` |
 | `assessment` | `assessEdge`, `evaluateAssurance`, `validateContinuityAssessment`, `registerAssessment`, `registerOrphanAssessment`, `registerOrphanAssessments` |
-| `lineage` | `validateDescriptor`, `buildLineageGraph` (`isBuiltLineageGraph` is internal, not package-root) |
+| `lineage` | `validateDescriptor`, `buildLineageGraph` (`isBuiltLineageGraph` is internal, not package-root; required only for Core admission, not for traversal) |
 | `adapters/orphan-assessment` | `emitOrphanAssessment` (experimental reference API) |
 | `traversal` | `discoverPaths`, `validatePath`, `validateMergeClosure`, `evaluateBinding` |
 | `credential` | `validateCredentialRevocationRecord`, `evaluateCredentialUsage`, `signedAtSubjectRef`, `revocationSubjectRef`, `evaluateHistoricalSignature` |
