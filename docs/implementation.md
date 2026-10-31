@@ -1856,11 +1856,9 @@ These are reported, not reconciled by changing code or this document's descripti
 13. `ImplementationErrorCode` has nine codes; `canonical.ts` also exports `canonicalSha256`.
 14. The plan's Task 12 lists properties 1–9 while its coverage map says "Properties 1–8". The code implements P1–P9.
 
-### 9.4 Repository documentation drift (fixed)
+### 9.4 Repository documentation drift
 
-Earlier revisions of this document recorded drift in `docs/ARCHITECTURE.md`: A7 still described the four trust outcomes as planned, §8 was titled "Temporal model (target)", and one §9 row called `core/ledger.ts` planned, while the module map already listed `core/temporal.ts` and `core/ledger.ts` as implemented.
-
-That drift is fixed: `ARCHITECTURE.md` now marks A7 implemented, titles §8 as implemented, references the in-memory ledger as existing, records the experimental reference adapter, and states the current conformance status instead of "planned C-1/C-2 cases". The documentation-drift disposition in the audit trail remains `T18-12`.
+Recorded as `D-007` in the Task 17 register and dispositioned as `T18-12` (documentation reconciliation); `docs/ARCHITECTURE.md` is the reconciled description.
 
 ### 9.5 What remains unverified
 

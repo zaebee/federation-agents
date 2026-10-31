@@ -79,7 +79,7 @@ The protocol core is implemented through immediate merge closure and scope × cl
 | Task | Status | Deliverable                                                          | Exit criterion |
 | ---- | ------ | -------------------------------------------------------------------- | -------------- |
 | 13   | Done   | Credential usage, revocation reasons, historical signature semantics  | Corpus D-3 passes; D-4 is PARTIAL in the audit (contested result proven, the second MUST is not asserted); the four temporal trust outcomes stay distinct |
-| 14   | Done   | Runtime instance lifecycle                                           | Corpus D-1 passes as PARTIAL in the audit (event separation proven; independent execution is not observable within CORE-001) |
+| 14   | Done   | Runtime instance lifecycle                                           | Corpus D-1 is PARTIAL in the audit (event separation proven; independent execution is not observable within CORE-001) |
 | 15   | Done   | Local Acceptance and lifecycle                                       | Corpus D-2 is BLOCKED: the normative object is a Ruling (CORE-004), and the test substitutes a Local Acceptance record |
 
 **Exit criteria for P2:**
