@@ -1,0 +1,62 @@
+Проверил PR #34 на текущем head 5572232 (feat/task-15-acceptance). Это реализация Task 15: два новых модуля, публичные exports, unit-тесты и D-2 conformance.
+Не рекомендую merge пока
+PR открыт · 6 файлов · +1008 / −1
+
+Сразу отмечу: основная архитектурная идея реализована хорошо. Разделение immutable Acceptance Record и Lifecycle Events сохранено; policy rejection не маскируется под ошибку; ACTIVE не становится автоматическим разрешением; ledger не пытается изображать CORE-002. Но в D-2 есть существенная проблема с тем, что именно доказывает тест.
+1. P1 — D-2 не доказывает заявленную последовательность событий
+В tests/conformance/d.test.ts:
+- revocation создаётся на уровне модуля до начала теста.
+- Внутри D-2 вызывается evaluate() без аргументов. Эта функция использует уже существующий глобальный revocation.
+- Результат registerAssessment() сохраняется в history, но не участвует в evaluateHistoricalSignature.
+- Тест не регистрирует новую revocation после snapshot и не проверяет её как отдельное новое состояние.
+То есть тест одновременно проверяет две вещи: исторический Acceptance остаётся неизменным, а заранее подготовленная revocation приводит к INVALID. Но он не доказывает, что именно последующее событие revocation и superseding assessment были добавлены после исходного состояния и что новая оценка корректно работает с этой последовательностью.
+
+Это не обязательно ошибка production-кода. Это недостаток conformance-доказательства, причём в задаче, где историческая последовательность — центральный инвариант.
+
+Что исправить: создавать исходное состояние и snapshots, затем отдельно создавать/валидировать revocation, регистрировать superseding assessment, передавать именно новую revocation в evaluateHistoricalSignature. Не нужно связывать assessment с Task 13 искусственно: достаточно явно показать, что это независимые операции, а свежая credential evaluation использует новую revocation.
+2. P2 — тест называет Local Acceptance «ruling»
+В tests/conformance/d.test.ts заголовок:
+describe('§12 Category D: historical ruling preservation', () => {
+  test('D-2 later revocation and superseding assessment leave the ruling intact', ...)
+});
+
+
+Но тест сохраняет LocalAcceptanceRecord, а не CORE-004 Ruling. Внутри acceptance.ts граница соблюдена, но название conformance-группы смешивает два разных нормативных понятия.
+
+Предлагаю переименовать в historical Local Acceptance preservation. Полный CORE-004 Ruling здесь не нужен — это правильно ограниченный Task 15.
+Что проверил и одобряю
+Область	Результат
+§9.1 Acceptance Record	OK  Структура без дополнительных полей
+§9.3 Lifecycle Event	OK  Отдельная immutable запись
+Result<LifecycleTransition>	OK  Согласуется с утверждённым решением
+Policy exceptions / non-boolean	OK  Mechanism failure
+Отсутствующая policy	OK  Явный POLICY_REQUIRED
+isAcceptable	OK  Нет автоматического разрешения через ACTIVE
+TemporalContext	OK  effective_at не объявляется trusted
+Ledger	OK  Copy-on-write, отдельные коллекции, без replay и latest-state
+Exports	OK  Через src/core/index.ts; отдельный src/index.ts не нужен
+Scope	OK  CORE-001 не менялся
+
+Особенно хорошо сделаны две вещи:
+- appendLifecycleEvent проверяет существование Acceptance, но не пытается самостоятельно разрешать переход.
+- applyLifecycle получает previousState и отдаёт решение явно переданной policy. Никакой скрытой универсальной transition table не появилось.
+CI и состояние PR
+CI passed
+Run 41174584897
+
+Я независимо проверил GitHub Actions: форматирование, lint, typecheck, test, build и lockfile — все шаги завершились успешно.
+
+По описанию PR: 511 тестов, 507 pass, 4 todo, 3281 assertions. Это заявленные автором цифры; отдельно из CI-логов я их не извлекал.
+
+SonarCloud сообщает Quality Gate passed, но также показывает 3 новых issues. Их содержимое в рамках этой проверки не исследовал. SonarCloud PR #34.
+Вердикт
+REQUEST CHANGES
+Я бы не просил переписывать архитектуру. Нужна небольшая корректировка conformance-доказательства:
+1. Сделать revocation действительно последующим событием: создать её после snapshot, валидировать и передать непосредственно в evaluateHistoricalSignature, не используя заранее объявленную глобальную fixture.
+2. Оставить superseding assessment отдельной операцией, но явно зафиксировать, что Task 13 её не потребляет.
+3. Переименовать D-2 test suite, чтобы не смешивать Local Acceptance и CORE-004 Ruling.
+Production-код acceptance.ts и ledger.ts на текущем diff я не считаю причиной блокировать PR. Основной блокер — достоверность теста, который должен подтверждать историческое сохранение.
+
+Открыть PR #34
+
+Review в GitHub я не отправлял и ничего в репозитории не менял. После исправления D-2 стоит повторно проверить именно conformance-тест и новый head commit.
