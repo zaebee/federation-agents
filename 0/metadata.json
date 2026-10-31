@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M69FNEGMZ0S9REKQT3SFJKA0",
+  "session_id": "ses_e6db9d87affeyxhUHseo1Tjcuz",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T17:21:30.072851911Z",
+  "branch": "docs/dec-06-v2.5-final",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/README.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/dec-06-owner-decision-addendum-v2.5.md"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "559a8789e349",
+  "checkpoint_transcript_start": 230,
+  "transcript_lines_at_start": 230,
+  "compact_transcript_start": 230,
+  "token_usage": {
+    "input_tokens": 8885,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 7189888,
+    "output_tokens": 2966,
+    "api_call_count": 13
+  },
+  "redaction": {
+    "replacements": 8,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 8,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 22
+  }
+}
