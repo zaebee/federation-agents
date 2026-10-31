@@ -39,7 +39,7 @@ Yes. `oq4` revision 3.1 proves:
 
 - **D1** reachability; **D0** reachability on the valid subgraph;
 - **D2** first-failing-edge class: `(u→v)` in class X with `reach_{valid}(s,u)` and `reach_A(v,t)` — two reachability computations;
-- **D3** cycle-class existence: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; a walk through `c` loop-erases to a simple path that still touches a cyclic node (Lemma 4);
+- **D3** cycle-class existence: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; chronological loop erasure of a walk through `c` yields a simple path that still touches a cyclic node by the chain-of-erasure argument (Lemma 4), even if `c` is erased;
 - **D4** closure failure: triple `(merge node, path edge, failing branch)` with reachability; general over parent counts;
 - **D6a** pre-discovery mechanisms (duplicate id, missing candidate, selector/label validation) are independent of reachability;
 - **D6b** edge-evaluation mechanisms: malformed assessments produce `MECHANISM` only if `reach_A(s,t)` and a path reaches `assessEdge`;

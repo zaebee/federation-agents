@@ -51,7 +51,16 @@ Proof: (⇐) concatenate a simple `s⇝u` path and a simple `v⇝t` path; a shar
 
 A simple `s→t` path touching `C` exists iff some `c ∈ C` satisfies `reach(s,c)` and `reach(c,t)`.
 
-Proof: (⇒) take the path. (⇐) concatenate walks `s⇝c⇝t`; chronologically loop-erase the walk (stack algorithm, §7.1) to a simple `s→t` path `P`. If `c` survives, `P` touches `C`. If `c` is erased, the erased closed subwalk has a first vertex `y` that survives in `P`, and that subwalk is a closed walk through `y`, so `y` lies on a cycle; hence `y ∈ C` and `P` touches `C`.
+Proof: (⇒) take the path. (⇐) concatenate walks `s⇝c⇝t`; chronologically loop-erase the walk (stack algorithm, §7.1) to a simple `s→t` path `P`. If the pivot `c` survives, `P` touches `C`.
+
+If `c` is erased, follow the chain of erasures:
+
+1. When `c` is erased, the truncation closes a cycle at some vertex `x` that remains on the stack: the removed closed subwalk starts and ends at `x` and contains `c`.
+2. A closed walk from `x` through `c` back to `x` means `x` and `c` lie in the same SCC. Hence `x ∈ C`.
+3. If `x` is later erased, it is removed by a subsequent cycle closure at some vertex `y` that remains on the stack. That closed subwalk contains `x`, so `y` lies in the same SCC as `x` (and `c`); hence `y ∈ C`.
+4. Each such transition occurs later in the original walk. Since the walk has finitely many edges, the chain terminates at a vertex of `C` that is never erased. Therefore the final `P` contains at least one vertex of `C`.
+
+This argument does not require the original pivot `c` to survive, and it does not rely on a "first surviving vertex of one erased cycle": the surviving cyclic vertex may be reached through a chain of later erasures.
 
 This makes D3 polynomial: forward and reverse reachability in the full graph `G`, intersect with `C`.
 
@@ -85,7 +94,7 @@ Proof (⇐): take a simple `s⇝u` path in `E_valid` and a simple `v⇝t` path i
 
 ## 7. D3 — cycle class and chronological loop erasure
 
-Lemma 4 gives the polynomial decision. The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated into a directed walk, then **chronologically loop-erased**. Complexity `O(|V|+|E|)`. D3 is separate from D2: a cycle-preempted path never reaches assurance, so it cannot be classified by the first non-satisfied edge.
+Lemma 4 gives the polynomial decision. The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated into a directed walk, then **chronologically loop-erased**. Complexity is expected `O(|V|+|E|)` with a vertex→index hash map, or `O((|V|+|E|) log |V|)` with a deterministic balanced tree. D3 is separate from D2: a cycle-preempted path never reaches assurance, so it cannot be classified by the first non-satisfied edge.
 
 ### 7.1 Chronological loop erasure (not first-occurrence deduplication)
 
@@ -95,17 +104,24 @@ The correct operation maintains a stack of vertices and processes the walk edge 
 
 ```text
 stack = [s]
+index = { s: 0 }                 // vertex -> its current stack position
 for each edge (u, v) in the walk:
     assert stack.top() == u
-    if v already appears in stack at index i:
-        pop every vertex after index i      // remove the cycle, keep v
+    if v in index:
+        i = index[v]
+        for each w in stack after i:  // pop suffix
+            delete index[w]
+            pop w
     else:
+        index[v] = stack.length
         push v
 ```
 
-**Invariant after each processed edge:** the stack is a contiguous directed walk in the original graph (every adjacent pair is an edge actually traversed) with no repeated vertex. Appending a new `v` preserves contiguity via edge `(u,v)`; truncating at a previous `v` keeps a prefix of the previous stack and makes `v` the new top, so the next edge continues from `v`.
+**Invariant after each processed edge:** the stack is a contiguous directed walk in the original graph (every adjacent pair is an edge actually traversed) with no repeated vertex, and `index` maps every vertex on the stack to its exact position. Appending a new `v` preserves contiguity via edge `(u,v)` and records its index; truncating at a previous `v` keeps a prefix, makes `v` the new top, and deletes the indices of exactly the removed suffix, so the next edge continues from `v`.
 
-For `s→a→b→c→a→d→t`, the stack evolves to `s→a→d→t`: the cycle `a→b→c→a` is removed, `c` is erased, and `a` survives as the cyclic node. The result is the simple path required by Lemma 4; it still touches `C` because either the pivot survives or a surviving vertex of the erased closed subwalk lies on a cycle (Lemma 4).
+**Complexity:** with a hash map for `index`, membership and position lookup are expected O(1); each vertex is pushed once and popped at most once, so the loop-erasure pass is expected O(|V|+|E|). If a strict deterministic worst-case bound is required rather than expected-hash, replace the hash map with a balanced search tree, giving O((|V|+|E|) log |V|); the algorithm does not change. The earlier text that scanned the stack linearly would have been O(|V|·|E|) and is not the intended bound.
+
+For `s→a→b→c→a→d→t`, the stack evolves to `s→a→d→t`: the cycle `a→b→c→a` is removed, `c` is erased, and `a` survives as the cyclic node. The result is the simple path required by Lemma 4; it still touches `C` by the chain-of-erasure argument in Lemma 4 (the surviving cyclic vertex may be reached through later erasures).
 
 **Required test (specification only, not executed):** walk with a repeated intermediate vertex, e.g. `s→a→b→c→a→d→t` with pivot `c`. Assert the final witness edges are exactly `s→a`, `a→d`, `d→t`; every edge exists in the graph; no vertex repeats; the witness contains a member of `C` (here `a`, even though pivot `c` was erased). This tests chronological erasure, not first-occurrence deduplication.
 
