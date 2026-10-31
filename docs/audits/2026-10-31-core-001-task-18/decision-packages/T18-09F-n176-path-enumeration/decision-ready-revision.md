@@ -86,7 +86,7 @@ Unit tests for the ordering (two valid branches, different lengths); property te
 
 ### 3.1 Exact statement
 
-A rejection witness is sufficient when it establishes **that every simple candidate→origin path contains a failing condition**, and it reproduces the same top-level code the current enumeration produces. The proposed proof object is compact and polynomial:
+A rejection witness is sufficient when it establishes **that every simple candidate→origin path contains a failing condition**, and it reproduces the same top-level code the current enumeration produces. The proposed proof object is compact, but it is **not polynomial in general**. The complexity pass (`oq4-complexity-adversarial-pass.md`) withdraws the polynomiality claim: D2–D4 below are NP-hard under the current simple-path semantics.
 
 - **per-edge classification** (path-independent): each edge's assurance result (`VALID`, `INVALID` + missing/disallowed, `CONTESTED`) and whether an endpoint is in a cyclic SCC;
 - **reachability facts** rather than path lists: forward/reverse reachability within the scope; reachability in the subgraph of `VALID` edges; reachability through cyclic nodes; reachability with "all edges valid so far" state;
@@ -94,16 +94,18 @@ A rejection witness is sufficient when it establishes **that every simple candid
 
 Rejection witnesses per class:
 
-| Class | Witness | Polynomial computation |
+| Class | Witness | Computation |
 | --- | --- | --- |
 | `ERR_NO_TRAVERSAL_PATH` | no path exists | reverse reachability from origin |
-| `ERR_ASSURANCE_PREDICATE_UNSATISFIED` | a cut of `INVALID` edges separating candidate from origin, plus the first-failing-edge reason for the canonical failing path | reachability in the `VALID`-edge subgraph; one BFS witness path |
-| `CYCLE_DETECTED` | one witness path that touches a cyclic node | BFS over the graph with cycle nodes allowed, excluding repeats |
-| `ERR_MERGE_BRANCH_UNSATISFIED` | one path with closure failure + the failing branch | state reachability `(node, incoming edge)` with closure check |
+| `ERR_ASSURANCE_PREDICATE_UNSATISFIED` | a cut of `INVALID` edges separating candidate from origin, plus the first-failing-edge reason for the canonical failing path | reachability decides this only when the class asks for *some* failing edge; with a specified edge it is NP-hard (D2, `oq4` §2) |
+| `CYCLE_DETECTED` | one witness path that touches a cyclic node | NP-hard when the question is "a simple path through this node" (D3, `oq4` §2) |
+| `ERR_MERGE_BRANCH_UNSATISFIED` | one path with closure failure + the failing branch | NP-hard when the closure condition is tied to a specified incoming edge (D4, `oq4` §2) |
 | `CONTESTED` | one path whose first failing edge is contested | reachability over edge classes |
 | `MECHANISM` | the mechanism failure itself | see §3.4 |
 
 When different paths fail for different reasons, a **single failing edge is not a proof**: the witness must be the class witness in the precedence order of §4, and the proof must show that the higher class does not exist before returning a lower one.
+
+**Withdrawn claim.** The earlier statement in this section that per-class reachability is polynomial is **withdrawn**. D2–D4 reduce from the directed 2-disjoint-paths problem (NP-complete); the expanded-state `(node, incoming edge)` reachability does not prove simple-path existence, because it can project to a walk with repeated nodes. The exact decision problems, the reductions and their current proof gaps are in `oq4-complexity-adversarial-pass.md`.
 
 ### 3.2 Normative anchor
 
@@ -131,7 +133,7 @@ Oracle property test: for small graphs with mixed failure classes, the compact t
 
 ### 4.1 Exact statement
 
-A-8 (which top-level code wins when several classes coexist) remains **OPEN** and is not resolved by this decision. The compact implementation reproduces the **current observable behaviour** as a compatibility rule: `MECHANISM` on any evaluated path > closure failure > cycle > contested > assurance unsatisfied. This is an implementation preservation rule, not a normative precedence table.
+A-8 (which top-level code wins when several classes coexist) remains **OPEN** and is not resolved by this decision. The compact implementation reproduces the **current observable behaviour** as a compatibility rule: `MECHANISM` on any evaluated path > closure failure > cycle > contested > assurance unsatisfied. This is an implementation preservation rule, not a normative precedence table. The rule is only implementable together with the complexity outcome: if a class-existence question is NP-hard, the implementation must accept exponential worst-case search or the owner must choose a different reading (`oq4` §5).
 
 ### 4.2 Normative anchor
 
@@ -188,7 +190,7 @@ An API compatibility test that the legacy function still exists and returns the 
 
 ### 6.1 Exact statement
 
-The **validity API must never fail because of an internal resource cap**. Resource exhaustion on the validity path is a bug, not a normative outcome; no existing error code represents "we gave up". The correctness classes in §2–§3 are polynomial (reachability, state reachability, best-first search with pruning), so no cap is needed on the supported input domain. A bound belongs only to the **diagnostics** API, where it is a caller policy with an explicit, documented result (for example "diagnostics truncated at N; validity unaffected").
+The **validity API must never fail because of an internal resource cap**. Resource exhaustion on the validity path is a bug, not a normative outcome; no existing error code represents "we gave up". The claim that the correctness classes are polynomial is **withdrawn**: acceptance existence/reachability is polynomial, but rejection classes are NP-hard (`oq4` §2). A cap would therefore silently change a verdict that has no normative "undetermined" outcome; the implementation must either accept exponential worst-case work or the owner must choose a different reading (`oq4` §5). A bound belongs only to the **diagnostics** API, where it is a caller policy with an explicit, documented result (for example "diagnostics truncated at N; validity unaffected").
 
 ### 6.2 Normative anchor
 
@@ -214,7 +216,7 @@ A benchmark proving the validity path handles `k=16` (and the documented larger 
 | --- | --- | --- |
 | 1 | L1/L2/L3 split; `acceptedPaths`/`perPath` are L3 diagnostics | Yes — Reading B |
 | 2 | Canonical witness = `pathKey` minimum via best-first search | Implementation detail under Reading B |
-| 3 | Polynomial class-existence rejection proof + compatible top-level code | Yes — accept proof shape |
+| 3 | Exact class-existence rejection proof + compatible top-level code — **NP-hard in general**, polynomiality not established | Yes — see `oq4` §5 (R1–R4) |
 | 4 | Keep current precedence as a compatibility rule; A-8 stays OPEN | Yes — confirm A-8 untouched |
 | 5 | Versioned new API (5.B), legacy kept for a deprecation window | Yes — API strategy |
 | 6 | Validity uncapped; diagnostics bounded by caller policy | Yes — diagnostics policy |
