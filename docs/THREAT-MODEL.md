@@ -104,8 +104,8 @@ An attacker is **not** assumed to:
 *Status:* graph-level detection implemented and tested. Recording `CYCLE_DETECTED` in an Assessment and suppressing dependent grants belong to Tasks 8–9. Residual risk: availability — see T-17.
 
 **T-10 Delayed or unresolved parent.** A child arrives before its parent, and the domain treats the missing parent as acceptable.
-*Mitigation:* the declaration is stored, the unresolved reference is preserved, and assessment records `PARENT_UNRESOLVED`; absence of evidence is never success (§11.1, §8.5).
-*Status:* planned.
+*Mitigation:* the declaration and the unresolved parent reference are preserved and exposed as `unresolvedParents`; recording `PARENT_UNRESOLVED` in an Assessment, and never treating missing evidence as success, belong to Task 8 (§11.1, §8.5).
+*Status:* graph-level preservation implemented and tested; `PARENT_UNRESOLVED` assessment recording is Task 8.
 
 ### C. Credentials and time
 
@@ -138,7 +138,7 @@ An attacker is **not** assumed to:
 ### E. Availability and integration
 
 **T-17 Graph or payload exhaustion.** An attacker supplies a huge graph, a diamond explosion, or deeply nested JSON to exhaust CPU or memory during graph construction or traversal.
-*Mitigation (current):* graph construction and SCC detection are linear in nodes plus declared edges; duplicates are deduplicated only in the internal adjacency. Traversal mitigation is planned: memoization, cycles as dead ends, immediate closure bounds.
+*Mitigation (current):* graph construction and SCC detection run in O((N+E) log(N+E)) — nodes, the full declared edge list, adjacency lists and components are sorted — and duplicates are deduplicated only in the internal adjacency. Traversal mitigation is planned: memoization, cycles as dead ends, immediate closure bounds.
 *Status:* **unmitigated by design gap.** Rev 0.3.3 sets no input limits, and the library defines none. Deployments should enforce descriptor-count, graph-depth, and payload-size limits until an explicit resource-limit contract is defined. This should become an explicit adapter contract.
 
 **T-18 Policy hook abuse.** A caller-supplied hook returns assessments that do not apply to the edge, or a forged "applicable" set.

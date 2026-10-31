@@ -160,7 +160,7 @@ CORE-001 moves from Candidate Draft Normative to Frozen Baseline only when §16 
 | ---------------------------------------------------------- | ----- |
 | All Category A structural tests pass                       | P1    |
 | All Category B binding and traversal tests pass            | P1    |
-| All Category C federation tests pass                       | P1 (graph-level), P2–P3 (Assessment integration) |
+| All Category C federation tests pass                       | P1    |
 | All Category D cross-spec integration tests pass           | P2    |
 | Independent implementations agree on discovery and closure  | P6    |
 | Result independent of storage and delivery order            | P3    |
