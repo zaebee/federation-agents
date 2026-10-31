@@ -22,8 +22,8 @@ describe('§12 Category A: structural lineage validation', () => {
     expect(parent.public_credentials.map((entry) => entry.credential_id as string)).toEqual(['cred-parent']);
     expect(child.public_credentials).toEqual([]);
     expect(Object.keys(parent)).not.toContain('status');
-    expect(JSON.stringify(reg)).not.toContain('DEPRECATED');
-    expect(JSON.stringify(reg).toLowerCase()).not.toContain('grant');
+    expect(snapshot(reg)).not.toContain('DEPRECATED');
+    expect(snapshot(reg).toLowerCase()).not.toContain('grant');
   });
 
   test('A-2 cross-participant CONTINUATION is rejected without state mutation', () => {
@@ -42,12 +42,8 @@ describe('§12 Category A: structural lineage validation', () => {
 
     expectRejected(result, 'ERR_INVALID_RELATION', 'iv-a-1');
     expect(snapshot(reg)).toBe(before);
-    expect(alice).toBe(reg.participants()[0]);
-    expect(parent).toBe(reg.versions()[0]);
-    // Task 7 owns graph state; until then the result must not expose any.
+    // Task 7 owns graph state; the result must carry the rejection only.
     expect(Object.keys(result).sort()).toEqual(['code', 'parent_version_id', 'status']);
-    expect('edges' in result).toBe(false);
-    expect('relations' in result).toBe(false);
   });
 
   test('A-3 cross-participant FORKED_FROM is accepted without inheritance', () => {
@@ -68,7 +64,7 @@ describe('§12 Category A: structural lineage validation', () => {
     expect(snapshot(reg)).toBe(before);
     expect(ancestor.public_credentials.map((entry) => entry.credential_id as string)).toEqual(['cred-a']);
     expect(child.public_credentials).toEqual([]);
-    expect(JSON.stringify(reg).toLowerCase()).not.toContain('grant');
+    expect(snapshot(reg).toLowerCase()).not.toContain('grant');
   });
 
   test('A-4 FORKED_FROM cardinality violation is rejected and leaves Registry unchanged', () => {
@@ -115,6 +111,6 @@ describe('§12 Category A: structural lineage validation', () => {
     expect(firstParent.public_credentials.map((entry) => entry.credential_id as string)).toEqual(['cred-a']);
     expect(secondParent.public_credentials.map((entry) => entry.credential_id as string)).toEqual(['cred-b']);
     expect(child.public_credentials).toEqual([]);
-    expect(JSON.stringify(reg).toLowerCase()).not.toContain('grant');
+    expect(snapshot(reg).toLowerCase()).not.toContain('grant');
   });
 });

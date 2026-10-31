@@ -16,22 +16,16 @@ import type { IdentityVersionID } from './primitives.js';
  * Read-only view of a domain's known participants and identity versions.
  *
  * Registry contents are assumed consistent: duplicate version ids are a caller
- * error. Lookup is deterministic first-match (`find`) and this assumption is
- * not a normative UIA rule.
+ * error and their behavior is unspecified, not a supported case.
  */
 export interface Registry {
   participants(): readonly DeepReadonly<ParticipantRecord>[];
   versions(): readonly DeepReadonly<IdentityVersionDescriptor>[];
 }
 
-/**
- * Planned result shape from the implementation plan. `INVALID` is reserved and
- * is not produced by any §5 structural rule implemented here; every rejection
- * carries a normative code.
- */
+/** Result of the §5.2 structural rules. */
 export type StructuralResult =
   | { readonly status: 'VALID' }
-  | { readonly status: 'INVALID' }
   | {
       readonly status: 'REJECTED';
       readonly code: 'ERR_INVALID_RELATION' | 'ERR_INVALID_CARDINALITY';
@@ -78,12 +72,18 @@ export function validateDescriptor(
     FORKED_FROM: 0,
     MERGED_FROM: 0,
   };
+  const mergedParents = new Set<IdentityVersionID>();
   for (const link of descriptor.lineage) {
     counts[link.relation] += 1;
+    if (link.relation === 'MERGED_FROM') {
+      mergedParents.add(link.parent_version_id);
+    }
   }
 
   for (const relation of Object.keys(CARDINALITY) as LineageRelationType[]) {
-    const count = counts[relation];
+    // MERGED_FROM joins distinct parent lines: duplicate links to one parent
+    // cannot satisfy the minimum of two parents (§5.2).
+    const count = relation === 'MERGED_FROM' ? mergedParents.size : counts[relation];
     if (count === 0) {
       continue;
     }

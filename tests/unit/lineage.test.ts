@@ -56,14 +56,21 @@ describe('cardinality per relation type', () => {
     expect(validateDescriptor(mixed, registry(allParticipants, allParents))).toEqual({ status: 'VALID' });
   });
 
-  test('duplicate MERGED_FROM parent references still satisfy the minimum count', () => {
-    const duplicateMerge = descriptor({
+  test('MERGED_FROM counts distinct parents, not duplicate links', () => {
+    const sameParentTwice = descriptor({
       id: 'iv-a-3',
       participant: 'participant-a',
       lineage: [link('iv-a-1', 'MERGED_FROM'), link('iv-a-1', 'MERGED_FROM')],
     });
+    const duplicatePlusDistinct = descriptor({
+      id: 'iv-a-3',
+      participant: 'participant-a',
+      lineage: [link('iv-a-1', 'MERGED_FROM'), link('iv-a-1', 'MERGED_FROM'), link('iv-b-1', 'MERGED_FROM')],
+    });
+    const reg = registry(allParticipants, allParents);
 
-    expect(validateDescriptor(duplicateMerge, registry(allParticipants, allParents))).toEqual({ status: 'VALID' });
+    expectRejected(validateDescriptor(sameParentTwice, reg), 'ERR_INVALID_CARDINALITY');
+    expect(validateDescriptor(duplicatePlusDistinct, reg)).toEqual({ status: 'VALID' });
   });
 });
 
@@ -104,21 +111,6 @@ describe('relation constraints', () => {
     const child = descriptor({ id: 'iv-a-3', participant: 'participant-a', lineage: [link('iv-unknown')] });
 
     expect(validateDescriptor(child, registry(allParticipants, allParents))).toEqual({ status: 'VALID' });
-  });
-
-  test('duplicate Registry ids use deterministic first-match lookup', () => {
-    const duplicateAsAlice = descriptor({ id: 'iv-dup', participant: 'participant-a' });
-    const duplicateAsBob = descriptor({ id: 'iv-dup', participant: 'participant-b' });
-    const child = descriptor({ id: 'iv-a-3', participant: 'participant-a', lineage: [link('iv-dup')] });
-
-    expect(validateDescriptor(child, registry(allParticipants, [duplicateAsAlice, duplicateAsBob]))).toEqual({
-      status: 'VALID',
-    });
-    expectRejected(
-      validateDescriptor(child, registry(allParticipants, [duplicateAsBob, duplicateAsAlice])),
-      'ERR_INVALID_RELATION',
-      'iv-dup',
-    );
   });
 });
 
