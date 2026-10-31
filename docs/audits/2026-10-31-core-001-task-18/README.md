@@ -1,6 +1,6 @@
 # CORE-001 Conformance Gap Disposition — Task 18
 
-**Status:** Planning, disposition and T18-02A/T18-02B implementation record. Four decisions approved (`T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16`, `T18-DEC-17`); 13 OPEN. T18-02A and T18-02B are implemented; C-2 remains BLOCKED on `CASE-C-2.a3`.
+**Status:** Planning, disposition and T18-02A/T18-02B implementation record, with T18-03 test evidence. Four decisions approved (`T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16`, `T18-DEC-17`); 13 OPEN. T18-02A and T18-02B are implemented; C-2 remains BLOCKED on `CASE-C-2.a3`.
 **Audit base:** commit `2a83c65` (`main`, Task 17 merged).
 **Normative source:** `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3.
 **Task 17 inputs:** `docs/audits/2026-10-31-core-001-task-17/` (README, requirement matrix, conformance matrix, registers).
@@ -87,7 +87,7 @@ No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work
 
 Still OPEN: `T18-DEC-15` parent-coverage semantics and C-2.a3 / CORE-003, plus the other Task 18 decisions. `T18-DEC-17` is approved independently and does not gate recording.
 
-**Implemented tasks:** T18-02A (C-1 emission, `aebe/C-1.md`) and T18-02B (C-2.a2 emission, `aebe/C-2.a2.md`). C-2 stays BLOCKED on `CASE-C-2.a3` (CORE-003).
+**Implemented tasks:** T18-02A (C-1 emission, `aebe/C-1.md`) and T18-02B (C-2.a2 emission, `aebe/C-2.a2.md`). T18-03 is test-only D-4 policy evidence coverage (base test plus `AUTHORIZABLE` pass-through; N-041/D-4 remain PARTIAL). C-2 stays BLOCKED on `CASE-C-2.a3` (CORE-003).
 
 ## 5. Roadmap overview
 
@@ -97,7 +97,7 @@ Still OPEN: `T18-DEC-15` parent-coverage semantics and C-2.a3 / CORE-003, plus t
 | T18-02A C-1 adapter emission (implemented; acceptance evidence in AEBE) | implementation + tests | P1 | `CORE-001_RUNTIME` |
 | T18-02B C-2.a2 adapter emission (implemented; AEBE `aebe/C-2.a2.md`) | implementation + tests | P1 | `CORE-001_RUNTIME` |
 | T18-02C Retired / superseded (historical ID; scope split into T18-02A/B) | — | — | `CORE-001_RUNTIME` |
-| T18-03 D-4 future-authorization evidence | test-only | P2 | `CORE-001_RUNTIME` |
+| T18-03 D-4 future-authorization evidence (covered; D-4 remains PARTIAL) | test-only | P2 | `CORE-001_RUNTIME` |
 | T18-04 Version-label boundary (conditional) | decision + implementation/test or docs | P2 | `CORE-001_RUNTIME` |
 | T18-05 Digest verification (conditional) | decision + implementation/test or docs | P3 | `CORE-001_RUNTIME` |
 | T18-06 Signed-at trust precondition | specification decision + docs | P2 | `CORE-001_RUNTIME` |
@@ -118,7 +118,7 @@ Milestones:
 
 - **M0** — decisions registered and owners assigned (T18-DEC-01…15; `T18-DEC-16`/`T18-DEC-17` registered and approved 2026-10-31).
 - **M1** — CORE-001 implementation gaps resolved or explicitly dispositioned (T18-02A and T18-02B implemented; C-2 stays BLOCKED on `CASE-C-2.a3`; T18-02C retired / superseded; T18-04, T18-05).
-- **M2** — evidence gaps closed (T18-03, T18-07).
+- **M2** — evidence gaps addressed: T18-03 evidence covered; T18-07 pending.
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
 
@@ -171,8 +171,8 @@ Recorded in `reconciliation-notes.md`; Task 17 files are untouched.
 
 ## 10. Limits
 
-- T18-02A and T18-02B are implemented; no other remediation task is implemented. Four decisions are approved (`T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16`, `T18-DEC-17`); all others remain OPEN, including `T18-DEC-15`.
-- T18-02A is implemented; no other remediation task is implemented.
+- T18-02A and T18-02B are implemented; T18-03 is test-only D-4 evidence coverage. T18-03 does not change N-041/D-4.
+- Four decisions are approved (`T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16`, `T18-DEC-17`); all others remain OPEN, including `T18-DEC-15`.
 - No Task 17 status is changed.
 - No CORE-001 normative text is amended.
 - A roadmap is not evidence; closure requires the evidence named in `disposition-matrix.md` and `remediation-roadmap.md`. T18-02A evidence is in `aebe/C-1.md`; T18-02B evidence is in `aebe/C-2.a2.md`.
