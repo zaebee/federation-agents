@@ -327,12 +327,39 @@ function mechanismResult(message: string): Result<never> {
   return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', message) };
 }
 
-function runVerifier(verifier: SignatureVerifier, input: SignatureVerificationInput): SignatureVerificationOutcome {
-  try {
-    return verifier.verify(input);
-  } catch (error) {
-    return { status: 'CRYPTO_UNAVAILABLE', reason: error instanceof Error ? error.message : String(error) };
+function isVerificationOutcome(value: unknown): value is SignatureVerificationOutcome {
+  if (typeof value !== 'object' || value === null) {
+    return false;
   }
+  const candidate = value as { readonly status?: unknown; readonly reason?: unknown };
+  if (candidate.reason !== undefined && typeof candidate.reason !== 'string') {
+    return false;
+  }
+  return (
+    candidate.status === 'VERIFIED' ||
+    candidate.status === 'INVALID' ||
+    candidate.status === 'CRYPTO_UNAVAILABLE' ||
+    candidate.status === 'CRYPTO_UNSUPPORTED'
+  );
+}
+
+function runVerifier(
+  verifier: SignatureVerifier,
+  input: SignatureVerificationInput,
+): Result<SignatureVerificationOutcome> {
+  let outcome: unknown;
+  try {
+    outcome = verifier.verify(input);
+  } catch (error) {
+    return {
+      ok: true,
+      value: { status: 'CRYPTO_UNAVAILABLE', reason: error instanceof Error ? error.message : String(error) },
+    };
+  }
+  if (!isVerificationOutcome(outcome)) {
+    return mechanismResult('SignatureVerifier returned an unknown verification outcome');
+  }
+  return { ok: true, value: outcome };
 }
 
 function runAcceptCompromiseTime(policy: SignatureTemporalPolicy, input: CompromiseTimeInput): Result<boolean> {
@@ -600,12 +627,19 @@ export function evaluateHistoricalSignature(
     return mechanismResult('SignatureTemporalPolicy must provide both callbacks');
   }
 
+  if (input.revocation !== undefined && input.revocation.credential_id !== input.credential.credential_id) {
+    return mechanismResult('CredentialRevocationRecord.credential_id does not match the evaluated Credential');
+  }
+
   const usage = evaluateCredentialUsage(input.credential, input.requested_usage);
   const verification = runVerifier(verifier, {
     credential: input.credential,
     signed_at: input.signed_at,
     ...(input.payload_ref === undefined ? {} : { payload_ref: input.payload_ref }),
   });
+  if (!verification.ok) {
+    return verification;
+  }
 
   const signedAtTrust = resolveSignedAtTrust(input);
   if (!signedAtTrust.ok) {
@@ -624,7 +658,7 @@ export function evaluateHistoricalSignature(
   const temporal = buildTemporal(signedAtTrust.value, compromise.value);
   const future = runFutureAuthorization(
     input.policy,
-    buildFutureInput(input, { usage, verification, temporal, reassessmentRequired }),
+    buildFutureInput(input, { usage, verification: verification.value, temporal, reassessmentRequired }),
   );
   if (!future.ok) {
     return future;
@@ -632,7 +666,7 @@ export function evaluateHistoricalSignature(
 
   const historical = selectHistorical({
     usage,
-    verification,
+    verification: verification.value,
     ...(input.revocation === undefined ? {} : { revocationReason: input.revocation.reason }),
     signedAt: input.signed_at,
     signedAtTrust: signedAtTrust.value,
@@ -646,7 +680,7 @@ export function evaluateHistoricalSignature(
     ok: true,
     value: deepFreeze(
       buildHistoricalResult(input, {
-        verification,
+        verification: verification.value,
         usage,
         temporal,
         historical,

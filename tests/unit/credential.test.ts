@@ -3,6 +3,7 @@ import type {
   HistoricalSignatureInput,
   SignatureTemporalPolicy,
   SignatureVerificationOutcome,
+  SignatureVerifier,
 } from '../../src/core/credential.js';
 import {
   evaluateCredentialUsage,
@@ -11,7 +12,7 @@ import {
   signedAtSubjectRef,
   validateCredentialRevocationRecord,
 } from '../../src/core/credential.js';
-import { timestamp } from '../../src/core/primitives.js';
+import { credentialId, timestamp } from '../../src/core/primitives.js';
 import { trustOutcome } from '../../src/core/temporal.js';
 import { credential } from '../support/fixtures.js';
 import {
@@ -41,6 +42,7 @@ const compromiseRef = compromiseSubject(revocation);
 function evaluate(
   overrides: Partial<HistoricalSignatureInput> = {},
   verification: SignatureVerificationOutcome = { status: 'VERIFIED' },
+  verifier: SignatureVerifier = staticVerifier(verification),
 ) {
   return evaluateHistoricalSignature(
     {
@@ -53,7 +55,7 @@ function evaluate(
       ctx: contextFor(),
       ...overrides,
     },
-    staticVerifier(verification),
+    verifier,
   );
 }
 
@@ -309,6 +311,70 @@ describe('§4.1 verifier outcomes remain distinct', () => {
     );
     expect(unsupported.verification).toEqual({ status: 'CRYPTO_UNSUPPORTED', reason: 'algorithm' });
     expect(unsupported.historical).toEqual({ status: 'CRYPTO_UNSUPPORTED', reason: 'algorithm' });
+  });
+});
+
+function rawVerifier(value: unknown): SignatureVerifier {
+  return { verify: () => value as SignatureVerificationOutcome };
+}
+
+describe('verifier runtime validation', () => {
+  test('malformed verifier outputs are mechanism failures, never success', () => {
+    const malformed: readonly unknown[] = [
+      undefined,
+      null,
+      { status: 'UNKNOWN' },
+      { status: 'VERIFIED', reason: 42 },
+      {},
+    ];
+
+    for (const value of malformed) {
+      const result = evaluate({ revocation: undefined }, undefined, rawVerifier(value));
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.error.kind).toBe('MECHANISM');
+      expect(result.error.code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
+    }
+  });
+
+  test('all four valid verifier outcomes remain distinct', () => {
+    const verified = expectOk(evaluate({ revocation: undefined }, undefined, staticVerifier({ status: 'VERIFIED' })));
+    expect(verified.verification).toEqual({ status: 'VERIFIED' });
+    expect(verified.historical).toEqual({ status: 'VALID' });
+
+    const invalid = expectOk(evaluate({ revocation: undefined }, undefined, staticVerifier({ status: 'INVALID' })));
+    expect(invalid.verification).toEqual({ status: 'INVALID' });
+    expect(invalid.historical).toEqual({ status: 'INVALID_SIGNATURE' });
+
+    const unavailable = expectOk(
+      evaluate({ revocation: undefined }, undefined, staticVerifier({ status: 'CRYPTO_UNAVAILABLE' })),
+    );
+    expect(unavailable.verification).toEqual({ status: 'CRYPTO_UNAVAILABLE' });
+    expect(unavailable.historical).toEqual({ status: 'CRYPTO_UNAVAILABLE' });
+
+    const unsupported = expectOk(
+      evaluate({ revocation: undefined }, undefined, staticVerifier({ status: 'CRYPTO_UNSUPPORTED' })),
+    );
+    expect(unsupported.verification).toEqual({ status: 'CRYPTO_UNSUPPORTED' });
+    expect(unsupported.historical).toEqual({ status: 'CRYPTO_UNSUPPORTED' });
+  });
+});
+
+describe('revocation subject correspondence', () => {
+  test('a revocation for a different credential is a mechanism failure', () => {
+    const result = evaluate({
+      revocation: revocationFixture({ credential_id: credentialId('cred-2') }),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe('MECHANISM');
+    expect(result.error.code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
+  });
+
+  test('a matching pair succeeds and no revocation remains supported', () => {
+    expect(expectOk(evaluate()).historical).toEqual({ status: 'INVALID' });
+    expect(expectOk(evaluate({ revocation: undefined })).historical).toEqual({ status: 'VALID' });
   });
 });
 
