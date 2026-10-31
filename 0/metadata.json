@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M69W7YQBE613KA9T95GT14BE",
+  "session_id": "ses_e6c7f34d5ffeuIqkikuB1OwkCi",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T21:01:05.852017305Z",
+  "branch": "docs/t18-09f-task25-decision-validation",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/README.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/api-migration.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/complexity-proof.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/decision-ready-revision.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/equivalence-matrix.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/oq4-complexity-adversarial-pass.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/owner-decision-summary.md",
+    "docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09F-n176-path-enumeration/remaining-owner-questions.md"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "fbb8662de86c",
+  "checkpoint_transcript_start": 277,
+  "transcript_lines_at_start": 277,
+  "compact_transcript_start": 277,
+  "token_usage": {
+    "input_tokens": 22690,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 10511488,
+    "output_tokens": 10787,
+    "api_call_count": 37
+  },
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 13
+  }
+}

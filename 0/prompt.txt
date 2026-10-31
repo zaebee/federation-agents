@@ -1,0 +1,61 @@
+# PR #77 — targeted revision after audit
+
+The latest revision addresses most previous findings correctly. In particular, D6a/D6b, the neutral `AcceptedPathWitness`, the NO_PATH/AUTHORITY_MISMATCH rejection variants, cycle-witness scope, and benchmark provenance are substantial improvements.
+
+**Do not restart the analysis or expand scope. Please make the following targeted corrections.**
+
+### 1. P1 — Preserve §8.8 determinism in every witness-selection mode
+
+`ARBITRARY_VALID` currently permits ambiguity about whether witness selection may depend on storage or traversal order.
+
+CORE-001 §8.8 requires identical results for identical inputs, independent of storage order, declaration arrival order, node traversal order, and optimization algorithm.
+
+Clarify that `ARBITRARY_VALID` means any valid witness selected by a deterministic, storage-order-independent rule. Alternatively, remove this mode.
+
+Distinguish explicitly:
+- pathKey-minimum;
+- deterministic non-minimum;
+- arbitrary/non-deterministic.
+
+The third mode must not be presented as a valid implementation option under the current §8.8 contract.
+
+### 2. P1 — Align D5 claims across the package
+
+`complexity-proof.md` correctly leaves D5 OPEN, with three outstanding obligations.
+
+However, `decision-ready-revision.md` §2.1 still states that pathKey ordering is independent of storage/adjacency order, and §7 describes the greedy algorithm as proven.
+
+These claims are stronger than the current evidence.
+
+Please:
+- mark pathKey canonicality as conditional until D5 closes;
+- do not describe the greedy construction as proven for the exact encoding;
+- distinguish a polynomial existence/witness algorithm from a proof that its output is the pathKey minimum;
+- make the wording consistent across README, decision-ready-revision, complexity-proof, oq4, and owner-decision-summary.
+
+A deterministic non-minimum witness is a legitimate alternative if its selection rule is explicitly specified and satisfies §8.8.
+
+### 3. P1/P2 — Define CycleWitness precisely
+
+`api-migration.md` references `CycleWitness` but does not define its actual shape.
+
+Specify a verifiable witness representation. Prefer a concrete simple candidate-to-origin path whose node sequence includes a member of a cyclic SCC, together with sufficient SCC evidence or a clearly defined verification rule.
+
+Do not expose the concatenated reachability walk as though it were necessarily a simple path. The loop-erasure step in the proof must be reflected in the API contract.
+
+### 4. P2 — Synchronize benchmark metadata
+
+The benchmark record now has separate source and harness revisions and updated medians. The PR description still contains the previous benchmark figures.
+
+Update the PR description to match the current benchmark record.
+
+### Constraints
+
+- Keep this PR documentation-only.
+- Do not modify source, tests, CORE-001.md, status registers, or normative decision records.
+- Do not approve or register T18-DEC-18.
+- Keep A-8 and A-14 OPEN.
+- Keep D5 OPEN unless all three obligations are actually closed.
+- Do not introduce a new normative error code.
+
+After these changes, request another targeted audit rather than rewriting the package.
