@@ -400,6 +400,31 @@ test('ownership: deeply nested arrays do not exhaust the stack', () => {
   expect(steps).toBe(depth);
 });
 
+test('ownership: a stateful ownKeys cannot put an unvalidated key into the result', () => {
+  let ownKeysCalls = 0;
+  const proxy = new Proxy(
+    {},
+    {
+      ownKeys: () => {
+        ownKeysCalls += 1;
+        return ownKeysCalls === 1 ? [] : ['\ud800'];
+      },
+      get: (_target, key) => (key === '\ud800' ? 1 : undefined),
+      getOwnPropertyDescriptor: (_target, key) =>
+        key === '\ud800' ? { value: 1, enumerable: true, configurable: true, writable: true } : undefined,
+    },
+  );
+
+  const result = validateJsonValue(proxy);
+  // Either the value is rejected, or the result contains exactly the keys the
+  // validator checked — never a key that appeared only on a later enumeration.
+  if (result.ok) {
+    expect(Object.getOwnPropertyNames(result.value)).toEqual([]);
+  } else {
+    expect(result.error.code).toBe('E_JSON_VALUE_INVALID');
+  }
+});
+
 test('ownership: a huge sparse array is rejected without materialising its indices', () => {
   const sparse = new Array(10_000_000);
   const validated = validateJsonValue(sparse);

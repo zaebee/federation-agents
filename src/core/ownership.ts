@@ -314,20 +314,29 @@ function validateJsonPrimitive(val: unknown): Result<JsonValue> | null {
   return null;
 }
 
-function jsonObjectKeyFailure(source: Record<string, unknown>): Failure | null {
-  for (const key of Object.getOwnPropertyNames(source)) {
+interface JsonObjectCheck {
+  readonly failure: Failure | null;
+  // The list this check validated. The frame must consume exactly this list:
+  // a stateful Proxy can answer a second `ownKeys` call differently, which
+  // would put an unvalidated key into the validated result.
+  readonly keys: readonly string[];
+}
+
+function checkJsonObject(source: Record<string, unknown>): JsonObjectCheck {
+  const keys = Object.getOwnPropertyNames(source);
+  for (const key of keys) {
     if (hasLoneSurrogate(key)) {
-      return jsonFailure(`JsonValue object key must not contain lone surrogates: ${key}`);
+      return { failure: jsonFailure(`JsonValue object key must not contain lone surrogates: ${key}`), keys };
     }
     const desc = Object.getOwnPropertyDescriptor(source, key);
     if (!desc || desc.get !== undefined || desc.set !== undefined || !desc.enumerable) {
-      return jsonFailure(`JsonValue object has invalid property: ${key}`);
+      return { failure: jsonFailure(`JsonValue object has invalid property: ${key}`), keys };
     }
   }
   if (Object.getOwnPropertySymbols(source).length > 0) {
-    return jsonFailure('JsonValue object must not have symbol properties');
+    return { failure: jsonFailure('JsonValue object must not have symbol properties'), keys };
   }
-  return null;
+  return { failure: null, keys };
 }
 
 function jsonArrayExtraFailure(source: unknown[]): Failure | null {
@@ -375,21 +384,16 @@ function prepareJson(input: unknown, active: Set<object>, memo: Map<object, Json
   } else if (!isPlainObject(source)) {
     return { kind: 'error', error: jsonFailure(`Unsupported JsonValue type: ${typeof input}`) };
   }
+  let objectKeys: readonly string[] = [];
   if (!isArray) {
-    const keyFailure = jsonObjectKeyFailure(source);
-    if (keyFailure !== null) return { kind: 'error', error: keyFailure };
+    const objectCheck = checkJsonObject(source as Record<string, unknown>);
+    if (objectCheck.failure !== null) return { kind: 'error', error: objectCheck.failure };
+    objectKeys = objectCheck.keys;
   }
   active.add(source);
   const frame: JsonFrame = isArray
     ? jsonArrayFrame(source as unknown[])
-    : {
-        kind: 'object',
-        source,
-        target: {},
-        keys: Object.getOwnPropertyNames(source),
-        length: 0,
-        next: 0,
-      };
+    : { kind: 'object', source, target: {}, keys: objectKeys, length: 0, next: 0 };
   return { kind: 'frame', frame };
 }
 
