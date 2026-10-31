@@ -136,6 +136,43 @@ describe('discoverPaths (phase 1)', () => {
     expect(result.error.code).toBe('ERR_NO_TRAVERSAL_PATH');
   });
 
+  test('prunes dead subgraphs for an unreachable origin in stacked diamonds', () => {
+    const count = 30;
+    const versions = [descriptor({ id: 'iv-origin', participant: 'participant-a', versionLabel: '1.0.0' })];
+    for (let index = 0; index < count; index += 1) {
+      const base = `iv-base${index}`;
+      const next = `iv-base${index + 1}`;
+      versions.push(
+        descriptor({
+          id: `iv-l${index}`,
+          participant: 'participant-a',
+          versionLabel: '1.0.0',
+          lineage: [link(next, 'FORKED_FROM')],
+        }),
+        descriptor({
+          id: `iv-r${index}`,
+          participant: 'participant-a',
+          versionLabel: '1.0.0',
+          lineage: [link(next, 'FORKED_FROM')],
+        }),
+        descriptor({
+          id: base,
+          participant: 'participant-a',
+          versionLabel: '1.0.0',
+          lineage: [link(`iv-l${index}`, 'MERGED_FROM'), link(`iv-r${index}`, 'MERGED_FROM')],
+        }),
+      );
+    }
+    versions.push(descriptor({ id: `iv-base${count}`, participant: 'participant-a', versionLabel: '1.0.0' }));
+    const graph = buildLineageGraph(registry([alice], versions));
+
+    const result = discoverPaths(graph, 'FULL_ANCESTRY', identityVersionId('iv-base0'), identityVersionId('iv-origin'));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('ERR_NO_TRAVERSAL_PATH');
+  });
+
   test('treats cycles as dead ends instead of crashing', () => {
     const v1 = descriptor({ id: 'iv-v1', participant: 'participant-a', lineage: [link('iv-v2', 'CONTINUATION')] });
     const v2 = descriptor({ id: 'iv-v2', participant: 'participant-a', lineage: [link('iv-v1', 'CONTINUATION')] });
@@ -151,6 +188,7 @@ describe('discoverPaths (phase 1)', () => {
 });
 
 describe('validatePath (phase 2)', () => {
+  const graph = chainState().graph;
   const path: Path = {
     scope: 'CONTINUATION_ONLY',
     edges: [
@@ -163,7 +201,7 @@ describe('validatePath (phase 2)', () => {
   };
 
   test('validates a concrete path without calling discovery', () => {
-    const result = validatePath(path, [chainAssessment], requirementFor(['CONT_OK']), EMPTY_POLICY, CTX);
+    const result = validatePath(path, graph, [chainAssessment], requirementFor(['CONT_OK']), EMPTY_POLICY, CTX);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -173,6 +211,7 @@ describe('validatePath (phase 2)', () => {
   test('fails independently on an unsatisfied assurance requirement', () => {
     const result = validatePath(
       path,
+      graph,
       [
         assessmentRecord({
           id: 'a-other',
@@ -196,7 +235,7 @@ describe('validatePath (phase 2)', () => {
   });
 
   test('treats a missing applicable assessment as failure, never success', () => {
-    const result = validatePath(path, [], requirementFor([]), EMPTY_POLICY, CTX);
+    const result = validatePath(path, graph, [], requirementFor([]), EMPTY_POLICY, CTX);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -206,6 +245,7 @@ describe('validatePath (phase 2)', () => {
   test('uses the Task 8 policy hook, so narrowing to an empty set fails the path', () => {
     const result = validatePath(
       path,
+      graph,
       [chainAssessment],
       requirementFor(['CONT_OK']),
       { applicableAssessments: () => [] },
@@ -229,7 +269,7 @@ describe('validatePath (phase 2)', () => {
       ],
     };
 
-    const result = validatePath(scoped, [], requirementFor([]), EMPTY_POLICY, CTX);
+    const result = validatePath(scoped, graph, [], requirementFor([]), EMPTY_POLICY, CTX);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -246,7 +286,7 @@ describe('validatePath (phase 2)', () => {
       ],
     };
 
-    expect(validatePath(broken, [], requirementFor([]), EMPTY_POLICY, CTX).ok).toBe(false);
+    expect(validatePath(broken, graph, [], requirementFor([]), EMPTY_POLICY, CTX).ok).toBe(false);
   });
 });
 
@@ -337,6 +377,121 @@ describe('evaluateBinding orchestration', () => {
     expect(result.eligible).toBe(true);
     if (!result.eligible) return;
     expect(result.details.perPath.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'VALID']);
+  });
+
+  function cycleState() {
+    const v1 = descriptor({
+      id: 'iv-v1',
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-v2', 'CONTINUATION')],
+    });
+    const v2 = descriptor({
+      id: 'iv-v2',
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-v1', 'CONTINUATION')],
+    });
+    return {
+      graph: buildLineageGraph(registry([alice], [v1, v2])),
+      descriptors: [v1, v2],
+    };
+  }
+
+  test('rejects a binding whose only path lies inside a cyclic SCC', () => {
+    const { graph, descriptors } = cycleState();
+    const assessments = [
+      assessmentRecord({
+        id: 'a-cycle',
+        subject: 'iv-v1',
+        parents: ['iv-v2'],
+        relation: 'CONTINUATION',
+        verified: ['OK'],
+      }),
+    ];
+    const binding = bindingFor({
+      origin: 'iv-v2',
+      selector: '>=1.0.0',
+      scope: 'CONTINUATION_ONLY',
+      claims: ['OK'],
+    });
+
+    const result = evaluateBinding(
+      { graph, descriptors, assessments },
+      binding,
+      identityVersionId('iv-v1'),
+      EMPTY_POLICY,
+      CTX,
+    );
+
+    expect(result.eligible).toBe(false);
+    if (result.eligible) return;
+    expect('code' in result).toBe(true);
+    if (!('code' in result)) return;
+    expect(result.code).toBe('CYCLE_DETECTED');
+    const outcome = result.details.perPath?.[0].outcome;
+    expect(outcome?.status).toBe('CYCLE_DETECTED');
+    if (outcome?.status !== 'CYCLE_DETECTED') return;
+    expect(outcome.code).toBe('CYCLE_DETECTED');
+    expect(outcome.cycle.map(String).sort()).toEqual(['iv-v1', 'iv-v2']);
+  });
+
+  test('aggregates mixed CYCLE_DETECTED and CONTESTED paths as CYCLE_DETECTED', () => {
+    const a = descriptor({ id: 'iv-a-1', participant: 'participant-a', versionLabel: '1.0.0' });
+    const b = descriptor({
+      id: 'iv-b',
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-b2', 'FORKED_FROM'), link('iv-a-1', 'CONTINUATION')],
+    });
+    const b2 = descriptor({
+      id: 'iv-b2',
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-b', 'CONTINUATION')],
+    });
+    const c = descriptor({
+      id: 'iv-c',
+      participant: 'participant-a',
+      versionLabel: '1.0.0',
+      lineage: [link('iv-a-1', 'CONTINUATION')],
+    });
+    const d = descriptor({
+      id: 'iv-d',
+      participant: 'participant-d',
+      versionLabel: '2.0.0',
+      lineage: [link('iv-b', 'MERGED_FROM'), link('iv-c', 'MERGED_FROM')],
+    });
+    const graph = buildLineageGraph(registry([alice, participant('participant-d')], [a, b, b2, c, d]));
+    const assessments = [
+      assessmentRecord({ id: 'db', subject: 'iv-d', parents: ['iv-b'], relation: 'MERGED_FROM', verified: ['OK'] }),
+      assessmentRecord({ id: 'ba', subject: 'iv-b', parents: ['iv-a-1'], relation: 'CONTINUATION', verified: ['OK'] }),
+      assessmentRecord({ id: 'dc1', subject: 'iv-d', parents: ['iv-c'], relation: 'MERGED_FROM', verified: ['OK'] }),
+      assessmentRecord({ id: 'dc2', subject: 'iv-d', parents: ['iv-c'], relation: 'MERGED_FROM', verified: ['OK'] }),
+      assessmentRecord({ id: 'ca', subject: 'iv-c', parents: ['iv-a-1'], relation: 'CONTINUATION', verified: ['OK'] }),
+    ];
+    const binding = bindingFor({
+      origin: 'iv-a-1',
+      selector: '>=1.0.0',
+      scope: 'FULL_ANCESTRY',
+      claims: ['OK'],
+      targetParticipant: 'participant-d',
+    });
+
+    const result = evaluateBinding(
+      { graph, descriptors: [a, b, b2, c, d], assessments },
+      binding,
+      identityVersionId('iv-d'),
+      { conflictPredicate: () => true },
+      CTX,
+    );
+
+    expect(result.eligible).toBe(false);
+    if (result.eligible) return;
+    expect('code' in result).toBe(true);
+    if (!('code' in result)) return;
+    expect(result.code).toBe('CYCLE_DETECTED');
+    expect(result.details.perPath?.map((item) => item.outcome.status).sort()).toEqual(['CONTESTED', 'CYCLE_DETECTED']);
   });
 
   test('reports a mechanism failure for a malformed selector', () => {

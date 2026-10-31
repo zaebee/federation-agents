@@ -56,6 +56,11 @@ export type PathValidation =
       readonly status: 'CONTESTED';
       readonly edge: EdgeRef;
       readonly contestedClaims: readonly string[];
+    }
+  | {
+      readonly status: 'CYCLE_DETECTED';
+      readonly code: 'CYCLE_DETECTED';
+      readonly cycle: readonly IdentityVersionID[];
     };
 
 export type FailedPathValidation = Exclude<PathValidation, { readonly status: 'VALID' }>;
@@ -154,11 +159,46 @@ function pathMechanismFailure(message: string): Result<never> {
   return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', message) };
 }
 
-function adjacencyFor(graph: LineageGraph, scope: LineageTraversalScope): Map<IdentityVersionID, LineageEdge[]> {
+function reachableToOrigin(
+  graph: LineageGraph,
+  scope: LineageTraversalScope,
+  originID: IdentityVersionID,
+): ReadonlySet<IdentityVersionID> {
+  const reverse = new Map<IdentityVersionID, IdentityVersionID[]>();
+  for (const edge of graph.edges) {
+    if (!relationAllowed(scope, edge.relation)) {
+      continue;
+    }
+    const children = reverse.get(edge.parent) ?? [];
+    if (!children.includes(edge.child)) {
+      children.push(edge.child);
+    }
+    reverse.set(edge.parent, children);
+  }
+
+  const reachable = new Set<IdentityVersionID>([originID]);
+  const queue: IdentityVersionID[] = [originID];
+  for (let index = 0; index < queue.length; index += 1) {
+    const node = queue[index];
+    for (const child of reverse.get(node) ?? []) {
+      if (!reachable.has(child)) {
+        reachable.add(child);
+        queue.push(child);
+      }
+    }
+  }
+  return reachable;
+}
+
+function adjacencyFor(
+  graph: LineageGraph,
+  scope: LineageTraversalScope,
+  reachable: ReadonlySet<IdentityVersionID>,
+): Map<IdentityVersionID, LineageEdge[]> {
   const adjacency = new Map<IdentityVersionID, LineageEdge[]>();
 
   for (const edge of graph.edges) {
-    if (!relationAllowed(scope, edge.relation)) {
+    if (!relationAllowed(scope, edge.relation) || !reachable.has(edge.parent)) {
       continue;
     }
     const edges = adjacency.get(edge.child) ?? [];
@@ -260,7 +300,12 @@ export function discoverPaths(
     return noPath(candidateID, originID);
   }
 
-  const paths = collectPaths(adjacencyFor(graph, scope), scope, candidateID, originID);
+  const reachable = reachableToOrigin(graph, scope, originID);
+  if (!reachable.has(candidateID)) {
+    return noPath(candidateID, originID);
+  }
+
+  const paths = collectPaths(adjacencyFor(graph, scope, reachable), scope, candidateID, originID);
   if (paths.length === 0) {
     return noPath(candidateID, originID);
   }
@@ -299,6 +344,27 @@ function validationValue(value: PathValidation): Result<PathValidation> {
   return { ok: true, value: deepFreeze(value) as PathValidation };
 }
 
+function cycleForPath(path: Path, graph: LineageGraph): readonly IdentityVersionID[] | undefined {
+  const nodes = new Set<IdentityVersionID>();
+  for (const edge of path.edges) {
+    nodes.add(edge.child);
+    nodes.add(edge.parent);
+  }
+
+  const intersecting = graph.cycles.filter((cycle) => cycle.some((node) => nodes.has(node)));
+  if (intersecting.length === 0) {
+    return undefined;
+  }
+
+  const combined = new Set<IdentityVersionID>();
+  for (const cycle of intersecting) {
+    for (const node of cycle) {
+      combined.add(node);
+    }
+  }
+  return [...combined].sort(compareStrings);
+}
+
 /**
  * Phase 2: validates one concrete path edge by edge. Task 8 owns assessment
  * applicability and assurance; this function only sequences the calls and
@@ -306,6 +372,7 @@ function validationValue(value: PathValidation): Result<PathValidation> {
  */
 export function validatePath(
   path: Path,
+  graph: LineageGraph,
   assessments: readonly ContinuityAssessment[],
   requirement: ContinuityAssuranceRequirement,
   policy: Policy,
@@ -314,6 +381,11 @@ export function validatePath(
   const shape = validatePathShape(path);
   if (!shape.ok) {
     return shape;
+  }
+
+  const cycle = cycleForPath(path, graph);
+  if (cycle !== undefined) {
+    return validationValue({ status: 'CYCLE_DETECTED', code: 'CYCLE_DETECTED', cycle });
   }
 
   for (const edge of path.edges) {
@@ -417,8 +489,15 @@ function summarizePaths(accepted: readonly Path[], outcomes: readonly PathOutcom
   }
 
   const failed = outcomes.filter(isFailedOutcome);
-  // Task 9 aggregation: any CONTESTED path makes the top-level outcome
-  // contested; per-path outcomes are preserved regardless of the mix.
+  // Task 9 aggregation: a cyclic path is a structural failure and outranks
+  // contested outcomes; per-path outcomes are preserved regardless of the mix.
+  if (failed.some((item) => item.outcome.status === 'CYCLE_DETECTED')) {
+    return deepFreeze({
+      eligible: false,
+      code: 'CYCLE_DETECTED',
+      details: { perPath: failed },
+    }) as BindingResult;
+  }
   if (failed.some((item) => item.outcome.status === 'CONTESTED')) {
     return deepFreeze({
       eligible: false,
@@ -472,7 +551,7 @@ export function evaluateBinding(
   const outcomes: PathOutcome[] = [];
 
   for (const path of discovered.value) {
-    const validation = validatePath(path, state.assessments, binding.assurance_requirement, policy, ctx);
+    const validation = validatePath(path, state.graph, state.assessments, binding.assurance_requirement, policy, ctx);
     if (!validation.ok) {
       return mechanismResult(asMechanism(validation.error));
     }
