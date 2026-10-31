@@ -80,12 +80,13 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/selector.ts`        | §3.2, §8.2 | Implemented | Versioned `uia-ref-selector@1` mechanism with compiled-selector provenance |
 | `core/credential.ts`      | §4, §10  | Planned     | Credential usage, revocation reasons, historical signature semantics    |
 | `core/lineage.ts`         | §5, §11  | Implemented | §5.2 structural validation, graph snapshots, delayed parents, deterministic SCC cycle detection |
-| `core/assessment.ts`      | §6       | Planned     | Edge applicability, supersession, assurance evaluation                  |
+| `core/assessment.ts`      | §6       | Implemented | Edge applicability, policy narrowing, assurance evaluation, copy-on-write supersession |
+| `core/temporal.ts`        | §10      | Partial     | Type contracts only (`TemporalContext` and trust inputs); trust derivation is Task 13 |
 | `core/traversal.ts`       | §8       | Planned     | Path discovery, path validation, merge closure, binding evaluation      |
 | `core/acceptance.ts`      | §9       | Planned     | `LocalAcceptanceRecord` and lifecycle transitions                       |
 | `core/ledger.ts`          | —        | Planned     | Append-only in-memory stores — a **mechanism**, not protocol semantics  |
 
-`src/index.ts` exports `UIA_CORE_001_REVISION` and re-exports the core barrel. When the assessment module lands, the `ApplicableAssessments` brand is to remain module-private and must not be exported through `src/index.ts`.
+`src/index.ts` exports `UIA_CORE_001_REVISION` and re-exports the core barrel. The `ApplicableAssessments` and `CompiledSelector` brands remain module-private and are not exported through `src/index.ts`.
 
 ## 4. Data flow
 
@@ -150,8 +151,8 @@ The table separates guarantees the repository already provides from properties r
 | A2  | Determinism            | Partial      | Canonicalization and SHA-256 are deterministic; graph and edge-order independence are planned with traversal |
 | A3  | Ownership              | Implemented  | Every §3–§5 constructor copies and freezes; ownership helpers are unit-tested |
 | A4  | Error separation       | Implemented  | `errors.ts` type split, asserted in `tests/unit/entities.test.ts`            |
-| A5  | Explicit context       | Target       | No globals exist today; `Policy` and `TemporalContext` parameters arrive with the evaluation API |
-| A6  | Edge-bound assessments | Target       | Planned `assessment.ts` runtime brand, enforced by `evaluateAssurance`       |
+| A5  | Explicit context       | Partial      | `Policy` and `TemporalContext` are explicit parameters of `assessEdge`/`evaluateAssurance`; traversal follows Task 9 |
+| A6  | Edge-bound assessments | Implemented  | `ApplicableAssessments` brand plus `WeakSet` provenance, validated by `evaluateAssurance` |
 | A7  | Four trust outcomes    | Target       | Planned `credential.ts` and temporal model                                   |
 | A8  | Unknown boundary       | Implemented  | `validateUnknown`, `validateJsonValue` and the §3–§5 entity constructors; adapters are not written yet |
 
@@ -230,8 +231,8 @@ A passing test suite does not establish production security or interoperability;
 
 ## 12. Status
 
-Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, §7.1 descriptor hashing, version label validation, and the `uia-ref-selector@1` mechanism.
+Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, and the type-level temporal contracts.
 
-Planned: credentials and temporal validation, assessments, traversal, acceptance, ledger. Full C-1/C-2 conformance (assessment recording `PARENT_UNRESOLVED`/`CYCLE_DETECTED`) follows with Tasks 8–9.
+Planned: temporal trust derivation (Task 13), credentials, traversal, acceptance, ledger. Full C-1/C-2 conformance (assessment recording `PARENT_UNRESOLVED`/`CYCLE_DETECTED`) follows with traversal integration in Tasks 9–10.
 
 Ordering and exit criteria are tracked in [`ROADMAP.md`](./ROADMAP.md) and in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md).

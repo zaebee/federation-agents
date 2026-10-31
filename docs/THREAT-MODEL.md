@@ -85,15 +85,15 @@ An attacker is **not** assumed to:
 
 **T-05 Forged provenance declaration.** A publisher declares a relationship that is not true.
 *Mitigation:* a declaration is a claim, not evidence; assessment is a separate artifact with `verified_claims` / `unverified_claims`; missing evidence never becomes success (§6.2.2, §8.5).
-*Status:* protocol + planned implementation. Residual risk: a trusted but careless assessor can still verify weak claims; the evidence model belongs to CORE-004.
+*Status:* protocol; the assessment mechanism is implemented (edge binding, trusted filtering, `unverified_claims` give no positive support). The evidence model belongs to CORE-004. Residual risk: a trusted but careless assessor can still verify weak claims.
 
 **T-06 Malicious or captured assessor.** An assessment is produced by a party the victim domain should not trust, or a trusted assessor is compromised.
 *Mitigation:* the domain names trusted assessors explicitly (`trusted_assessors`); assessments from untrusted domains get no priority merely for being newer or positive (§6.4); policy can narrow, never expand, the applicable set.
-*Status:* planned. Residual risk: trust in assessors is configuration, and configuration can be wrong.
+*Status:* implemented. Trusted-assessor filtering runs before assurance and before conflict evaluation; the default trusted set is empty, and an untrusted positive assessment neither satisfies a requirement nor creates `CONTESTED`. Residual risk: trust in assessors is configuration, and configuration can be wrong.
 
 **T-07 Conflicting assessments, or "assessment shopping".** Two applicable trusted assessments disagree; the attacker hopes the newest or most favourable one wins.
 *Mitigation:* the specification defines a `CONTESTED` outcome for conflicting claims and forbids an automatic majority vote or "latest wins" (§6.3 #6, §6.4); supersession is a link, not an authority transfer.
-*Status:* **partially BLOCKED.** Rev 0.3.3 does not define what makes two applicable assessments contradict each other (A-4b). The reference implementation detects no contradiction automatically; `CONTESTED` is reachable only through an explicitly configured non-default `Policy.conflictPredicate`, which is an extension point, not normative semantics. Any claim that conflict handling works requires the missing clarifier first.
+*Status:* **BLOCKED (A-4b) for default semantics.** The explicit `Policy.conflictPredicate` path is implemented and tested; without it the library detects no contradiction and never returns `CONTESTED`. Any claim that conflict handling works by default requires the missing clarifier first.
 
 **T-08 Assessment supersession abused to rewrite history.** A new assessment is published to erase an inconvenient earlier one.
 *Mitigation:* assessments are immutable; supersession chains are acyclic; old assessments are preserved; earlier decisions are not rewritten (§6.3).
@@ -101,7 +101,7 @@ An attacker is **not** assumed to:
 
 **T-09 Cycle injection.** A publisher supplies a lineage cycle to make continuity appear provable or to crash the evaluator.
 *Mitigation:* cycles are detected and exposed as sorted graph components; declarations are preserved; a cycle is not usable as proof of succession; no global deletion or process abortion (§11.2).
-*Status:* graph-level detection implemented and tested. Recording `CYCLE_DETECTED` in an Assessment and suppressing dependent grants belong to Tasks 8–9. Residual risk: availability — see T-17.
+*Status:* graph-level detection implemented and tested. Recording `CYCLE_DETECTED` at the binding boundary and suppressing dependent grants belong to traversal integration (Tasks 9–10). Residual risk: availability — see T-17.
 
 **T-10 Delayed or unresolved parent.** A child arrives before its parent, and the domain treats the missing parent as acceptable.
 *Mitigation:* the declaration and the unresolved parent reference are preserved and exposed as `unresolvedParents`; recording `PARENT_UNRESOLVED` in an Assessment, and never treating missing evidence as success, belong to Task 8 (§11.1, §8.5).
@@ -142,8 +142,8 @@ An attacker is **not** assumed to:
 *Status:* **unmitigated by design gap.** Rev 0.3.3 sets no input limits, and the library defines none. Deployments should enforce descriptor-count, graph-depth, and payload-size limits until an explicit resource-limit contract is defined. This should become an explicit adapter contract.
 
 **T-18 Policy hook abuse.** A caller-supplied hook returns assessments that do not apply to the edge, or a forged "applicable" set.
-*Mitigation:* applicable sets are constructed only by `assessEdge` and carry a module-private runtime brand; `evaluateAssurance` rejects unbranded input with `E_APPLICABLE_ASSESSMENTS_UNBRANDED`; hook output is intersected with the applicable set and non-members are discarded and reported.
-*Status:* planned. Residual risk: if the brand check is bypassed by a future refactor, nominal binding silently degrades into a convention.
+*Mitigation:* applicable sets are constructed only by `assessEdge`, carry a module-private symbol brand and are registered in a module-private `WeakSet`; `evaluateAssurance` rejects unbranded input with `E_APPLICABLE_ASSESSMENTS_UNBRANDED`. The narrowing hook can only select items by id from the core set; the stored item is always the core copy, so altered claims cannot be injected. The edge passed to the hook is frozen before the call.
+*Status:* implemented and tested (forged objects, inheritance, unbranded values, altered copies, edge rebinding). Residual risk: if the provenance checks are bypassed by a future refactor, nominal binding silently degrades into a convention.
 
 **T-19 Type confusion through a forged compiled selector.** An integrator passes a plain object, a spread copy, an inheriting object, or a Proxy where `selectorMatches` expects a selector produced by `compileSelector`, hoping to steer matching.
 *Mitigation:* compiled selectors carry a module-private symbol brand for nominal typing and are registered in a module-private `WeakSet` only after construction and deep freezing; `selectorMatches` accepts a selector by identity in that set, not by property lookup, so inherited brands and Proxies are rejected. Invalid input raises `InvalidCompiledSelectorError` and is never treated as a wildcard.
