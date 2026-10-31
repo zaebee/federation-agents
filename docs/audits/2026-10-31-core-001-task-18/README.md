@@ -1,6 +1,6 @@
 # CORE-001 Conformance Gap Disposition — Task 18
 
-**Status:** Planning, disposition and T18-02A implementation record. Two decisions approved (`T18-DEC-01`, `T18-DEC-02`); 13 OPEN at the baseline, plus post-baseline `T18-DEC-16` and `T18-DEC-17` (15 OPEN). T18-02A is implemented; no other remediation task is implemented.
+**Status:** Planning, disposition and T18-02A implementation record. Four decisions approved (`T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16`, `T18-DEC-17`); 13 OPEN. T18-02A is implemented; `T18-02B` is unblocked by the `T18-DEC-16` approval and is the next implementation task.
 **Audit base:** commit `2a83c65` (`main`, Task 17 merged).
 **Normative source:** `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3.
 **Task 17 inputs:** `docs/audits/2026-10-31-core-001-task-17/` (README, requirement matrix, conformance matrix, registers).
@@ -82,8 +82,10 @@ No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work
 
 - **T18-DEC-01 — `REQ-LOCAL`:** CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` and `CYCLE_DETECTED`. This is a recording obligation; it does not assign construction/publication to Core.
 - **T18-DEC-02 — `OWN-ADAPTER` + `VAL-CORE` (Core-owned admission/representation):** adapter constructs the Assessment; Core owns semantic validation and admission; the registered representation is immutable; persistent storage is caller-managed. Publication/retention remain OPEN. `T18-02A` is planning- and acceptance-eligible. See `decision-register.md` §3 for the canonical scope and enforcement.
+- **T18-DEC-16 — C-2 subject model and Assessment shape/provenance (Option D, approved 2026-10-31):** one Assessment per affected lineage edge inside a cyclic SCC (`subject_version_id` = child, `declared_relation` = edge relation, `parent_version_ids` = `[parent]`, `CYCLE_DETECTED` in `unverified_claims`); adapter constructs, Core validates and admits, caller persists. Unblocks `T18-02B`; does not make the `T18-DEC-15` subset reading normative.
+- **T18-DEC-17 — publication and retention ownership (approved 2026-10-31):** the caller boundary owns persistence, publication and retention; the Core contract ends at the immutable admitted representation; publication/retention claims require caller evidence.
 
-Still OPEN: `T18-DEC-16` (C-2 subject model and exact Assessment shape/provenance; sub-parts 16.a/16.b) and `T18-DEC-17` (publication and retention ownership), both in `decision-packages/T18-09E-c2-subject-model/`; `T18-DEC-15` parent-coverage semantics; and C-2.a3 / CORE-003. `T18-02B` is blocked only by `T18-DEC-16`; `T18-DEC-17` blocks publication/retention claims, not recording.
+Still OPEN: `T18-DEC-15` parent-coverage semantics and C-2.a3 / CORE-003, plus the other Task 18 decisions. `T18-02B` is unblocked (`T18-DEC-16` approved); `T18-DEC-17` is approved independently and does not gate recording.
 
 ## 5. Roadmap overview
 
@@ -91,7 +93,7 @@ Still OPEN: `T18-DEC-16` (C-2 subject model and exact Assessment shape/provenanc
 | --- | --- | --- | --- |
 | T18-01 Assessment-emission decision package | specification/design | P1 | `CORE-001_RUNTIME` |
 | T18-02A C-1 adapter emission (implemented; acceptance evidence in AEBE) | implementation + tests | P1 | `CORE-001_RUNTIME` |
-| T18-02B C-2.a2 adapter emission (blocked on C-2 model) | implementation + tests | P1 | `CORE-001_RUNTIME` |
+| T18-02B C-2.a2 adapter emission (unblocked; DEC-16 approved) | implementation + tests | P1 | `CORE-001_RUNTIME` |
 | T18-02C Retired / superseded (historical ID; scope split into T18-02A/B) | — | — | `CORE-001_RUNTIME` |
 | T18-03 D-4 future-authorization evidence | test-only | P2 | `CORE-001_RUNTIME` |
 | T18-04 Version-label boundary (conditional) | decision + implementation/test or docs | P2 | `CORE-001_RUNTIME` |
@@ -112,13 +114,13 @@ Still OPEN: `T18-DEC-16` (C-2 subject model and exact Assessment shape/provenanc
 
 Milestones:
 
-- **M0** — decisions registered and owners assigned (T18-DEC-01…15; `T18-DEC-16`/`T18-DEC-17` registered post-baseline).
+- **M0** — decisions registered and owners assigned (T18-DEC-01…15; `T18-DEC-16`/`T18-DEC-17` registered and approved 2026-10-31).
 - **M1** — CORE-001 implementation gaps resolved or explicitly dispositioned (T18-02A implemented and acceptance-eligible; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
 
-Critical path: `T18-DEC-01`/`T18-DEC-02` → T18-01 → T18-02A → AEBE → T18-13; C-2 additionally needs `T18-DEC-16` approval and T18-02B (`T18-DEC-17` is separate and does not block recording), plus T18-DEC-13/T18-10 for `CASE-C-2.a3`; readiness additionally needs T18-11 for N-170/N-175. N-172 is tracked separately as T18-09D (P2).
+Critical path: `T18-DEC-01`/`T18-DEC-02` → T18-01 → T18-02A → AEBE → T18-13; C-2 continues with T18-02B (`T18-DEC-16` approved; `T18-DEC-17` is separate and does not block recording), plus T18-DEC-13/T18-10 for `CASE-C-2.a3`; readiness additionally needs T18-11 for N-170/N-175. N-172 is tracked separately as T18-09D (P2).
 
 ## 6. Key separations preserved
 
@@ -159,14 +161,14 @@ Recorded in `reconciliation-notes.md`; Task 17 files are untouched.
 | `README.md` | Purpose, method, reconciliation summary, roadmap overview, readiness, limits |
 | `disposition-matrix.md` | 23 rows with disposition, risk scope, priority, dependencies, closure evidence |
 | `remediation-roadmap.md` | Tasks, dependency graph, milestones, critical path, acceptance criteria |
-| `decision-register.md` | `T18-DEC-01…17`; 2 APPROVED, 15 OPEN (`T18-DEC-16`/`17` registered post-baseline) |
+| `decision-register.md` | `T18-DEC-01…17`; 4 APPROVED, 13 OPEN (`T18-DEC-16`/`17` approved 2026-10-31) |
 | `decision-packages/` | `T18-01` assessment emission, `T18-09A` assurance decisions, `T18-09E` C-2 subject model (`T18-DEC-16`) |
 | `reconciliation-notes.md` | `T18-DEC-01`/`T18-DEC-02` approval, `T18-DEC-15` local disposition, PATH-B correction, N-169 erratum, N-140 reclassification proposal, traceability gaps |
 | `aebe/C-1.md` | T18-02A package-root adapter evidence and declaration-scoped claim evidence |
 
 ## 10. Limits
 
-- Only `T18-DEC-01` and `T18-DEC-02` are approved; all other decisions remain OPEN, including `T18-DEC-15` and the post-baseline `T18-DEC-16`/`T18-DEC-17`.
+- Four decisions are approved (`T18-DEC-01`, `T18-DEC-02`, `T18-DEC-16`, `T18-DEC-17`); all other decisions remain OPEN, including `T18-DEC-15`.
 - T18-02A is implemented; no other remediation task is implemented.
 - No Task 17 status is changed.
 - No CORE-001 normative text is amended.
