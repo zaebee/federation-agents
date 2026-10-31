@@ -10,20 +10,20 @@ These are the choices that cannot be settled by engineering judgement or by read
 - **A:** the full per-path list is normative evidence.
 - **B:** the normative result is validity plus mandatory evidence; the full list is diagnostics.
 
-**Recommended: B.** §8.4/§8.7 define validity by the existence of one fully valid path, and no sentence requires returning every path. **If A:** no API change is needed and B-3/B-4 keep their meaning, but the `2^k` output remains an explicit availability risk; N-176 would be recorded as "conditional not triggered" rather than PASS.
+**Author preference: B.** §8.4/§8.7 define validity by the existence of one fully valid path, and no sentence requires returning every path. This is a *preferred direction*, not a claim that B is the only complete contract: R1 (Reading A) is the option whose contract is fully specified today without further decisions — see OQ-10. **If A:** no API change is needed and B-3/B-4 keep their meaning, but the `2^k` output remains an explicit availability risk; N-176 would be recorded as "conditional not triggered" rather than PASS.
 
 ## OQ-2 — API strategy under Reading B: replace or version?
 
-- **5.A replace:** change `BindingResult`; revise B-3/B-4/B-6.
-- **5.B version:** add a compact result type/function; keep the current API as deprecated legacy.
+- **Option 5.A — replace:** change `BindingResult`; revise B-3/B-4/B-6.
+- **Option 5.B — version:** add a compact result type/function; keep the current API as deprecated legacy.
 
-**Recommended: 5.B.** A versioned addition cannot break existing callers and keeps the old conformance corpus meaningful during migration.
+**Recommended: Option 5.B.** A versioned addition cannot break existing callers and keeps the old conformance corpus meaningful during migration.
 
 ## OQ-3 — Conformance corpus: revise B-3/B-4/B-6 or keep them on the legacy API?
 
-If OQ-2 is 5.B, the cheapest path is: keep B-3/B-4/B-6 on the legacy API and add v2 cases for L1/L2. If 5.A, the corpus must be revised through `T18-SPEC-01` before implementation.
+If OQ-2 chooses **Option 5.B**, the cheapest path is: keep B-3/B-4/B-6 on the legacy API and add v2 cases for L1/L2. If **Option 5.A**, the corpus must be revised through `T18-SPEC-01` before implementation.
 
-**Recommended: 5.B + add v2 cases; do not rewrite the legacy assertions in the same step.**
+**Recommended: Option 5.B + add v2 cases; do not rewrite the legacy assertions in the same step.**
 
 ## OQ-4 — Rejection proof: polynomiality is **not established** (claim withdrawn)
 
@@ -38,7 +38,7 @@ The earlier proposal — per-class reachability + one witness per class, called 
 
 ## OQ-5 — Does A-8 stay OPEN, with the current precedence as an implementation rule?
 
-**Recommended: yes.** The compact implementation must reproduce `MECHANISM > closure > cycle > contested > assurance` exactly as current behaviour, while recording that the precedence is not normative. If A-8 is later decided differently, the result changes with the decision.
+**Recommended: yes**, with one condition. The compact implementation can reproduce `MECHANISM > closure > cycle > contested > assurance` exactly **only if path-scoped mechanism failures remain path-faithful** (OQ-6 option (a)). If OQ-6 chooses total policy hooks (option (b)), the compact API cannot reproduce MECHANISM for a hook that throws only on some edges: that is an observable behaviour change and must be stated in the migration notes. **OQ-5 and OQ-6 are one decision, not two.** If A-8 is later decided differently, the result changes with the decision.
 
 ## OQ-6 — Mechanism failures: new sub-decision N176-13 (now classified)
 
@@ -47,7 +47,12 @@ The errors split into two classes:
 - **input-scoped** (decided once, polynomial): malformed assessment array rejected by `assessEdge`, selector compilation, candidate precheck, graph-builder checks;
 - **path-scoped** (NP-hard to detect exhaustively): a policy hook that throws only for particular edges — deciding whether any simple path reaches such an edge is D2 (`oq4` §2).
 
-**Recommended: the compact validity API supports input-scoped mechanism failures only; policy hooks must be total for that API (a throwing hook is a caller/configuration bug, diagnosed at the edge level).** This is an observable difference from the current API and must be recorded in the contract and migration notes, not treated as an internal optimisation.
+The owner must choose one of two options:
+
+- **(a) path-faithful mechanism failures** — exact equivalence with the current API, but detecting them compactly is NP-hard (D6), so R2's exponential search must include this class; OQ-5's precedence rule remains exactly equivalent.
+- **(b) total policy hooks** — the compact validity API supports input-scoped failures only; a throwing hook is a caller/configuration bug diagnosed at the edge level. This is **not equivalent** to the current API for a hook that throws only on some edges, and must be recorded in the contract and migration notes.
+
+**Recommended: (b), conditional on OQ-5 being recorded as "equivalent except path-scoped hook throws".** The change is observable and must not be presented as an internal optimisation.
 
 ## OQ-7 — Diagnostics API policy
 
@@ -70,7 +75,12 @@ The owner must choose one of the `oq4` §5 options:
 - **R3:** Reading B with walk/state-based rejection semantics — polynomial but **changes observable results** and needs a spec amendment plus corpus revision;
 - **R4:** defer N-176, keep it PARTIAL and clarify §8.8's intent in `T18-SPEC-01`.
 
-**No recommendation is made.** R1 is the only option whose contract is complete and provably deterministic today; R2 is the only option that keeps Reading B; R3 trades semantic equivalence for polynomiality; R4 keeps the status honest.
+**No recommendation is made between R1–R4.** Two different axes must not be conflated:
+
+- **preference (OQ-1):** Reading B is the author's preferred direction because it addresses the intent of N-176;
+- **maturity of the contract:** R1 is the option whose contract is **fully specified today** without further decisions. That is a statement about how much is already proven, **not** a recommendation to choose R1.
+
+R2 keeps Reading B but inherits exponential rejection search; R3 trades semantic equivalence for polynomiality; R4 defers. The owner chooses on the merit of the axes, not on the word "recommended".
 
 ## OQ-9 — Audit consequence
 

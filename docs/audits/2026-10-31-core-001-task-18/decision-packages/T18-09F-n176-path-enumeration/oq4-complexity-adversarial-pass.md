@@ -17,14 +17,16 @@
 
 The current semantics are **simple paths**: `collectPaths` never revisits a node, and `validatePathShape` rejects a repeated node.
 
+**Status of the claims below.** D2 is the strongest reduction; D3 and D4 are *reduction sketches*. NP-hardness for the exact T18 input language (lineage relation cardinality, participant constraints, assessment fixture, closure semantics) is **not established** until the obligations in §6 are discharged. The tables therefore say "reduction sketch", not "theorem".
+
 ## 2. Class-by-class result
 
 | ID | Result | Basis |
 | --- | --- | --- |
 | D1 | **Polynomial** | Reachability in the scoped adjacency graph. Any walk can be reduced to a simple path by removing cycles, so reachability decides existence. |
-| D2 | **NP-hard** (reduction sketch, structurally exact) | With exactly one INVALID edge `e* = u→v` and all other edges valid, a simple path with the first failure on `e*` exists iff a simple `s→t` path through `e*` exists, which is equivalent to two internally vertex-disjoint directed paths `s→u` and `v→t`. The directed 2-disjoint-paths problem is NP-complete (Fortune–Hopcroft–Wyllie 1980). T18 lineage graphs can encode an arbitrary directed graph: a node with out-degree 1 uses `CONTINUATION`; out-degree ≥ 2 uses `MERGED_FROM` (cardinality ≥ 2); one participant covers the same-participant rule. Other edges are marked valid with assessments. A full formal reduction would still have to pin the relation assignment and the assessment fixture, but no structural obstacle is apparent. |
-| D3 | **NP-hard** (same reduction) | "A simple `s→t` path through a specified vertex `v`" is the same 2-disjoint-paths question. Make `v` cyclic with an auxiliary two-cycle `v↔w` off every `s→t` route; then D3 is exactly that question. |
-| D4 | **NP-hard** (same reduction) | Mark every edge valid and give merge node `m` two parent edges. Arrange the closure check so that it fails only when the path enters `m` through a specified edge `m→p1` (the branch edge `m→p2` is valid, the branch edge `p1` fails). D4 then asks for a simple path through one specified edge — D2 again. Closure depends only on `(merge node, incoming path edge)`, so this can be encoded without path history. |
+| D2 | **NP-hard — reduction sketch** (strongest case; not yet a complete proof for the full T18 input language) | With exactly one INVALID edge `e* = u→v` and all other edges valid, a simple path with the first failure on `e*` exists iff a simple `s→t` path through `e*` exists, which is equivalent to two internally vertex-disjoint directed paths `s→u` and `v→t`. The directed 2-disjoint-paths problem is NP-complete (Fortune–Hopcroft–Wyllie 1980). T18 lineage graphs can encode an arbitrary directed graph: a node with out-degree 1 uses `CONTINUATION`; out-degree ≥ 2 uses `MERGED_FROM` (cardinality ≥ 2); one participant covers the same-participant rule. Other edges are marked valid with assessments. A full formal reduction would still have to pin the relation assignment and the assessment fixture, but no structural obstacle is apparent. |
+| D3 | **NP-hard — reduction sketch** (same reduction; gaps in §6) | "A simple `s→t` path through a specified vertex `v`" is the same 2-disjoint-paths question. Make `v` cyclic with an auxiliary two-cycle `v↔w` off every `s→t` route; then D3 is exactly that question. |
+| D4 | **NP-hard — reduction sketch** (same reduction; gaps in §6) | Directions: paths follow lineage **child→parent**, so a merge node `m` has **outgoing** edges `m→p` to its parents. When a path reaches `m`, it leaves through one of them — the *path edge* `m→p1`; closure checks the remaining `m→p` edges as branches. Mark every edge valid, but make the branch `m→p2` fail assurance; then closure fails iff the path leaves `m` through `m→p1`. D4 asks for a simple path using one specified **outgoing** edge (D2), with the closure state `(m, path edge)` encoded without path history. |
 | D5 | **Open, no polynomial claim** | Naive best-first search revisits exponentially many prefixes when many lexicographically smaller dead ends exist. A greedy strategy with a feasibility oracle ("does a valid completion exist avoiding the visited set?") is plausible: the oracle is reachability in the product graph `(node, incoming edge)` minus the visited set, which is polynomial per query, and lexicographic minimisation needs at most `|V|` queries. That is a **proof sketch, not a proof**: the closure state, the exact `pathKey` order and the prefix-length ordering must be formalised and tested. This pass does not certify polynomiality. |
 | D6 | **Mixed** | Input-scoped failures (malformed assessment array, invalid selector, candidate precheck) are decided once and are polynomial. Path-scoped failures (a policy hook that throws only for some edges) reduce to D2 and are **NP-hard**. |
 
@@ -63,8 +65,19 @@ An exact compact algorithm under the current **simple-path** semantics cannot be
 
 **No recommendation is made between R1–R4 in this pass.** The choice is normative: correctness/availability trade-off, or a deferred clarification. What is withdrawn is only the claim that R2 is polynomial.
 
-## 6. Limits of this pass
+## 6. Formal proof obligations (not yet discharged)
 
-- D2/D3/D4 reductions are sketched at the level of "the graph shape is encodable"; a formal reduction (exact relation assignment, assessments, single invalid edge) is still a proof obligation before NP-hardness is cited as a theorem for the exact T18 input language.
+To turn the sketches into a proof for the T18 input language, each of the following must be shown:
+
+- **P1 — graph encoding:** every directed graph used by the reduction is representable as a T18 lineage graph under §5.2: per-relation cardinality (`CONTINUATION` 1, `FORKED_FROM` 1, `MERGED_FROM` ≥ 2), the CONTINUATION same-participant rule, and the participant arrangement. A plausible mapping is: out-degree 1 → `CONTINUATION`; out-degree ≥ 2 → `MERGED_FROM`; one participant for all nodes. This must be written out, including nodes whose parent count changes.
+- **P2 — single invalid edge:** an assessment/requirement fixture must make exactly one edge `INVALID` and every other edge `VALID`, without touching relation validity.
+- **P3 — D3 auxiliary cycle:** adding the auxiliary two-cycle that makes the specified vertex cyclic must not create new `candidate→origin` simple paths or change the class of existing ones.
+- **P4 — D4 closure semantics:** the closure function must be reproduced exactly: which edge is the path edge, which branches are checked, and why a failing branch is observable only for the specified path edge. The definition of "path edge" must use the lineage direction (the outgoing `m→p` edge the path takes).
+- **P5 — reduction direction:** the reduction must go *from* the known NP-complete problem *to* T18 (not merely show that a T18 instance resembles the known problem).
+
+Until P1–P5 are discharged, the correct statement is: **the question is at least as hard as a known NP-complete problem in a closely related graph model; NP-hardness for T18 is not established**.
+
+## 7. Limits of this pass
+
 - D5 has a plausible polynomial strategy but no proof; it must not be called polynomial until proven and tested.
 - Nothing here changes `N-176`, the register, `CORE-001.md`, source, tests or statuses.

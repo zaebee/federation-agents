@@ -121,7 +121,12 @@ Current behaviour: `evaluateBinding` returns a `MECHANISM` result if **any** dis
 
 Most mechanism failures are input-scoped (malformed assessment array, invalid selector): `assessEdge` validates the candidate array before any edge lookup, so the failure is the same for every reached edge and can be decided once. A **policy hook that throws only for certain edges** is different: deciding whether any simple path reaches such an edge is a path-existence question that can require enumeration (existence of a simple path through a given edge is not polynomial in general).
 
-**Proposed resolution:** state the assumption explicitly — either (a) policy hooks are total (a throwing hook is a caller bug diagnosed by the edge-level mechanism test and is not required to be path-faithful), or (b) mechanism errors remain a path-level property and the compact API may return a mechanism failure only for input-scoped failures. This is a new sub-decision (`N176-13`), not settled by N-176.
+**Proposed resolution:** the owner must choose one option, and it is coupled to the A-8 compatibility rule (OQ-5):
+
+- **(a) path-faithful mechanism failures** — the compact API is exactly equivalent to the current one, but detecting this class is NP-hard (D6) and must be included in R2's exponential search;
+- **(b) total policy hooks** — only input-scoped failures are covered by the compact API; a throwing hook is a caller/configuration bug diagnosed at the edge level. This is an **observable difference**, not an internal optimisation, and must be recorded in the migration notes.
+
+This is a new sub-decision (`N176-13`), not settled by N-176.
 
 ### 3.5 Closure evidence
 
@@ -145,7 +150,7 @@ A graph with one closure-failing path and one cycle path. Current code returns `
 
 ### 4.4 Proposed resolution
 
-Compute **existence per class** (reachability, §3) first, then apply the compatibility rule. In the decision record, state plainly: "the implementation preserves the current order as a compatibility rule; A-8 remains OPEN; a future A-8 decision may change this order and then the result changes with it."
+Compute **existence per class** (reachability, §3) first, then apply the compatibility rule. In the decision record, state plainly: "the implementation preserves the current order as a compatibility rule; A-8 remains OPEN; a future A-8 decision may change this order and then the result changes with it." This rule is **exactly equivalent to the current API only under OQ-6 option (a)** (path-faithful mechanism failures); under option (b) the MECHANISM component of the order differs for hook throws and the migration notes must say so.
 
 ### 4.5 Compatibility impact
 
@@ -165,8 +170,8 @@ There are two viable migration shapes; the owner must choose one:
 
 | Shape | Description | Effect on B-3/B-4/B-6 |
 | --- | --- | --- |
-| **5.A — replace** | Change `BindingResult` to the compact L1/L2 shape; move L3 to a separate diagnostic API. | Corpus must be revised: B-3 asserts one witness, B-4/B-6 read the diagnostic API or the L2 rejection evidence. |
-| **5.B — version (recommended)** | Add `BindingResultV2` / `evaluateBindingCompact`; keep the current `evaluateBinding` and `BindingResult` unchanged as legacy diagnostic behaviour, marked deprecated but not removed. | B-3/B-4/B-6 continue to pass on the legacy API; new conformance cases cover v2; no corpus rewrite is forced. |
+| **Option 5.A — replace** | Change `BindingResult` to the compact L1/L2 shape; move L3 to a separate diagnostic API. | Corpus must be revised: B-3 asserts one witness, B-4/B-6 read the diagnostic API or the L2 rejection evidence. |
+| **Option 5.B — version (recommended)** | Add `BindingResultV2` / `evaluateBindingCompact`; keep the current `evaluateBinding` and `BindingResult` unchanged as legacy diagnostic behaviour, marked deprecated but not removed. | B-3/B-4/B-6 continue to pass on the legacy API; new conformance cases cover v2; no corpus rewrite is forced. |
 
 ### 5.2 Normative anchor
 
@@ -178,7 +183,7 @@ Silently changing the existing `BindingResult` breaks every caller that compiled
 
 ### 5.4 Proposed resolution (compatibility)
 
-Adopt 5.B: new result type, new function, `BindingResult` remains for one deprecation window. `T18-SPEC-01` scope is limited to: L1/L2/L3 definition, canonical order, rejection-witness sufficiency, diagnostics status, and the deprecation note. It does not need to amend §8.4–§8.7 if the owner accepts that the full list was never required; if the owner chooses Reading A instead, no API change is needed and `T18-SPEC-01` should instead state that the full per-path list is normative evidence.
+Adopt Option 5.B: new result type, new function, `BindingResult` remains for one deprecation window. `T18-SPEC-01` scope is limited to: L1/L2/L3 definition, canonical order, rejection-witness sufficiency, diagnostics status, and the deprecation note. It does not need to amend §8.4–§8.7 if the owner accepts that the full list was never required; if the owner chooses Reading A instead, no API change is needed and `T18-SPEC-01` should instead state that the full per-path list is normative evidence.
 
 ### 5.5 Closure evidence
 
@@ -218,6 +223,6 @@ A benchmark proving the validity path handles `k=16` (and the documented larger 
 | 2 | Canonical witness = `pathKey` minimum via best-first search | Implementation detail under Reading B |
 | 3 | Exact class-existence rejection proof + compatible top-level code — **NP-hard in general**, polynomiality not established | Yes — see `oq4` §5 (R1–R4) |
 | 4 | Keep current precedence as a compatibility rule; A-8 stays OPEN | Yes — confirm A-8 untouched |
-| 5 | Versioned new API (5.B), legacy kept for a deprecation window | Yes — API strategy |
+| 5 | Versioned new API (Option 5.B), legacy kept for a deprecation window | Yes — API strategy |
 | 6 | Validity uncapped; diagnostics bounded by caller policy | Yes — diagnostics policy |
-| 7 | Mechanism-failure assumption (N176-13) | Yes — new sub-decision |
+| 7 | Mechanism-failure assumption (N176-13) — coupled with OQ-5: exact A-8 equivalence requires option (a), which is NP-hard | Yes — new sub-decision |
