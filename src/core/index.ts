@@ -12,6 +12,18 @@ export * from './hashing.js';
 export { buildLineageGraph, validateDescriptor } from './lineage.js';
 export type { LineageEdge, LineageGraph, Registry, StructuralResult } from './lineage.js';
 
+export * from './temporal.js';
+
+export { assessEdge, evaluateAssurance, registerAssessment } from './assessment.js';
+export type {
+  ApplicableAssessments,
+  AssuranceResult,
+  ContinuityAssessment,
+  ContinuityAssuranceRequirement,
+  EdgeRef,
+  Policy,
+} from './assessment.js';
+
 export { validateVersionLabel } from './version-scheme.js';
 export type { SemVer, VersionLabel } from './version-scheme.js';
 

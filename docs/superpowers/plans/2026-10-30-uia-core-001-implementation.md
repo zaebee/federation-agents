@@ -389,6 +389,16 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
 - [ ] **Step 2: Run** → fail. **Step 3: Implement.** **Step 4: Run** → pass.
 - [ ] **Step 5: Commit** `feat(core): nominally edge-bound assessments with spec-literal unverified semantics and hook narrowing`.
 
+**Approved implementation decisions (2026-10-31):**
+
+- `src/core/temporal.ts` is added as a type-only prerequisite for `assessEdge`/`evaluateAssurance`: `AssessedTrustResult`, `TemporalTrustInput`, `TemporalContext`. No `trustOutcome`, trust derivation, runtime validation, or temporal tests — those remain Task 13.
+- Supersession is a pure `registerAssessment(existing, successor): Result<readonly ContinuityAssessment[]>`. A supersession cycle returns a `SpecFailure` carrying the existing `CYCLE_DETECTED` code (no new code, no conflation with the Lineage cycle machinery). Existing assessments are copied/frozen and never mutated; there is no latest-wins selection.
+- `ApplicableAssessments.unresolved` is `true` only when the final edge-applicable, policy-narrowed assessment set is empty.
+- An assessment applies to an edge when `subject_version_id === edge.child`, `declared_relation === edge.relation`, and `edge.parent` is contained in `parent_version_ids`. One assessment with several parents may apply to several merge edges.
+- Items discarded by policy narrowing are never exposed or consumed by assurance evaluation; no `discarded` field is added to the public type.
+- `AssuranceResult` is `SATISFIED | UNSATISFIED | CONTESTED | MechanismFailure`; the unbranded guard returns before any assurance logic runs.
+- Trusted assessors resolve as `requirement.trusted_assessors` → `Policy.trustedAssessorDefault` → empty set. There is no trust-all default.
+
 ### Task 9: Traversal Phases 1+2 — discovery, validation — B-1..B-3
 
 **Files:** Create `src/core/traversal.ts`; Test `tests/conformance/b.test.ts` (B-1..B-3), `tests/unit/traversal-phases.test.ts`.
