@@ -103,11 +103,12 @@ Implemented so far:
 - Pure TypeScript SHA-256, with no runtime crypto dependency.
 - IdentityVersion descriptor types with minimal structural validation: required fields and enum values, strict JSON, unknown-field rejection, and an owned, deep-frozen copy.
 - Descriptor hashing over the explicit §7.1 projection, pinned by a known-answer test.
+- Version label validation: strict SemVer 2.0.0 for `SEMVER_2`, non-empty labels for `CONTENT_HASH` and `OPAQUE_TAG` (no format or ordering inferred).
+- The versioned `uia-ref-selector@1` mechanism — exact match, wildcard, comparators, `&&` composition — with factory-provenance checks on compiled selectors.
 
 Still to come:
 
 - The full entity model: Participant, runtime, credential and lineage record constructors.
-- Version schemes and selector evaluation.
 - Credential semantics and temporal validation.
 - Identity lineage graph construction, delayed parent resolution, cycle detection.
 - Continuity assessments and edge-bound assurance.

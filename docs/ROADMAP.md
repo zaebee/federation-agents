@@ -53,8 +53,8 @@ This is the semantic core of CORE-001. Until it lands, the repository has founda
 | Task | Status  | Deliverable                                                          | Exit criterion |
 | ---- | ------- | -------------------------------------------------------------------- | -------------- |
 | 4    | Done    | Descriptor hashing with the explicit §7.1 projection                  | §7.1 key set asserted; wrappers cannot change the hash |
-| 5    | Next    | Version schemes and a versioned selector mechanism                    | SEMVER_2 / CONTENT_HASH / OPAQUE_TAG rules and exact-match fallback tested |
-| 6    | Planned | Entities and structural validation (§5)                               | Corpus A-1…A-5 pass |
+| 5    | Done    | Version schemes and a versioned selector mechanism                    | SEMVER_2 / CONTENT_HASH / OPAQUE_TAG rules and exact-match fallback tested |
+| 6    | Next    | Entities and structural validation (§5)                               | Corpus A-1…A-5 pass |
 | 7    | Planned | Lineage graph: delayed parents, cycles (§11)                          | Corpus C-1, C-2 pass; cycles never abort evaluation |
 | 8    | Planned | Assessments: edge binding, unverified-claim semantics (§6)             | Runtime brand rejects structurally identical fakes; `unverified_claims` yields no support and no negative finding |
 | 9    | Planned | Traversal phases 1 and 2                                              | Corpus B-1…B-3 pass; phases testable in isolation |
