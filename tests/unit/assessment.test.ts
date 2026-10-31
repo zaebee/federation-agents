@@ -733,3 +733,25 @@ describe('public boundary hardening', () => {
     );
   });
 });
+
+describe('requirement hygiene', () => {
+  test('duplicate required claims are deduplicated like disallowed claims', () => {
+    const result = evaluateAssurance(applicable([]), requirement({ required_claims: ['X', 'X'] }), policy(), CTX);
+
+    expect(result).toEqual(unsatisfiedResult(['X']));
+  });
+
+  test('the assessment store admits the same set in either arrival order to one representation', () => {
+    const first = assessment({ assessment_id: assessmentId('a-1'), verified_claims: ['C1'] });
+    const second = assessment({ assessment_id: assessmentId('a-2'), supersedes_assessment_id: assessmentId('a-1') });
+
+    const forward = registerAssessment([first], second);
+    const backward = registerAssessment([second], first);
+
+    expect(forward.ok).toBe(true);
+    expect(backward.ok).toBe(true);
+    if (!forward.ok || !backward.ok) return;
+    expect(forward.value.map((item) => String(item.assessment_id))).toEqual(['a-1', 'a-2']);
+    expect(JSON.stringify(forward.value)).toBe(JSON.stringify(backward.value));
+  });
+});

@@ -879,6 +879,23 @@ function summarizePaths(accepted: readonly Path[], outcomes: readonly PathOutcom
 }
 
 /**
+ * A duplicated descriptor id makes every lookup ambiguous: which record is the
+ * candidate would depend on array order. The input is rejected instead.
+ */
+function duplicateDescriptorId(
+  descriptors: readonly DeepReadonly<IdentityVersionDescriptor>[],
+): IdentityVersionID | undefined {
+  const seen = new Set<IdentityVersionID>();
+  for (const descriptor of descriptors) {
+    if (seen.has(descriptor.id)) {
+      return descriptor.id;
+    }
+    seen.add(descriptor.id);
+  }
+  return undefined;
+}
+
+/**
  * Orchestrates §8.3 prechecks, path discovery, per-path validation and
  * immediate merge closure, then aggregates the per-path outcomes.
  */
@@ -893,6 +910,12 @@ export function evaluateBinding(
   policy: Policy,
   ctx: TemporalContext,
 ): BindingResult {
+  const duplicateId = duplicateDescriptorId(state.descriptors);
+  if (duplicateId !== undefined) {
+    return mechanismResult(
+      mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', `Duplicate descriptor id in state.descriptors: ${duplicateId}`),
+    );
+  }
   const candidate = state.descriptors.find((descriptor) => descriptor.id === candidateID);
   if (candidate === undefined) {
     return mechanismResult(

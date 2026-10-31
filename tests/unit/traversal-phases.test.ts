@@ -681,3 +681,24 @@ describe('path membership against the supplied graph', () => {
     }
   });
 });
+
+describe('descriptor identity in orchestration', () => {
+  test('evaluateBinding rejects duplicate descriptor ids instead of taking the first', () => {
+    const { graph, descriptors, assessments } = chainState();
+
+    const result = evaluateBinding(
+      { graph, descriptors: [...descriptors, { ...descriptors[0] }], assessments },
+      bindingFor({ origin: 'iv-a-1', selector: '>=1.0.0', scope: 'CONTINUATION_ONLY', claims: ['CONT_OK'] }),
+      identityVersionId('iv-a-2'),
+      EMPTY_POLICY,
+      CTX,
+    );
+
+    expect(result.eligible).toBe(false);
+    if (result.eligible) return;
+    if (!('kind' in result) || result.kind !== 'MECHANISM') {
+      throw new Error('expected a mechanism failure');
+    }
+    expect(result.error.message).toContain('Duplicate descriptor id');
+  });
+});

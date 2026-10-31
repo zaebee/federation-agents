@@ -11,7 +11,7 @@
 // and an owned, deep-frozen copy on success.
 
 import type { Result } from './errors.js';
-import { mechanismFailure } from './errors.js';
+import { invalidInput as invalid, requireNonEmptyString, requireString } from './validation.js';
 import type { DeepReadonly } from './ownership.js';
 import { deepFreeze, validateJsonValue } from './ownership.js';
 import type {
@@ -150,10 +150,6 @@ function isJsonObject(value: JsonValue): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function invalid(path: string, message: string): Result<never> {
-  return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', `${path}: ${message}`) };
-}
-
 function rejectUnknownFields(value: JsonObject, allowed: readonly string[], path: string): Result<void> {
   for (const key of Object.keys(value)) {
     if (!allowed.includes(key)) {
@@ -166,13 +162,6 @@ function rejectUnknownFields(value: JsonObject, allowed: readonly string[], path
 function requireObject(value: JsonValue | undefined, path: string): Result<JsonObject> {
   if (value === undefined || !isJsonObject(value)) {
     return invalid(path, 'expected object');
-  }
-  return { ok: true, value };
-}
-
-function requireString(value: JsonValue | undefined, path: string): Result<string> {
-  if (typeof value !== 'string') {
-    return invalid(path, 'expected string');
   }
   return { ok: true, value };
 }
@@ -255,20 +244,20 @@ function validateCredential(value: JsonValue, path: string): Result<CredentialDe
   const known = rejectUnknownFields(object.value, CREDENTIAL_FIELDS, path);
   if (!known.ok) return known;
 
-  const credentialId = requireString(object.value.credential_id, `${path}.credential_id`);
+  const credentialId = requireNonEmptyString(object.value.credential_id, `${path}.credential_id`);
   if (!credentialId.ok) return credentialId;
 
-  const issuerDomain = requireString(object.value.issuer_domain, `${path}.issuer_domain`);
+  const issuerDomain = requireNonEmptyString(object.value.issuer_domain, `${path}.issuer_domain`);
   if (!issuerDomain.ok) return issuerDomain;
 
   const usage = requireEnumArray(object.value.usage, CREDENTIAL_USAGES, `${path}.usage`);
   if (!usage.ok) return usage;
   const usages: CredentialUsage[] = usage.value;
 
-  const algorithmFamily = requireString(object.value.algorithm_family, `${path}.algorithm_family`);
+  const algorithmFamily = requireNonEmptyString(object.value.algorithm_family, `${path}.algorithm_family`);
   if (!algorithmFamily.ok) return algorithmFamily;
 
-  const publicKey = requireString(object.value.public_key_canonical, `${path}.public_key_canonical`);
+  const publicKey = requireNonEmptyString(object.value.public_key_canonical, `${path}.public_key_canonical`);
   if (!publicKey.ok) return publicKey;
 
   const notBefore = requireTimestamp(object.value.not_before, `${path}.not_before`);
@@ -304,7 +293,7 @@ function validateLineageLinkAt(value: JsonValue, path: string): Result<LineageLi
   const known = rejectUnknownFields(object.value, LINEAGE_FIELDS, path);
   if (!known.ok) return known;
 
-  const parent = requireString(object.value.parent_version_id, `${path}.parent_version_id`);
+  const parent = requireNonEmptyString(object.value.parent_version_id, `${path}.parent_version_id`);
   if (!parent.ok) return parent;
 
   const relation = requireEnum(object.value.relation, LINEAGE_RELATIONS, `${path}.relation`);
@@ -373,13 +362,13 @@ export function validateIdentityVersionDescriptor(value: unknown): Result<DeepRe
   const known = rejectUnknownFields(object.value, DESCRIPTOR_FIELDS, '$');
   if (!known.ok) return known;
 
-  const id = requireString(object.value.id, '$.id');
+  const id = requireNonEmptyString(object.value.id, '$.id');
   if (!id.ok) return id;
 
-  const participant = requireString(object.value.participant_id, '$.participant_id');
+  const participant = requireNonEmptyString(object.value.participant_id, '$.participant_id');
   if (!participant.ok) return participant;
 
-  const versionLabel = requireString(object.value.version_label, '$.version_label');
+  const versionLabel = requireNonEmptyString(object.value.version_label, '$.version_label');
   if (!versionLabel.ok) return versionLabel;
 
   const versionScheme = requireEnum(object.value.version_scheme, VERSION_SCHEMES, '$.version_scheme');
@@ -425,13 +414,13 @@ export function validateParticipantRecord(value: unknown): Result<DeepReadonly<P
   const known = rejectUnknownFields(object.value, PARTICIPANT_FIELDS, '$');
   if (!known.ok) return known;
 
-  const id = requireString(object.value.id, '$.id');
+  const id = requireNonEmptyString(object.value.id, '$.id');
   if (!id.ok) return id;
 
   const kind = requireEnum(object.value.kind, PARTICIPANT_KINDS, '$.kind');
   if (!kind.ok) return kind;
 
-  const homeDomain = requireString(object.value.home_domain, '$.home_domain');
+  const homeDomain = requireNonEmptyString(object.value.home_domain, '$.home_domain');
   if (!homeDomain.ok) return homeDomain;
 
   const registeredAt = requireTimestamp(object.value.registered_at, '$.registered_at');
@@ -492,13 +481,13 @@ export function validateRuntimeInstanceDescriptor(value: unknown): Result<DeepRe
   const known = rejectUnknownFields(object.value, RUNTIME_FIELDS, '$');
   if (!known.ok) return known;
 
-  const id = requireString(object.value.id, '$.id');
+  const id = requireNonEmptyString(object.value.id, '$.id');
   if (!id.ok) return id;
 
-  const identityVersionId = requireString(object.value.identity_version_id, '$.identity_version_id');
+  const identityVersionId = requireNonEmptyString(object.value.identity_version_id, '$.identity_version_id');
   if (!identityVersionId.ok) return identityVersionId;
 
-  const executionContext = requireString(object.value.execution_context_ref, '$.execution_context_ref');
+  const executionContext = requireNonEmptyString(object.value.execution_context_ref, '$.execution_context_ref');
   if (!executionContext.ok) return executionContext;
 
   const ephemeralKey = optionalString(object.value.ephemeral_public_key, '$.ephemeral_public_key');

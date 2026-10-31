@@ -11,6 +11,7 @@ import type { CredentialDescriptor, CredentialUsage } from './entities.js';
 import { validateCredentialDescriptor } from './entities.js';
 import type { Result } from './errors.js';
 import { mechanismFailure } from './errors.js';
+import { invalidInput as invalid, requireNonEmptyString, requireString } from './validation.js';
 import type { DeepReadonly } from './ownership.js';
 import { deepFreeze, validateJsonValue } from './ownership.js';
 import type {
@@ -173,10 +174,6 @@ const REVOCATION_FIELDS: readonly string[] = [
   'evidence_refs',
 ];
 
-function invalid(path: string, message: string): Result<never> {
-  return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', `${path}: ${message}`) };
-}
-
 function isJsonObject(value: JsonValue): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -184,13 +181,6 @@ function isJsonObject(value: JsonValue): value is JsonObject {
 function requireObject(value: JsonValue | undefined, path: string): Result<JsonObject> {
   if (value === undefined || !isJsonObject(value)) {
     return invalid(path, 'expected object');
-  }
-  return { ok: true, value };
-}
-
-function requireString(value: JsonValue | undefined, path: string): Result<string> {
-  if (typeof value !== 'string') {
-    return invalid(path, 'expected string');
   }
   return { ok: true, value };
 }
@@ -254,9 +244,9 @@ export function validateCredentialRevocationRecord(value: unknown): Result<DeepR
   const known = rejectUnknownFields(object.value, REVOCATION_FIELDS, '$');
   if (!known.ok) return known;
 
-  const credential = requireString(object.value.credential_id, '$.credential_id');
+  const credential = requireNonEmptyString(object.value.credential_id, '$.credential_id');
   if (!credential.ok) return credential;
-  const revokedBy = requireString(object.value.revoked_by_domain, '$.revoked_by_domain');
+  const revokedBy = requireNonEmptyString(object.value.revoked_by_domain, '$.revoked_by_domain');
   if (!revokedBy.ok) return revokedBy;
   const revokedAt = requireTimestamp(object.value.revoked_at, '$.revoked_at');
   if (!revokedAt.ok) return revokedAt;
