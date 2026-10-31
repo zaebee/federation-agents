@@ -370,7 +370,10 @@ function collectPaths(
   // (one root frame with no incoming edge).
 
   while (stack.length > 0) {
-    const frame = stack.at(-1)!;
+    const frame = stack.at(-1);
+    if (frame === undefined) {
+      break;
+    }
 
     if (frame.node === originID) {
       emitAndBacktrackOrigin(frame, stack, visited, pathEdges, paths, scope);
