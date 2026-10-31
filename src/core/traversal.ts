@@ -404,8 +404,16 @@ function evaluateEdgeAssurance(
   }
 
   const assurance = evaluateAssurance(applicable.value, requirement, policy, ctx);
-  if ('kind' in assurance) {
-    return { ok: false, error: assurance };
+  if (assurance.status === 'MECHANISM') {
+    // Drop the assurance-only `status` discriminant, but keep every Failure
+    // field, including `details` if a mechanism result ever carries one.
+    const failure: MechanismFailure = {
+      kind: assurance.kind,
+      code: assurance.code,
+      message: assurance.message,
+      ...(assurance.details === undefined ? {} : { details: assurance.details }),
+    };
+    return { ok: false, error: failure };
   }
   if (assurance.status === 'SATISFIED') {
     return { ok: true, value: { status: 'SATISFIED' } };

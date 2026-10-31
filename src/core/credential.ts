@@ -8,6 +8,7 @@
 
 import { canonicalSha256 } from './canonical.js';
 import type { CredentialDescriptor, CredentialUsage } from './entities.js';
+import { validateCredentialDescriptor } from './entities.js';
 import type { Result } from './errors.js';
 import { mechanismFailure } from './errors.js';
 import type { DeepReadonly } from './ownership.js';
@@ -647,6 +648,38 @@ function buildHistoricalResult(
   };
 }
 
+/** Whether a revocation record names the same credential it is evaluated against. */
+function revocationMatchesCredential(
+  revocation: DeepReadonly<CredentialRevocationRecord> | undefined,
+  credential: DeepReadonly<CredentialDescriptor>,
+): boolean {
+  return revocation === undefined || revocation.credential_id === credential.credential_id;
+}
+
+/**
+ * Validates the records the evaluator reads and returns owned copies. A Proxy or
+ * a later mutation of the caller's objects cannot change the evaluated inputs.
+ */
+function resolveSignatureInputs(input: HistoricalSignatureInput): Result<HistoricalSignatureInput> {
+  const credential = validateCredentialDescriptor(input.credential);
+  if (!credential.ok) {
+    return mechanismResult(`CredentialDescriptor is invalid: ${credential.error.message}`);
+  }
+  const base: HistoricalSignatureInput = { ...input, credential: credential.value };
+  const revocationResult =
+    input.revocation === undefined ? undefined : validateCredentialRevocationRecord(input.revocation);
+  if (revocationResult === undefined) {
+    return { ok: true, value: base };
+  }
+  if (!revocationResult.ok) {
+    return mechanismResult(`CredentialRevocationRecord is invalid: ${revocationResult.error.message}`);
+  }
+  if (!revocationMatchesCredential(revocationResult.value, credential.value)) {
+    return mechanismResult('CredentialRevocationRecord.credential_id does not match the evaluated Credential');
+  }
+  return { ok: true, value: { ...base, revocation: revocationResult.value } };
+}
+
 /** Evaluates one historical signature. Policy is mandatory; missing/failing policy is a mechanism failure. */
 export function evaluateHistoricalSignature(
   input: HistoricalSignatureInput,
@@ -659,38 +692,40 @@ export function evaluateHistoricalSignature(
     return mechanismResult('SignatureTemporalPolicy must provide both callbacks');
   }
 
-  if (input.revocation !== undefined && input.revocation.credential_id !== input.credential.credential_id) {
-    return mechanismResult('CredentialRevocationRecord.credential_id does not match the evaluated Credential');
+  const inputs = resolveSignatureInputs(input);
+  if (!inputs.ok) {
+    return inputs;
   }
+  const evaluated = inputs.value;
 
-  const usage = evaluateCredentialUsage(input.credential, input.requested_usage);
+  const usage = evaluateCredentialUsage(evaluated.credential, evaluated.requested_usage);
   const verification = runVerifier(verifier, {
-    credential: input.credential,
-    signed_at: input.signed_at,
-    ...(input.payload_ref === undefined ? {} : { payload_ref: input.payload_ref }),
+    credential: evaluated.credential,
+    signed_at: evaluated.signed_at,
+    ...(evaluated.payload_ref === undefined ? {} : { payload_ref: evaluated.payload_ref }),
   });
   if (!verification.ok) {
     return verification;
   }
 
-  const signedAtTrust = resolveSignedAtTrust(input);
+  const signedAtTrust = resolveSignedAtTrust(evaluated);
   if (!signedAtTrust.ok) {
     return signedAtTrust;
   }
-  const compromise = resolveCompromiseMeasurement(input);
+  const compromise = resolveCompromiseMeasurement(evaluated);
   if (!compromise.ok) {
     return compromise;
   }
-  const accepted = resolveCompromiseAcceptance(input, signedAtTrust.value, compromise.value);
+  const accepted = resolveCompromiseAcceptance(evaluated, signedAtTrust.value, compromise.value);
   if (!accepted.ok) {
     return accepted;
   }
 
-  const reassessmentRequired = input.revocation?.reason === 'SUSPECTED_COMPROMISE';
+  const reassessmentRequired = evaluated.revocation?.reason === 'SUSPECTED_COMPROMISE';
   const temporal = buildTemporal(signedAtTrust.value, compromise.value);
   const future = runFutureAuthorization(
-    input.policy,
-    buildFutureInput(input, { usage, verification: verification.value, temporal, reassessmentRequired }),
+    evaluated.policy,
+    buildFutureInput(evaluated, { usage, verification: verification.value, temporal, reassessmentRequired }),
   );
   if (!future.ok) {
     return future;
@@ -699,10 +734,10 @@ export function evaluateHistoricalSignature(
   const historical = selectHistorical({
     usage,
     verification: verification.value,
-    ...(input.revocation === undefined ? {} : { revocationReason: input.revocation.reason }),
-    signedAt: input.signed_at,
-    ...(input.revocation === undefined ? {} : { revokedAt: input.revocation.revoked_at }),
-    withinValidityWindow: isWithinCredentialWindow(input.credential, input.signed_at),
+    ...(evaluated.revocation === undefined ? {} : { revocationReason: evaluated.revocation.reason }),
+    signedAt: evaluated.signed_at,
+    ...(evaluated.revocation === undefined ? {} : { revokedAt: evaluated.revocation.revoked_at }),
+    withinValidityWindow: isWithinCredentialWindow(evaluated.credential, evaluated.signed_at),
     signedAtTrust: signedAtTrust.value,
     ...(compromise.value.kind === 'PRESENT'
       ? { compromiseTrust: compromise.value.trust, compromiseEffectiveAt: compromise.value.effectiveAt }
@@ -713,7 +748,7 @@ export function evaluateHistoricalSignature(
   return {
     ok: true,
     value: deepFreeze(
-      buildHistoricalResult(input, {
+      buildHistoricalResult(evaluated, {
         verification: verification.value,
         usage,
         temporal,

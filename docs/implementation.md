@@ -172,7 +172,7 @@ pure evaluation (entities, lineage, assessment, traversal,
 Result<T> = { ok: true; value: T } | { ok: false; error: Failure }
 ```
 
-Semantic failures are values, not exceptions. There are two deliberate exceptions. `canonicalize` throws `CanonicalizationError` because its return type is a string and it has no protocol-level alternative outcome; `descriptorHashInput` and `descriptorHash` also throw it when re-validation fails. `selectorMatches` throws `InvalidCompiledSelectorError` for a value not produced by `compileSelector`, so a forged selector is never silently treated as valid or as a wildcard.
+Semantic failures are values, not exceptions. There are two deliberate exceptions. `canonicalize` throws `CanonicalizationError` because its return type is a string and it has no protocol-level alternative outcome; `descriptorHashInput` and `descriptorHash` also throw it when re-validation fails, and `revocationSubjectRef` throws it for a record that cannot be canonicalized (its documented precondition; `evaluateHistoricalSignature` validates the record first and returns a mechanism failure instead). `selectorMatches` throws `InvalidCompiledSelectorError` for a value not produced by `compileSelector`, so a forged selector is never silently treated as valid or as a wildcard. No `Result`-returning public function throws for the records it reads: `assessEdge` validates the candidate array and each candidate, and `evaluateHistoricalSignature` validates the credential and the revocation record and evaluates owned copies. Remaining inputs are typed values whose shape the caller guarantees; policy callbacks are guarded individually and a throwing one becomes a mechanism failure.
 
 `evaluateBinding` is the one public evaluator that returns a bare `BindingResult` rather than `Result<…>`; mechanism failures appear inside it as `{ eligible: false, kind: 'MECHANISM', error }`.
 
@@ -670,8 +670,10 @@ type AssuranceResult =
       readonly note: 'required-claim-not-verified; no-negative-finding-established';
     }
   | { readonly status: 'CONTESTED'; readonly contestedClaims: readonly string[] }
-  | MechanismFailure;
+  | (MechanismFailure & { readonly status: 'MECHANISM' });
 ```
+
+Every member of `AssuranceResult` carries `status`, including the mechanism case, so callers narrow on one field.
 
 **Functions**
 
@@ -714,12 +716,12 @@ function registerOrphanAssessments(
 
 **Semantics**
 
-- `assessEdge` is the sole constructor of `ApplicableAssessments`. It deep-copies the candidates, rejects duplicate `assessment_id` values with `E_UNKNOWN_BOUNDARY_REJECTED`, freezes a fresh `EdgeRef`, and filters by the triple `subject_version_id === edge.child`, `declared_relation === edge.relation`, `edge.parent ∈ parent_version_ids`. One assessment with several parents can therefore apply to several merge edges.
+- `assessEdge` is the sole constructor of `ApplicableAssessments`. It validates the candidate array itself first — an accessor element, a symbol key or a sparse array is rejected without the accessor being invoked — then validates every candidate with `validateContinuityAssessment`; a malformed candidate (for example a missing `parent_version_ids`) is a mechanism failure, never a thrown `TypeError` from reading a missing field. It then rejects duplicate `assessment_id` values with `E_UNKNOWN_BOUNDARY_REJECTED`, freezes a fresh `EdgeRef`, and filters by the triple `subject_version_id === edge.child`, `declared_relation === edge.relation`, `edge.parent ∈ parent_version_ids`. One assessment with several parents can therefore apply to several merge edges.
 - The applicable set is sorted by `assessment_id` before the policy hook and again before storage. `unresolved` is `true` exactly when the final set is empty.
 - The policy hook may only narrow. Items are matched back by `assessment_id` against the core copy, so a hook cannot inject altered claims under a known id, and duplicates are dropped. Discarded items are not exposed in the public type and are never consumed by assurance evaluation.
 - The stored `edge` is the same frozen object passed to the hook, so a hook cannot rebind the edge.
 - The result is branded with a module-private symbol via `Object.defineProperty` (non-enumerable, non-writable, non-configurable), frozen, and registered in a module-private `WeakSet`.
-- `evaluateAssurance` first checks `WeakSet` membership. An unbranded value — including a structurally identical object, a forged string property or an object inheriting a branded one — returns `MechanismFailure { code: 'E_APPLICABLE_ASSESSMENTS_UNBRANDED' }` before any assurance logic runs.
+- `evaluateAssurance` first checks `WeakSet` membership. An unbranded value — including a structurally identical object, a forged string property or an object inheriting a branded one — returns a `MECHANISM` result (`status: 'MECHANISM'`, code `E_APPLICABLE_ASSESSMENTS_UNBRANDED`) before any assurance logic runs.
 - Trusted assessors resolve as `requirement.trusted_assessors ?? policy.trustedAssessorDefault ?? []`. There is no trust-all default; an empty list means no assessment is trusted.
 - Only trusted assessments contribute verified claims. If `policy.conflictPredicate` is defined and fires for any pair, the result is `CONTESTED`; this check runs before the missing/disallowed computation. By default the predicate is `undefined`, so `CONTESTED` is unreachable.
 - `missing` is the sorted set of required claims absent from the union of verified claims; `disallowed` is the sorted set of verified claims listed in `disallowed_claims`. Either non-empty yields `UNSATISFIED` with `ERR_ASSURANCE_PREDICATE_UNSATISFIED` and the fixed `note`. No negative finding about a claim is established.
@@ -1103,11 +1105,12 @@ function evaluateHistoricalSignature(
 
 - `evaluateCredentialUsage` distinguishes a known-but-undeclared usage (`USAGE_DENIED`) from an unknown value (`USAGE_UNSUPPORTED`); declared usages yield `PERMITTED`.
 - `validateCredentialRevocationRecord` rejects unknown fields and present-`undefined` optionals and freezes the record.
-- `evaluateHistoricalSignature` evaluates independent dimensions in this order: policy presence, revocation/credential id match, usage, verifier, `SIGNED_AT` trust, compromise-time measurement, compromise acceptance policy, future-authorization policy, historical selection.
+- `evaluateHistoricalSignature` evaluates independent dimensions in this order: policy presence, credential validation, revocation validation and id match, usage, verifier, `SIGNED_AT` trust, compromise-time measurement, compromise acceptance policy, future-authorization policy, historical selection.
 - A missing or throwing policy callback is a mechanism failure (`E_UNKNOWN_BOUNDARY_REJECTED`), never a partial result.
 - A verifier that throws is reported as `CRYPTO_UNAVAILABLE` with the error message; a verifier returning an unknown shape is a mechanism failure. `INVALID`, `CRYPTO_UNAVAILABLE` and `CRYPTO_UNSUPPORTED` remain distinct.
 - `SIGNED_AT` trust is resolved for `signedAtSubjectRef(credential, subject_binding)`. Without a `subject_binding`, the result is `TRUST_ASSESSMENT_UNAVAILABLE`; the core does not invent a subject.
 - For `CONFIRMED_COMPROMISE` with `compromise_effective_at`, trust is resolved for `revocationSubjectRef(revocation)` and the field `compromise_effective_at`. `revocationSubjectRef` is `revocation:sha256:<canonical hash of the revocation record>`; no normative `revocation_id` field is introduced.
+- The credential and the revocation record are validated with `validateCredentialDescriptor` and `validateCredentialRevocationRecord`, and the evaluation reads those owned copies. A malformed record — missing or mistyped fields, unknown fields, or a non-finite timestamp from a bad decode — yields a mechanism failure. `revocationSubjectRef` itself still throws `CanonicalizationError` on a non-canonicalizable record, which is why its documented precondition is a validated record.
 - Historical selection precedence: usage denial, then the credential validity window, then crypto outcome, then `KEY_LOST` → `KEY_LOST_POLICY_REQUIRED`, `SUSPECTED_COMPROMISE` → `SUSPECTED_COMPROMISE_FLAGGED`, `CONFIRMED_COMPROMISE` → the confirmed-compromise rule, otherwise `SIGNED_AFTER_REVOCATION` when `signed_at >= revoked_at`, else `VALID` when `SIGNED_AT` is trusted, else the temporal failure status.
 - Confirmed compromise: absent `compromise_effective_at` → `CONTESTED_COMPROMISED`; either trust outcome not `TRUSTED` → the corresponding `TEMPORAL_TRUST_*` status; evidence gate not accepted → `CONTESTED_COMPROMISED`; otherwise `signed_at >= compromise_effective_at` → `INVALID`, else `VALID`.
 - `INVALID` is produced only by that confirmed-compromise path. It carries `claim_status: 'CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE'`. No other historical status carries a claim status.
@@ -1115,7 +1118,7 @@ function evaluateHistoricalSignature(
 - `reassessment_required` is `true` exactly for `SUSPECTED_COMPROMISE`.
 - Historical validity and future authorization are separate fields; `future_authorizable` is supplied entirely by the policy.
 
-**Failure modes:** `E_UNKNOWN_BOUNDARY_REJECTED` for malformed inputs, unknown verifier output and policy failures; `E_JSON_VALUE_INVALID` from the revocation validator.
+**Failure modes:** `E_UNKNOWN_BOUNDARY_REJECTED` for malformed inputs (including a non-canonicalizable revocation record), unknown verifier output and policy failures; `E_JSON_VALUE_INVALID` from the revocation validator.
 
 **Normative source:** §4.1–§4.4.2, §10.2. The single-input API shape, subject-reference encoding, content-derived revocation subject and the temporal-failure aggregation order are `ID-T13`.
 

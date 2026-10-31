@@ -791,3 +791,52 @@ describe('ownership and forbidden side effects', () => {
     expect(result.future_authorizable).toBe('NOT_AUTHORIZABLE');
   });
 });
+
+describe('public boundary hardening', () => {
+  test('a non-canonicalizable revocation record is a mechanism failure, not a throw', () => {
+    const broken = { ...revocation, revoked_at: Number.NaN } as unknown as typeof revocation;
+    let result: ReturnType<typeof evaluateHistoricalSignature> | undefined;
+    expect(() => {
+      result = evaluate({ revocation: broken });
+    }).not.toThrow();
+    expect(result?.ok).toBe(false);
+    if (result !== undefined && !result.ok) {
+      expect(result.error.kind).toBe('MECHANISM');
+      expect(result.error.message).toContain('CredentialRevocationRecord is invalid');
+    }
+  });
+
+  test('non-finite timestamps are typed failures and never throw', () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      for (const field of ['revoked_at', 'compromise_effective_at'] as const) {
+        const broken = { ...revocation, [field]: value } as unknown as typeof revocation;
+        let result: ReturnType<typeof evaluateHistoricalSignature> | undefined;
+        expect(() => {
+          result = evaluate({ revocation: broken });
+        }).not.toThrow();
+        expect(result?.ok).toBe(false);
+        if (result !== undefined && !result.ok) {
+          expect(result.error.kind).toBe('MECHANISM');
+          expect(result.error.message).toContain('CredentialRevocationRecord is invalid');
+        }
+      }
+    }
+  });
+
+  test('a missing or malformed credential is a mechanism failure, not a TypeError', () => {
+    let result: ReturnType<typeof evaluateHistoricalSignature> | undefined;
+    expect(() => {
+      result = evaluate({ credential: null as unknown as typeof credentialValue });
+    }).not.toThrow();
+    expect(result?.ok).toBe(false);
+    if (result !== undefined && !result.ok) {
+      expect(result.error.kind).toBe('MECHANISM');
+      expect(result.error.message).toContain('CredentialDescriptor is invalid');
+    }
+  });
+
+  test('revocationSubjectRef states its precondition by throwing on a non-canonicalizable record', () => {
+    const broken = { ...revocation, revoked_at: Number.NaN } as unknown as typeof revocation;
+    expect(() => revocationSubjectRef(broken)).toThrow();
+  });
+});

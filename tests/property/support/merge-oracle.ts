@@ -213,7 +213,7 @@ function evaluateEdge(
   }
 
   const assurance = evaluateAssurance(applicable.value, requirement, policy, ctx);
-  if ('kind' in assurance) {
+  if (assurance.status === 'MECHANISM') {
     return { ok: false, error: assurance.message };
   }
   if (assurance.status === 'SATISFIED') {
