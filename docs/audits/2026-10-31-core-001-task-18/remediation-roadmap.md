@@ -165,7 +165,7 @@ graph TD
 
 - **M0** — DEC-01 (`REQ-LOCAL`), DEC-02 (`OWN-ADAPTER` + `VAL-CORE`), DEC-16 (Option D) and DEC-17 (publication/retention) approved.
 - **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A and T18-02B implemented; C-2 stays BLOCKED on a3; T18-02C retired / superseded; T18-04, T18-05).
-- **M2** — evidence gaps addressed: T18-03 test evidence added; T18-07 pending.
+- **M2** — evidence gaps addressed: T18-03 evidence covered; T18-07 pending.
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
 
@@ -201,7 +201,7 @@ A task that bundles requirements of different urgency is split rather than silen
 | Task priority | Tasks |
 | --- | --- |
 | P1 | T18-01 (complete), T18-02A, T18-09A, T18-09E, T18-13 |
-| P2 | T18-03 (implemented), T18-04, T18-06, T18-09C, T18-09D, T18-SPEC-01 |
+| P2 | T18-03 (covered), T18-04, T18-06, T18-09C, T18-09D, T18-SPEC-01 |
 | P3 | T18-05, T18-07, T18-08, T18-09B, T18-10, T18-11, T18-12 |
 
 `T18-02B` is implemented (AEBE `aebe/C-2.a2.md`); `T18-DEC-17` (publication/retention) is approved and separate; `T18-02C` is retired / superseded. C-2 remains BLOCKED on `CASE-C-2.a3`.
