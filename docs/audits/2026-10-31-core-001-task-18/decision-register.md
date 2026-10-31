@@ -110,7 +110,7 @@ The `Resolution` column is the register's generic field name. For `T18-DEC-15` i
 
 No post-baseline decision remains OPEN: `T18-DEC-16` and `T18-DEC-17` are approved (see §3). The remaining open items are:
 
-- C-2 `CYCLE_DETECTED` admission policy (T18-02B implementation; not part of T18-02A) — unblocked by the `T18-DEC-16` approval.
+- C-2 `CYCLE_DETECTED` admission policy (T18-02B; not part of T18-02A) — implemented under the `T18-DEC-16` approval; the generic path still rejects the claim, which is admitted only through `registerCycleAssessments`.
 - Parent-coverage semantics (`T18-DEC-15`) — remains OPEN; the `T18-DEC-16` approval does not resolve it.
 - C-2.a3 grant suppression and other cross-specification decisions, including CORE-003 (`T18-DEC-13`).
 

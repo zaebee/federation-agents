@@ -80,7 +80,7 @@ The approval act is recorded in the [issue #55 decision comment](https://github.
 
 The canonical approved record is `decision-register.md` §3. The T18-01 package is a historical proposal snapshot; it is not the approval record.
 
-Still OPEN: `T18-DEC-15` parent-coverage semantics, C-2.a3 / CORE-003, and the other Task 18 decisions. `T18-DEC-16` and `T18-DEC-17` are approved; `T18-02B` is unblocked.
+Still OPEN: `T18-DEC-15` parent-coverage semantics, C-2.a3 / CORE-003, and the other Task 18 decisions. `T18-DEC-16` and `T18-DEC-17` are approved; T18-02A and T18-02B are implemented (AEBE for C-1 and C-2.a2).
 
 ### T18-DEC-15 — parent coverage semantics (OPEN)
 
