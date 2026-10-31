@@ -160,7 +160,7 @@ Recorded in `reconciliation-notes.md`; Task 17 files are untouched.
 | `disposition-matrix.md` | 23 rows with disposition, risk scope, priority, dependencies, closure evidence |
 | `remediation-roadmap.md` | Tasks, dependency graph, milestones, critical path, acceptance criteria |
 | `decision-register.md` | `T18-DEC-01…16`; 2 APPROVED, 14 OPEN (`T18-DEC-16` registered post-baseline) |
-| `decision-packages/` | `T18-09A` assurance decisions, `T18-09E` C-2 subject model (`T18-DEC-16`) |
+| `decision-packages/` | `T18-01` assessment emission, `T18-09A` assurance decisions, `T18-09E` C-2 subject model (`T18-DEC-16`) |
 | `reconciliation-notes.md` | `T18-DEC-01`/`T18-DEC-02` approval, `T18-DEC-15` local disposition, PATH-B correction, N-169 erratum, N-140 reclassification proposal, traceability gaps |
 | `aebe/C-1.md` | T18-02A package-root adapter evidence and declaration-scoped claim evidence |
 

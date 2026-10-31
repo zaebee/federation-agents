@@ -93,7 +93,7 @@ Approved `T18-DEC-01` reads CORE-001 as requiring a local Assessment that record
 
 ## 4. Candidate subject models
 
-### Option A — node- and relation-scoped (recommended)
+### Option A — grouped node- and relation-scoped (alternative)
 
 For every node `V` in a cyclic SCC and every `declared_relation` `R` for which `V` has at least one direct parent inside the same SCC, emit one Assessment:
 
@@ -101,7 +101,7 @@ For every node `V` in a cyclic SCC and every `declared_relation` `R` for which `
 | --- | --- |
 | `subject_version_id` | `V` |
 | `declared_relation` | `R` |
-| `parent_version_ids` | the SCC-internal parents of `V` under `R` (recommended), or the complete declared parent set for `(V, R)` (see §7.3) |
+| `parent_version_ids` | the SCC-internal parents of `V` under `R` (fallback), or the complete declared parent set for `(V, R)` (see §7.3) |
 | claim | `CYCLE_DETECTED` in `unverified_claims` (recommended; see §7.1) |
 | provenance | adapter constructs; `assessment_profile_ref` / `assessment_method_version` / `assessed_by` / `assessed_at` / `evidence_refs` supplied by the caller as in C-1 |
 
@@ -109,7 +109,28 @@ For every node `V` in a cyclic SCC and every `declared_relation` `R` for which `
 - **Schema fit:** no field change; one relation and one subject per record.
 - **CORE-003 fit:** every node and every participating parent edge is named, which is exactly the "dependent on this continuity" set that `CASE-C-2.a3` must be able to observe.
 - **Cost:** `O(V·R)` records per SCC (small in practice); a two-node mixed-relation cycle yields two records instead of one.
-- **Weakness:** §12 C-2's singular "Assessment" becomes N records per cycle. Acceptable if §11.2's "Assessment фиксирует" is read per declaration; the alternative is Option B.
+- **Weakness:** §12 C-2's singular "Assessment" becomes N records per cycle. Acceptable if §11.2's "Assessment фиксирует" is read per declaration; the recommended model is Option D.
+
+### Option D — one Assessment per affected lineage edge (recommended)
+
+For every edge `(child → parent)` whose endpoints are both inside the same cyclic SCC, emit one Assessment:
+
+| Field | Value |
+| --- | --- |
+| `subject_version_id` | child of the edge |
+| `declared_relation` | relation of the edge |
+| `parent_version_ids` | `[parent of the edge]` |
+| claim | `CYCLE_DETECTED` in `unverified_claims` (see §7.1) |
+| provenance | adapter constructs; profile/method/by/at/evidence_refs supplied by the caller, as in C-1 |
+
+- **Adopts the earlier recommendation.** The T18-01 package recommended "one Assessment per affected lineage edge" (`decision-packages/T18-01-assessment-emission/decision-recommendation.md` §4, `normative-analysis.md` §2.4). This package does not replace that recommendation; it takes it as Option D and adds the shape, provenance and adversarial analysis the earlier proposal left open.
+- **Deterministic:** edges are sorted by `(child, parent, relation)`; no canonical-DFS mechanism is needed.
+- **Schema fit:** no field change; one subject, one relation and one parent per record.
+- **CORE-003 fit:** each record names exactly one participating declaration edge, so grant suppression can be mapped per declaration without expanding a grouped parent array.
+- **Cost:** `|E(SCC)|` records, bounded by the component's internal edge count; a two-node mixed-relation cycle yields two records.
+- **Weakness:** this is the most records of the fixed-schema models, and §12 C-2's singular "Assessment" becomes several records per cycle. That is the same granularity the earlier package recommended and is acceptable under the per-declaration reading of §11.2.
+
+**Why not Option A?** A grouped `(node, relation)` record is defensible and yields fewer records, but it nominally covers several edges at once and needs the still-OPEN `T18-DEC-15` parent-set question settled for its `parent_version_ids`. The per-edge model keeps each claim tied to exactly one declaration and preserves the recommendation already on record.
 
 ### Option B — canonical closing edge
 
@@ -137,14 +158,15 @@ One Assessment per SCC, with an anchor subject and all members in `parent_versio
 
 ### Comparison
 
-| Criterion | A (node/relation) | B (closing edge) | C (component) |
-| --- | --- | --- | --- |
-| Fits §6.2.1 schema unchanged | yes | yes | **no** |
-| Deterministic without new mechanism | yes | **no** (needs canonical-DFS mechanism) | yes |
-| Records every participating declaration | yes | no | yes (as members) |
-| CORE-003 observability of dependent grants | strong | weak | strong |
-| Records per cycle | N | 1 | 1 |
-| §12 singular "Assessment" reading | strained | strong | strong |
+| Criterion | D (per edge, recommended) | A (node/relation) | B (closing edge) | C (component) |
+| --- | --- | --- | --- | --- |
+| Fits §6.2.1 schema unchanged | yes | yes | yes | **no** |
+| Deterministic without new mechanism | yes | yes | **no** (needs canonical-DFS mechanism) | yes |
+| Records every participating declaration | yes | yes | no | yes (as members) |
+| CORE-003 observability of dependent grants | strongest (edge-precise) | strong | weak | strong |
+| Records per cycle | `\|E(SCC)\|` | N (node·relation) | 1 | 1 |
+| Aligns with the T18-01 recommendation | yes | no | partly | no |
+| §12 singular "Assessment" reading | strained (many records) | strained | strong | strong |
 
 ---
 
@@ -172,19 +194,17 @@ One Assessment per SCC, with an anchor subject and all members in `parent_versio
 | --- | --- |
 | `T18-DEC-01` (approved) | Establishes the recording obligation this decision gives shape to |
 | `T18-DEC-02` (approved) | Adapter constructs, Core validates/admits, storage caller-managed; 16.b/16.c must reference the canonical scope statement, not paraphrase it |
-| `T18-DEC-13` (OPEN) | CORE-003 observes grant suppression; Option A gives it the full node/edge subject set. C-2 case remains BLOCKED on `CASE-C-2.a3` regardless of 16.a |
+| `T18-DEC-13` (OPEN) | CORE-003 observes grant suppression; Option D gives it the exact participating edge set. C-2 case remains BLOCKED on `CASE-C-2.a3` regardless of 16.a |
 | `T18-DEC-15` (OPEN) | Determines whether `parent_version_ids` is the complete declared parent set or the covered subset; 16.b must state which reading the cycle model uses as a **local disposition**, and must not claim it is normative |
-| A-13 / #64 | Selector wildcard policy; unrelated to the subject model |
 | A-14 / #65 | Cycle breadth in **path validation**; graph-level recording here does not resolve it, and vice versa |
-| A-15 / #66-#67 | Digest verification boundary; unrelated |
 
 ---
 
 ## 7. Recommended resolution and open sub-decisions
 
-**Recommendation: Option A** — one Assessment per `(SCC node, declared_relation)` with at least one SCC-internal parent under that relation, claim `CYCLE_DETECTED` unverified, constructed by the adapter, admitted by Core, persisted by the caller.
+**Recommendation: Option D** — one Assessment per affected lineage edge inside a cyclic SCC (`subject_version_id` = edge child, `parent_version_ids` = `[edge parent]`, `declared_relation` = edge relation), claim `CYCLE_DETECTED` unverified, constructed by the adapter, admitted by Core, persisted by the caller.
 
-Rationale: no schema change, no new mechanism, deterministic under §8.8, mirrors the approved C-1 adapter/Core precedent, and gives CORE-003 the complete dependent set. Option B is the fallback if the spec editor insists on the singular "closing declaration" reading; it then requires a documented canonical-DFS mechanism and a justification that the non-back edges' grants can be observed by CORE-003 another way. Option C is deferred until `T18-SPEC-01` can change the Assessment schema.
+Rationale: it adopts the T18-01 recommendation rather than replacing it; no schema change; deterministic by sorted edge order without a new mechanism; each record names exactly one participating declaration, so the claim is edge-precise for CORE-003; and the record count is bounded by the component's internal edge count. Option A is the fallback if the owner prefers fewer records; it was reconsidered as the primary and rejected because one grouped record nominally covers several edges and depends on the OPEN `T18-DEC-15` parent-set question. Option B requires a new canonical-DFS mechanism and loses non-back-edge declarations; Option C needs a `T18-SPEC-01` schema amendment.
 
 ### 7.1 Claim polarity (sub-decision)
 
@@ -194,13 +214,13 @@ Rationale: no schema change, no new mechanism, deterministic under §8.8, mirror
 
 ### 7.2 Subject identity and ids
 
-- `assessment_id` remains caller-generated through the adapter callback, as in C-1 (`assessmentIdFor(relation, parents)` generalised to `(subject, relation, parents)`).
+- `assessment_id` remains caller-generated through the adapter callback, as in C-1 (`assessmentIdFor(relation, parents)` generalised to `(subject, relation, parent)` for Option D).
 - The callback must be injective across the emitted set; duplicate ids are rejected by Core admission. The adapter does not invent an id scheme.
 
 ### 7.3 Parent coverage (interacts with `T18-DEC-15`)
 
-- **Recommended local disposition:** `parent_version_ids` = the subject's SCC-internal parents under the declared relation. The claim is about cycle participation, so listing a non-cyclic parent would assert something the claim is not about.
-- **Consistency argument against:** C-1 used the complete declared parent set as a local Option B disposition. A domain that reads `parent_version_ids` uniformly may expect the same rule here.
+- **Recommended local disposition:** `parent_version_ids` = `[edge parent]` — exactly the parent of the assessed edge, so the claim is about that declaration and nothing else. For the Option A fallback the list would be the subject's SCC-internal parents under the relation.
+- **Tension with `T18-DEC-15`:** C-1 used the complete declared parent set as a local Option B disposition. A domain that reads `parent_version_ids` uniformly may expect the same rule here; the per-edge record uses the covered-subset reading.
 - Because `T18-DEC-15` is OPEN, either choice must be recorded as a **local disposition**, not a normative reading.
 
 ### 7.4 Emission trigger and idempotency
@@ -218,7 +238,7 @@ Rationale: no schema change, no new mechanism, deterministic under §8.8, mirror
 - `CASE-C-2.a3` (grant suppression) stays BLOCKED on CORE-003 / `T18-DEC-13`.
 - The C-2 **case** stays BLOCKED even after `N-143`/`CASE-C-2.a2` pass.
 - `N-168` (§16 readiness) is unaffected.
-- A-14/#65 and A-13/#64 remain separate open decisions.
+- A-14/#65 remains a separate open decision (cycle breadth in path validation); it is not resolved by this model.
 
 ---
 

@@ -76,7 +76,7 @@ The project owner approved:
 
 The canonical approved record is `decision-register.md` §3. The T18-01 package is a historical proposal snapshot; it is not the approval record.
 
-Still OPEN: C-2 subject model (SCC/node/edge; edge-level is a proposal only), exact Assessment shape/provenance, persistent storage/publication/retention ownership, `T18-DEC-15` parent-coverage semantics, and C-2.a3 / CORE-003.
+Still OPEN: `T18-DEC-16` (C-2 subject model, exact Assessment shape/provenance, and publication/retention ownership; registered with sub-parts 16.a–16.c, package `decision-packages/T18-09E-c2-subject-model/`), `T18-DEC-15` parent-coverage semantics, and C-2.a3 / CORE-003.
 
 ### T18-DEC-15 — parent coverage semantics (OPEN)
 

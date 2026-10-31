@@ -36,7 +36,7 @@ It does **not**:
 
 | Decision | Status | Recommendation | Approval |
 | --- | --- | --- | --- |
-| `T18-DEC-16` — C-2 subject model, shape/provenance, publication/retention | **OPEN** | Option A — node- and relation-scoped Assessment per cyclic declaration | Not approved |
+| `T18-DEC-16` — C-2 subject model, shape/provenance, publication/retention | **OPEN** | Option D — one Assessment per affected lineage edge | Not approved |
 
 The recommendation is a project-owner review input, not a normative resolution. It must not be cited as approved semantics.
 
@@ -62,5 +62,5 @@ Implementation behaviour is never promoted to normative meaning. The fact that t
 - **Normative requirement.** `T18-DEC-01` approved the reading that CORE-001 requires a local Assessment recording `CYCLE_DETECTED` for a detected cycle (§11.2, §12 C-2). `T18-DEC-02` approved the boundary: adapter constructs, Core validates and admits, persistent storage is caller-managed. What the specification does **not** say is what the Assessment's subject is — the closing declaration, the node, or the component — nor what `parent_version_ids` and `declared_relation` mean for a cycle.
 - **Current implementation.** The graph reports sorted SCCs; binding-level traversal returns `CYCLE_DETECTED` per path with the union of touched cycles. No Assessment records the claim (`tests/conformance/c.test.ts:66` is a `todo`). Since the #49 change, the generic validator rejects `CYCLE_DETECTED` on every admission path while C-2 is blocked (`src/core/assessment.ts:60`).
 - **Why `T18-02B` is blocked.** It needs (i) this decision, and (ii) a contextual admission path for the cycle claim, mirroring the C-1 `registerOrphanAssessments` path — the current generic guard is correct for the generic path but cannot stay absolute once C-2 is decided.
-- **Recommendation.** Option A — one Assessment per `(node, declared_relation)` for each node in a cyclic SCC where that relation has at least one parent inside the same SCC. It reuses the approved C-1 adapter/Core boundary, needs no schema change, is deterministic under §8.8, and gives CORE-003 the complete subject set it needs for grant suppression (`CASE-C-2.a3`, `T18-DEC-13`).
+- **Recommendation.** Option D — one Assessment per affected lineage edge inside a cyclic SCC. It adopts the T18-01 package's recommendation rather than replacing it, reuses the approved C-1 adapter/Core boundary, needs no schema change, is deterministic by sorted edge order, and gives CORE-003 the exact participating-edge set it needs for grant suppression (`CASE-C-2.a3`, `T18-DEC-13`).
 - **What approval would close.** `N-143` and `CASE-C-2.a2` after `T18-02B` + AEBE; the C-2 **case** remains BLOCKED on `CASE-C-2.a3` (CORE-003, `T18-DEC-13`) even after this decision.

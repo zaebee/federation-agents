@@ -1,6 +1,6 @@
 # Remediation Roadmap — Task 18
 
-**Audit base:** `2a83c65`. **Planning and implementation record.** `T18-DEC-01` and `T18-DEC-02` are approved; T18-02A is implemented. `T18-02A` is eligible for planning and acceptance: Core-owned admission and immutable representation are approved, persistent storage is caller-managed, and publication/retention remain OPEN. `T18-02B` is BLOCKED on the C-2 model; `T18-02C` is retired / superseded.
+**Audit base:** `2a83c65`. **Planning and implementation record.** `T18-DEC-01` and `T18-DEC-02` are approved; T18-02A is implemented. `T18-02A` is eligible for planning and acceptance: Core-owned admission and immutable representation are approved, persistent storage is caller-managed, and publication/retention remain OPEN. `T18-02B` is BLOCKED on `T18-DEC-16` (C-2 subject model); `T18-02C` is retired / superseded.
 
 ## 1. How to read this roadmap
 
@@ -80,7 +80,7 @@ The adapter constructs the C-1 Assessment using domain identity, provenance and 
 
 ### T18-02B — C-2.a2 adapter emission (BLOCKED)
 
-The adapter path is selected, but the C-2 subject model (SCC, node, or edge) is still OPEN. T18-02B cannot begin until that separate decision is approved. It closes N-143/C-2.a2 only; it does not close C-2 and does not close N-168.
+The adapter path is selected, but the C-2 subject model is registered as `T18-DEC-16` and still OPEN (see `decision-packages/T18-09E-c2-subject-model/`). T18-02B cannot begin until that decision is approved. It closes N-143/C-2.a2 only; it does not close C-2 and does not close N-168.
 
 ### T18-02C — Retired / superseded
 
@@ -118,7 +118,8 @@ graph TD
   T1801 --> T1802B[T18-02B C-2.a2 adapter BLOCKED]
   T1801 -.->|retired / superseded| T1802C[T18-02C retired / superseded]
   T1801 -.->|not selected| SPEC01[PATH-C alternative]
-  C2MODEL[C-2 subject model OPEN] --> T1802B
+  T1809E[T18-09E C-2 subject model package] --> DEC16[T18-DEC-16 C-2 subject model OPEN]
+  DEC16 --> T1802B
   T1802A --> AEBE[Assessment Emission Boundary Evidence]
   T1802B --> AEBE
   SPEC01 -.-> REAUDIT[Re-audit N-138/N-143]
@@ -150,7 +151,7 @@ graph TD
 
 ### Milestones
 
-- **M0** — DEC-01 (`REQ-LOCAL`) and DEC-02 (`OWN-ADAPTER` + `VAL-CORE`) approved; C-2 model still OPEN.
+- **M0** — DEC-01 (`REQ-LOCAL`) and DEC-02 (`OWN-ADAPTER` + `VAL-CORE`) approved; `T18-DEC-16` (C-2 subject model) registered and OPEN.
 - **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A implemented and acceptance-eligible; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
@@ -159,7 +160,7 @@ graph TD
 ### Critical path
 
 1. **C-1:** DEC-01/02 approved → T18-02A (adapter C-1) → AEBE → T18-13; readiness also needs T18-11 for N-170/N-175.
-2. **C-2:** C-2 subject-model decision → T18-02B (adapter C-2.a2) → AEBE; plus T18-DEC-13/T18-10 for a3 → T18-13.
+2. **C-2:** `T18-DEC-16` approval → T18-02B (adapter C-2.a2) → AEBE; plus T18-DEC-13/T18-10 for a3 → T18-13.
 3. **Assurance:** T18-DEC-06/07 → T18-09A → N-078/N-107/N-112; T18-DEC-06 → T18-09D → N-172.
 4. **Trust:** T18-DEC-04 → T18-06 → N-040; T18-DEC-09 → T18-09C → N-128.
 
@@ -191,7 +192,7 @@ A task that bundles requirements of different urgency is split rather than silen
 | P2 | T18-03, T18-04, T18-06, T18-09C, T18-09D, T18-SPEC-01 |
 | P3 | T18-05, T18-07, T18-08, T18-09B, T18-10, T18-11, T18-12 |
 
-`T18-02B` is BLOCKED on the C-2 model; `T18-02C` is retired / superseded. Neither is active P1 work.
+`T18-02B` is BLOCKED on `T18-DEC-16` (C-2 subject model); `T18-02C` is retired / superseded. Neither is active P1 work.
 
 ## 8. Authority-boundary watchlist
 
