@@ -1,0 +1,25 @@
+### Medium finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-01-assessment-emission/boundary-and-contract-analysis.md`
+
+This 'supplement' mostly repeats content that already exists elsewhere in the package. It repeats the export path and public-vs-missing API (§1 vs implementation-analysis §1), the probe JSON (§2.3), the validation-bypass table (§2.4 vs implementation-analysis §4), the terms table (§4 vs §3), the C-2 subject-model table (§3.2 vs normative-analysis §2.4), the AEBE list (§6 vs remediation-branch-map §4) and the decision wording (§7). It looks like leftover iteration that was never folded into the main files. With two near-identical copies, later edits will drift apart. Merge the genuinely new parts (§2.2 unchecked fields, §3.1 minimum C-1 contract) into implementation-analysis.md and drop the rest. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-01-assessment-emission/remediation-branch-map.md:5-8`
+
+The full DEC-01/DEC-02 question text is repeated word for word in a 'Decision references' block in five of the seven files, alongside README §4 and the proposal tables. That means about seven copies of each question have to be kept in sync once the wording is approved. Keep the canonical wording in decision-register-proposal.md and refer to it by ID elsewhere. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-01-assessment-emission/decision-register-proposal.md:30-36`
+
+The labels don't line up. 'Possible outcomes' uses (1)/(2)/(3) for ownership, 'Consequence for Path A/B/C' uses the branch-map paths, and inside Path B, A/B/C stand for validation owners. Path C is also listed under DEC-02, although remediation-branch-map.md says it is triggered by T18-DEC-01. Elsewhere the recommendation is called 'Option A', which is a validation-owner option, not the ownership Option 2. A reader can't map the outcomes to paths unambiguously. Use one consistent set of labels. 
+---
+### Low finding
+
+**Location:** `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-01-assessment-emission/implementation-analysis.md:32-44`
+
+The headline risk ('a probe accepted a malformed Assessment') is shown only as a JSON result. There is no script, command, input object or revision anyone could rerun, and the decision-register proposal cites it as implementation evidence. The package's own AEBE rule requires 'revision and exact command'. Record the probe source and command, or replace the probe with a citation of the `registerAssessment` code path that shows no field checks. 
+---
+PTAL
