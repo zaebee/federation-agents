@@ -1,0 +1,286 @@
+мержим
+
+---
+
+# T18-01 — Project Owner Decision Gate
+## Assessment Emission: DEC-01 and DEC-02
+
+We have completed the T18-01 Assessment Emission investigation package in PR #39.
+
+Your task is to prepare the project-owner decision gate for T18-DEC-01 and T18-DEC-02.
+
+This is a decision task, NOT an implementation task.
+
+## 0. Preconditions
+
+1. Inspect the current repository state and `main`.
+2. Verify whether PR #39 has been merged.
+3. If PR #39 is not merged, STOP and report that the decision gate must wait.
+4. Read the complete T18-01 package:
+   `docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-01-assessment-emission/`
+5. Read the current Task 18 decision register and roadmap.
+6. Verify that Task 17 historical audit results remain unchanged.
+
+Do not rely exclusively on previous conversation context. Verify repository contents.
+
+## 1. Decision DEC-01 — Assessment recording obligation
+
+Canonical question:
+
+Does CORE-001 require a local Assessment recording `PARENT_UNRESOLVED` for an unresolved parent and `CYCLE_DETECTED` for a detected cycle?
+
+Evaluate these outcomes:
+
+- `REQ-LOCAL`: required at the local-assessment level.
+- `REQ-EXTERNAL`: required only as an external document or record.
+- `REQ-NONE`: no such normative recording obligation.
+
+For each outcome explain:
+
+- normative compatibility with CORE-001 Rev 0.3.3;
+- consequences for C-1 and C-2.a2;
+- consequences for Task 17 audit statuses;
+- whether a specification clarification/amendment is required;
+- resulting remediation path.
+
+Do not conflate the obligation to record an Assessment with the Core library's responsibility to construct or emit it.
+
+## 2. Decision DEC-02 — Construction, registration and validation ownership
+
+This decision is conditional on DEC-01.
+
+Evaluate:
+
+### Construction and registration ownership
+
+- `OWN-CORE`
+- `OWN-ADAPTER`
+
+### Validation ownership
+
+- `VAL-CORE`
+- `VAL-ADAPTER`
+- `VAL-CORE-CONSTRUCTION`
+
+Explicitly distinguish:
+
+1. Construction
+2. Semantic validation
+3. Registration
+4. Publication / retention
+5. Downstream consumption
+
+A separate validator that callers may bypass is not sufficient enforcement.
+
+Evaluate whether validation must be enforced inside the existing `registerAssessment`, or through a new guarded API that prevents bypass through the old public registration path.
+
+Do not assume that adapter ownership automatically means adapter-only validation.
+
+## 3. C-2 Assessment subject model
+
+Keep this as a separate unresolved specification question.
+
+Compare:
+
+- one Assessment per SCC;
+- one Assessment per cycle node;
+- one Assessment per affected edge.
+
+Do not silently select a model as an implementation detail.
+
+Explain whether this question must be resolved before T18-02B or T18-02C can begin.
+
+## 4. Recommendations
+
+Provide your recommended outcome for DEC-01 and DEC-02.
+
+For each recommendation include:
+
+- exact decision wording;
+- rationale;
+- evidence from CORE-001;
+- implementation consequences;
+- compatibility risks;
+- unresolved questions;
+- required follow-up tasks.
+
+Treat recommendations as proposals only.
+
+Do not mark any decision APPROVED or CLOSED.
+
+## 5. Decision consequences
+
+Produce a decision dependency table covering:
+
+- DEC-01 = REQ-LOCAL;
+- DEC-01 = REQ-EXTERNAL;
+- DEC-01 = REQ-NONE;
+- DEC-02 = OWN-CORE;
+- DEC-02 = OWN-ADAPTER;
+- each validation ownership option.
+
+Explicitly identify which remediation tasks become eligible and which remain blocked.
+
+Preserve the distinction between:
+
+- C-1 Assessment recording;
+- C-2.a2 Assessment recording;
+- C-2.a3 dependent grant suppression (CORE-003).
+
+Assessment emission must never be treated as proof of grant suppression.
+
+## 6. Output
+
+Produce a concise but technically complete decision brief in your Plan Mode response.
+
+Include:
+
+1. Repository state and precondition verification.
+2. DEC-01 decision table.
+3. DEC-02 decision table.
+4. C-2 subject-model comparison.
+5. Recommended decisions with exact wording.
+6. Dependency and remediation consequences.
+7. Explicit questions requiring project-owner input.
+
+## 7. Strict constraints
+
+- Plan Mode only.
+- No file modifications.
+- No source or test changes.
+- No changes to `docs/CORE-001.md`.
+- No changes to Task 17 audit artifacts or historical statuses.
+- No commits, branches or PRs.
+- No implementation.
+- Do not resolve OPEN decisions by implementation inference.
+- Do not invent normative requirements.
+- Keep all decision statuses OPEN until the project owner explicitly approves them.
+
+End with a short list of the exact decisions the project owner must make.
+
+---
+
+# Task 18 — Record Project Owner Decisions for T18-01
+
+## Objective
+
+Record the project owner's decisions following the completed T18-01 Assessment Emission decision brief.
+
+This is a documentation-only task. It converts explicitly approved decisions into the Task 18 decision register and remediation roadmap.
+
+## 1. Approved decisions
+
+Record the following decisions as APPROVED:
+
+### T18-DEC-01 — Assessment recording obligation
+
+Decision: `REQ-LOCAL`
+
+CORE-001 requires a local Assessment recording:
+- `PARENT_UNRESOLVED` for an unresolved parent;
+- `CYCLE_DETECTED` for a detected cycle.
+
+This is an obligation to record the condition. It does not, by itself, assign construction or publication responsibility to Core.
+
+### T18-DEC-02 — Construction and registration ownership
+
+Decision: `OWN-ADAPTER + VAL-CORE`
+
+- Adapter owns Assessment construction using domain-specific identity, provenance and time context.
+- Core owns normative semantic validation.
+- Core validation MUST be enforced on every supported registration path.
+- A standalone validator that callers can bypass is insufficient.
+- An old public registration API MUST NOT remain a validation bypass.
+- Publication and retention remain separate responsibilities and must be explicitly assigned by the relevant boundary.
+- Downstream consumption does not automatically accept the Assessment as truth or grant authority.
+
+### Validation enforcement
+
+Approve mandatory Core validation at the registration boundary.
+
+The implementation design may choose between:
+- validation inside `registerAssessment`; or
+- a guarded validated-registration API, provided the old public API cannot bypass validation.
+
+Do not choose implementation details beyond this invariant.
+
+## 2. Decisions that remain OPEN
+
+Do NOT close or implicitly resolve:
+
+1. C-2 Assessment subject model:
+   - one per SCC;
+   - one per cycle node;
+   - one per affected edge.
+
+2. Exact Assessment data shape and provenance contract.
+
+3. Publication and retention ownership details where not already normatively specified.
+
+4. Any unresolved cross-specification decisions, including C-2.a3 grant suppression in CORE-003.
+
+The edge-level C-2 model may be recorded as a proposal only, not as an approved decision.
+
+## 3. Required updates
+
+Update only the relevant Task 18 documentation:
+
+- `decision-register.md`
+- `remediation-roadmap.md`
+- `reconciliation-notes.md`
+- `README.md` if its status summary requires updating
+
+Preserve the existing five-artifact Task 18 structure.
+
+If a dedicated T18-01 decision record is required by the repository's documentation conventions, add it under the T18-01 decision package. Do not create redundant documents.
+
+## 4. Remediation consequences
+
+After recording DEC-01 and DEC-02:
+
+- `T18-02A` becomes eligible for planning and implementation: C-1 Assessment emission by the adapter, using Core-enforced validation.
+- `T18-02B` remains BLOCKED pending the separate C-2 subject-model decision.
+- `T18-02C` is NOT the selected ownership path and must not be treated as active work.
+- C-2.a3 remains a separate CORE-003 dependency.
+- AEBE remains the required evidence deliverable; it is not a separate implementation task.
+- T18-13 readiness requirements and all dependencies must remain intact.
+
+Correct the previously identified `PATH-B` inconsistency: `VAL-CORE-CONSTRUCTION` is not a valid option under `OWN-ADAPTER`. The selected path is `OWN-ADAPTER + VAL-CORE`.
+
+Do not change Task 17 audit results.
+
+## 5. Historical audit invariants
+
+Preserve Task 17 exactly:
+
+- Overall: 152 PASS, 8 PARTIAL, 7 BLOCKED, 8 NOT COVERED, 0 FAIL.
+- §12: 13 PASS, 2 PARTIAL, 2 BLOCKED, 1 NOT COVERED.
+- C-1 remains NOT COVERED.
+- C-2 remains BLOCKED.
+
+Decision approval is not conformance evidence and must not change these statuses.
+
+## 6. Scope restrictions
+
+- Documentation only.
+- No source changes.
+- No test changes.
+- No `docs/CORE-001.md` changes.
+- No Task 17 artifact changes.
+- No implementation.
+- No automatic closure of downstream tasks.
+- No commits or PRs unless explicitly requested separately.
+
+Before editing, inspect the current repository state and verify that PR #39 is merged.
+
+After editing, report:
+1. Exact files changed.
+2. Exact decision-register changes.
+3. Exact roadmap changes.
+4. Confirmation that all OPEN decisions remain OPEN.
+5. Confirmation that Task 17 historical results are unchanged.
+6. Any unresolved ambiguity discovered during implementation.
+
+---
+
+делаем PR
