@@ -1,7 +1,7 @@
 # T18-09F — Remaining Owner Questions
 
 **Status:** input for the project owner. `T18-DEC-18` remains **PROPOSED / OPEN**; nothing here is approved or registered.
-**Basis:** `decision-ready-revision.md` (six required outcomes), `adversarial-review.md`, and `oq4-complexity-adversarial-pass.md` **revision 3** (all classes polynomial; D5 proof obligations named).
+**Basis:** `decision-ready-revision.md` (six required outcomes), `adversarial-review.md`, and `oq4-complexity-adversarial-pass.md` **revision 3.1** (all classes polynomial; D5 proof obligations named; mechanism split into D6a/D6b).
 
 ## Option schemes (do not conflate)
 
@@ -18,7 +18,7 @@
 - **A:** the full per-path list is normative evidence.
 - **B:** the normative result is validity plus mandatory evidence; the full list is diagnostics.
 
-**Preferred: B (R2).** §8.4/§8.7 define validity by the existence of one fully valid path; no sentence requires returning every path. The complexity analysis now supports B: all decision classes (D0–D6) are polynomial, so the compact result does not need the exponential path set. **If A:** no API change; B-3/B-4 keep their meaning; `2^k` output remains an explicit availability risk; N-176 would be recorded as "conditional not triggered" rather than PASS.
+**Preferred: B (R2).** §8.4/§8.7 define validity by the existence of one fully valid path; no sentence requires returning every path. The complexity analysis now supports B: all decision classes (D0–D4, D6a, D6b) are polynomial and D5 is a proof obligation, so the compact result does not need the exponential path set. **If A:** no API change; B-3/B-4 keep their meaning; `2^k` output remains an explicit availability risk; N-176 would be recorded as "conditional not triggered" rather than PASS.
 
 ## OQ-2 — API strategy under Reading B: replace or version?
 
@@ -35,16 +35,17 @@ If OQ-2 chooses **Option 5.B**, keep B-3/B-4/B-6 on the legacy API and add v2 ca
 
 ## OQ-4 — Is the compact rejection proof polynomial? (resolved)
 
-Yes. `oq4` revision 3 proves:
+Yes. `oq4` revision 3.1 proves:
 
 - **D1** reachability; **D0** reachability on the valid subgraph;
 - **D2** first-failing-edge class: `(u→v)` in class X with `reach_{valid}(s,u)` and `reach_A(v,t)` — two reachability computations;
-- **D3** cycle-class existence: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; a walk through `c` loop-erases to a simple path that still touches a cyclic node (Lemma 4);
+- **D3** cycle-class existence: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; chronological loop erasure of a walk through `c` yields a simple path that still touches a cyclic node by the chain-of-erasure argument (Lemma 4), even if `c` is erased;
 - **D4** closure failure: triple `(merge node, path edge, failing branch)` with reachability; general over parent counts;
-- **D6** input-scoped mechanisms only, with the corrected condition: malformed assessments produce `MECHANISM` only if `reach_A(s,t)` (a path survives cycle preemption);
-- **D5** canonical witness: greedy on the acyclic subgraph; **proof sketch with empirical obligations** (see OQ-10 / decision-ready §2.4), not yet certified.
+- **D6a** pre-discovery mechanisms (duplicate id, missing candidate, selector/label validation) are independent of reachability;
+- **D6b** edge-evaluation mechanisms: malformed assessments produce `MECHANISM` only if `reach_A(s,t)` and a path reaches `assessEdge`;
+- **D5** accepted-witness selection: `pathKey`-minimum (greedy on the acyclic subgraph) or `DETERMINISTIC_NON_MINIMUM` with a specified storage-order-independent rule; a non-deterministic/arbitrary witness is not valid under §8.8. The greedy is a **proof sketch with proof and test obligations** (see OQ-10 / decision-ready §2.4), not yet certified.
 
-**Recommended: accept the polynomial analysis for D0–D4/D6; treat D5 as a proof obligation before implementation is called complete.**
+**Recommended: accept the polynomial analysis for D0–D4/D6a/D6b; treat D5 as a proof obligation before implementation is called complete.**
 
 ## OQ-5 — Does A-8 stay OPEN, with the current precedence as an implementation rule?
 
@@ -62,9 +63,9 @@ Who owns the bound, what is returned when it is reached, and is the diagnostics 
 
 ## OQ-8 — Resource target and benchmark acceptance
 
-`k=16` is a **benchmark target**, not a proof of complexity. The current evidence is `k=16` → 65 536 paths / ~2.7 s from a scratch run.
+`k=16` is a **benchmark target**, not a proof of complexity. The executed record is `benchmark-record.md`: source revision `9e29b36…`, harness revision `d947991…`, Bun 1.4.2 on AMD EPYC-Rome (4 cores), median of three runs `k=16` → 65 536 paths / 2 305 ms / 458 MiB RSS delta. The record also includes the `k=12` storage-order reversal check. This is empirical resource-exhaustion evidence, not a complexity bound.
 
-**Recommended: keep `k=16` as the conformance-oriented benchmark target, attach an executed record (date, revision, machine, counts), and state that it does not establish a bound.**
+**Recommended: keep `k=16` as the conformance-oriented benchmark target, cite the executed `benchmark-record.md`, and state that it does not establish a bound.**
 
 ## OQ-11 — Is the terminal origin subject to merge closure?
 
@@ -83,12 +84,24 @@ Closure runs for the `child` of each path edge; the origin is never a child, so 
 
 The equivalence proofs (including D4's path-edge exclusion and any memoisation) assume `applicableAssessments` and `conflictPredicate` are pure: same inputs → same result, no side effects, no exceptions. The type does not enforce this, and a callback that depends on call order/state makes even the legacy traversal order-dependent.
 
-**Owner/spec-editor choice required:** either freeze a pure/deterministic Policy contract (and state exception handling), or explicitly exclude impure hooks from N-176 equivalence. Without this, "equivalent result" is undefined.
+**Verified source behavior at `9e29b3627c9c5daab3a3029d8326dec65c47c161`:** `policy.applicableAssessments` is invoked directly from `assessEdge()` / `narrowByPolicy()`, and `policy.conflictPredicate` is invoked directly from contested-claim collection. These callback invocations are not individually wrapped in `try/catch`; an exception thrown by either callback propagates to the caller and is not converted into a mechanism failure.
+
+**Documentation discrepancy:** `docs/implementation.md` §1.6 currently says policy callbacks are guarded individually and a throwing one becomes a mechanism failure. That statement is stale and contradicts the current source behavior. It requires a separate documentation correction; this PR does not modify `docs/implementation.md` or source.
+
+**Owner/spec-editor choice required:** either freeze a pure/deterministic/non-throwing Policy contract with stated exception handling, or explicitly exclude callback exceptions from the N-176 equivalence claim. Without this, "equivalent result" is undefined. OQ-12 remains OPEN.
 
 ## OQ-9 — Audit consequence
 
-- Reading B + accepted implementation → N-176 PASS, §8.8 PARTIAL → PASS, via a re-audit revision.
-- Reading A → N-176 "conditional not triggered" (not PASS-through-violation).
+Reading B may establish a path toward N-176 PASS, but **adoption of Reading B or acceptance of an implementation does not itself change N-176 status**. N-176 may be changed to PASS only through a separate audit revision that verifies:
+
+- the owner's explicit approval of the normative interpretation;
+- exact L1/L2 equivalence under the approved contract;
+- closure of D5 or approval of a deterministic non-minimum witness rule consistent with §8.8;
+- resolution of OQ-11 and OQ-12, or their explicit and justified exclusion from the equivalence claim;
+- the required conformance tests;
+- a successful re-audit of the resulting package and implementation.
+
+Reading A may instead keep N-176 as "conditional not triggered" (not PASS-through-violation). **Implementation acceptance alone never changes N-176 or §8.8 status.** This document does not mark N-176 PASS or §8.8 PASS.
 
 **Recommended: decide the wording together with OQ-1, not after implementation.**
 
@@ -97,7 +110,7 @@ The equivalence proofs (including D4's path-edge exclusion and any memoisation) 
 | Option | Meaning | Consequence |
 | --- | --- | --- |
 | **R1 — Reading A** | Per-path result normative. | No API break; exponential output accepted as availability risk; no compact-rejection work. |
-| **R2 — Reading B, exact** | Compact API; D0–D4/D6 polynomial; D5 proof obligations first. | Satisfies N-176; needs `T18-SPEC-01`, versioned API, corpus additions. |
+| **R2 — Reading B, exact** | Compact API; D0–D4/D6a/D6b polynomial; D5 proof obligations first. | Potentially satisfies N-176, subject to the conditions in OQ-9; needs `T18-SPEC-01`, versioned API, corpus additions, and a separate audit revision. |
 | **R3 — Reading B, semantic change** | Walk/state-based cycle class. | **Not needed**: D3 is polynomial under current semantics. |
 | **R4 — Defer** | Keep N-176 PARTIAL; clarify §8.8 and D4/§8.6 in `T18-SPEC-01`. | No decision now; honest fallback. |
 
@@ -108,7 +121,7 @@ The equivalence proofs (including D4's path-edge exclusion and any memoisation) 
 ## What is settled by this revision (no owner choice needed)
 
 - Three-layer model L1/L2/L3 and the diagnostics classification under Reading B.
-- D0/D2/D3/D4/D6 are polynomial; D6 has no path-scoped class; `N176-13` withdrawn.
+- D0/D2/D3/D4/D6a/D6b are polynomial; D6a is reachability-independent and D6b has no path-scoped class; `N176-13` withdrawn.
 - The D4/§8.6 path-edge discrepancy is a specification-wording issue (path edge already validated by §8.5), not an implementation change. Terminal-origin closure (OQ-11) and Policy purity (OQ-12) are **not** settled and are listed below.
 - Validity API must not be resource-capped; caps belong to diagnostics.
 - No new normative error code.

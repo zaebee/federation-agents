@@ -1,8 +1,10 @@
 # T18-09F — Decision-Ready Revision (not approved)
 
 **Status:** decision-support revision of the draft package. **`T18-DEC-18` remains PROPOSED / OPEN.** This document does not approve it, register it, or change any status.
+
+**Witness terminology:** "canonical" below means the `pathKey`-minimum path **only if D5 closes**. Until then, the valid choices are `PATH_KEY_MINIMUM` (conditional) or `DETERMINISTIC_NON_MINIMUM` (`owner-decision-summary.md` OD-3); a non-deterministic/arbitrary witness is not a valid §8.8 option. The v2 type uses the neutral `AcceptedPathWitness`, not a canonical guarantee.
 **Reviewed revision:** `f1d52e1` (`main`).
-**Complexity source of truth:** `oq4-complexity-adversarial-pass.md` revision 3. Where this document and the earlier revisions differ, revision 3 governs. **D2/D3/D4/D6 are polynomial; D5 is a proof sketch with named empirical obligations and is not certified until those obligations are met.**
+**Complexity source of truth:** `oq4-complexity-adversarial-pass.md` revision 3.1. Where this document and the earlier revisions differ, revision 3.1 governs. **D2/D3/D4/D6a/D6b are polynomial; D5 is a proof sketch with named proof and test obligations and is not certified until those obligations are met.**
 **Companions:** `adversarial-review.md`, `remaining-owner-questions.md`, `oq4-complexity-adversarial-pass.md`.
 
 Each section follows the same shape: **exact statement → normative anchor → counterexample → proposed resolution → compatibility impact → closure evidence.**
@@ -18,13 +20,15 @@ Three layers; only the first two are normative:
 | Layer | Content | Status |
 | --- | --- | --- |
 | **L1 — normative validity** | `eligible` plus, when false, the top-level code required by §8.4/§8.6. Acceptance means at least one fully valid path exists (§8.7). | **normative** |
-| **L2 — mandatory evidence** | Acceptance: one canonical accepted witness (node/edge sequence), the per-edge assurance results for that path, and the closure results for the merge nodes on it (§8.6). Rejection: the class witness required by the returned code plus the top-level code. Mechanism: the input-scoped mechanism failure. | **mandatory evidence** |
+| **L2 — mandatory evidence** | Acceptance: one deterministically selected accepted witness (node/edge sequence), the per-edge assurance results for that path, and the closure results for the merge nodes on it (§8.6). Rejection: the class witness required by the returned code plus the top-level code. Mechanism: the input-scoped mechanism failure. | **mandatory evidence** |
 | **L3 — diagnostics** | The complete path list and every per-path outcome. | **optional, not validity** |
 
 Classification of the current fields:
 
-- **`acceptedPaths`** currently lists **all** fully valid paths (B-3 asserts two). Under Reading B it is **L3 diagnostic**; the normative witness is one canonical accepted path.
+- **`acceptedPaths`** currently lists **all** fully valid paths (B-3 asserts two). Under Reading B it is **L3 diagnostic**; the normative witness is one deterministically selected accepted path.
 - **`details.perPath`** is **L3 diagnostic**, except the specific failure evidence L2 requires for the returned code: for `ERR_MERGE_BRANCH_UNSATISFIED`, the failing branch identity; for assurance/contested, the failing edge class.
+
+**Accepted-witness mode:** L2 requires one deterministically selected witness. `PATH_KEY_MINIMUM` is available only after D5 closes. While D5 is OPEN, the valid alternative is `DETERMINISTIC_NON_MINIMUM` with an explicit rule independent of storage order, declaration arrival order and node traversal order. L2 does not imply canonicality unless `PATH_KEY_MINIMUM` is selected and D5 is closed.
 
 ### 1.2 Normative anchor
 
@@ -40,7 +44,7 @@ B-3 asserts `acceptedPaths` equals **both** diamond paths. If L3 is declared dia
 | --- | --- | --- |
 | B-3 (both diamond paths) | legacy `acceptedPaths` (L3 list) | **legacy API only** |
 | B-4 / B-6 (per-path closure evidence) | failing path + closure branch identity | **L2 mandatory evidence**, plus L3 list on the legacy API |
-| new v2 cases (acceptance) | one canonical witness + per-edge assurance + closure for that path | **L2** |
+| new v2 cases (acceptance) | one deterministically selected accepted witness + per-edge assurance + closure for that path | **L2** |
 | new v2 cases (rejection) | top-level code + class witness | **L2** |
 | diagnostics tests | full per-path list, bounded/truncated result | **L3 only** |
 
@@ -60,9 +64,9 @@ Breaking for callers that read `acceptedPaths`/`perPath` as validity evidence; B
 
 ### 2.1 Exact statement
 
-The canonical witness is the **minimum fully valid simple path under the existing `pathKey` order**, not the first path a DFS returns. `pathKey` is the per-edge `child\0parent\0relation` joined by `\x01`; this order is independent of storage and adjacency order.
+**Conditional statement (D5 OPEN).** If D5 closes, the canonical witness is the **minimum fully valid simple path under the existing `pathKey` order**, not the first path a DFS returns. `pathKey` is the per-edge `child\0parent\0relation` joined by `\x01`. The abstract triple order is storage-independent; the concrete string encoding has not been proven injective or order-equivalent for ids containing `\u0000`/`\u0001`, so canonicality is **not** claimed until D5's encoding obligation is discharged.
 
-Algorithm (Lemma 1–2 of `oq4` §2): valid paths lie in the acyclic induced subgraph `A`. Build `H`: an edge is allowed iff its assurance is `SATISFIED` and the closure of its source node, evaluated with that edge as the path edge, is satisfied. Then greedily extend the current prefix with the smallest outgoing allowed edge that still has an `H`-path to the origin; feasibility is reachability in the DAG `H`.
+The polynomial candidate algorithm (Lemma 1–2 of `oq4` §2) is: valid paths lie in the acyclic induced subgraph `A`. Build `H`: an edge is allowed iff its assurance is `SATISFIED` and the closure of its source node, evaluated with that edge as the path edge, is satisfied. Then greedily extend the current prefix with the smallest outgoing allowed edge that still has an `H`-path to the origin; feasibility is reachability in the DAG `H`. This establishes a polynomial **existence/witness construction under the abstract order**; it is **not** a proof that the output is the `pathKey` minimum under the exact encoding.
 
 ### 2.2 Normative anchor
 
@@ -74,12 +78,13 @@ DFS order is not `pathKey` order: a longer lexicographically larger branch explo
 
 ### 2.4 Proposed resolution and proof status
 
-Define the witness by `pathKey` minimum; use the greedy algorithm above. **The polynomial claim is qualified:** `oq4` §6 gives the lexicographic induction sketch and lists the outstanding evidence:
+If D5 closes, define the witness by `pathKey` minimum; the greedy algorithm above is the candidate. **Neither the exact-encoding minimality nor the canonical guarantee is proven today.** `oq4` §6 gives the lexicographic induction sketch and lists the outstanding evidence:
 
 - written proof for the exact `pathKey` string encoding;
 - oracle comparison against exhaustive enumeration on small generated DAGs;
-- invariance under storage/adjacency permutations;
-- closure-constraint handling in `H`.
+- invariance under storage/adjacency permutations.
+
+Closure-constraint handling is **not** an independent D5 obligation: `H` is defined with closure as part of edge allowance, and `oq4` Lemma 5 / `complexity-proof.md` Lemma 3 establish that `H` represents exactly the fully valid paths. Any residual question there is part of the `H` definition, not of D5's minimality claim.
 
 ### 2.5 Compatibility impact
 
@@ -87,7 +92,7 @@ Only the accepted-witness content changes (L2); L1 unchanged. B-3 is replaced fo
 
 ### 2.6 Closure evidence
 
-The four obligations above, plus a unit test with two valid branches of different lengths and a permutation test.
+The three obligations above, plus a unit test with two valid branches of different lengths and a permutation test.
 
 ---
 
@@ -104,9 +109,10 @@ After Lemma 1 (cycle preemption) every path that reaches assurance/closure class
 | D2 | path whose first non-satisfied edge has class X? | polynomial: `reach_{valid}(s,u)` + `reach_A(v,t)` for some `e*=(u→v) ∈ E_X`; proof in `oq4` §3 |
 | D3 | path touching a cyclic node? | **polynomial**: ∃ cyclic `c` with `reach(s,c)` and `reach(c,t)`; walk + loop erasure (`oq4` §4) |
 | D4 | all edges satisfied and closure fails? | polynomial: triple `(merge node m, path edge e, failing branch b)` + reachability; `oq4` §5 |
-| D6 | input-scoped mechanism? | polynomial: prechecks, or malformed assessments **and `reach_A(s,t)`** (a path that survives cycle preemption); no path-scoped class exists |
+| D6a | pre-discovery mechanism? | polynomial in input size: duplicate id, missing candidate, selector compilation, version-label validation; independent of reachability |
+| D6b | edge-evaluation mechanism? | polynomial: malformed assessments **and `reach_A(s,t)`** plus a path reaching `assessEdge`; no path-scoped class exists |
 
-**Evidence shape:** rejection returns the class witness required by L2 — for D2 the failing edge class, for D3 one witness path touching a cyclic node, for D4 the failing branch identity, for D6 the mechanism failure. A single failing edge is not a proof for a higher-precedence class.
+**Evidence shape:** rejection returns the class witness required by L2 — for D2 the failing edge class, for D3 one witness path touching a cyclic node, for D4 the failing branch identity, for D6a the precheck failure, for D6b the edge-evaluation mechanism failure. A single failing edge is not a proof for a higher-precedence class.
 
 ### 3.2 Normative anchor
 
@@ -220,8 +226,8 @@ A benchmark record for the validity path at `k=16`; a test that a diagnostics bo
 | # | Item | Status |
 | --- | --- | --- |
 | 1 | L1/L2/L3 split and `acceptedPaths`/`perPath` as L3 under Reading B | proposed; corpus mapping in §1.4 |
-| 2 | Canonical witness = `pathKey` minimum | algorithm proven to be greedy; **empirical obligations** §2.4 |
-| 3 | D0/D2/D3/D4/D6 polynomial | **proven** (Lemma 1–6, `oq4` §2–§7) |
+| 2 | Canonical witness = `pathKey` minimum | **conditional / D5 OPEN**; greedy is a polynomial candidate under the abstract order, not proven for the exact encoding; obligations §2.4 |
+| 3 | D0/D2/D3/D4/D6a/D6b polynomial | **proven** (Lemma 1–6, `oq4` §2–§7) |
 | 4 | D5 polynomial | **proof sketch**, qualified §2.4 |
 | 5 | A-8 untouched, precedence preserved | proposed implementation rule; A-8 OPEN |
 | 6 | Option 5.B versioned API | recommended; owner choice |
