@@ -1,0 +1,23 @@
+### Medium finding
+
+**Location:** `tests/conformance/c.test.ts:41-66`
+
+Despite its name, `C-2 a cycle is detected…` (and C-1) does not test what CORE-001 §12 C-1/C-2 and the Task 7 plan expect: an assessment recording `PARENT_UNRESOLVED`/`CYCLE_DETECTED` (the plan says to feed the graph into `evaluateBinding`), with grants not applied. Only the graph's data fields are asserted. Either rename these to graph unit tests or mark the conformance cases as partial, so the corpus is not counted as passing for Task 7. 
+---
+### Low finding
+
+**Location:** `tests/unit/lineage-graph.test.ts:9-20`
+
+The `chain` helper takes a `relations` array plus a `?? 'CONTINUATION'` fallback, but its only caller passes `CONTINUATION` three times. The parameter is unused generality; inline the descriptors or drop the parameter. 
+---
+### Low finding
+
+**Location:** `tests/conformance/c.test.ts:25-60`
+
+Several assertions cannot fail: `reg.versions()[0]` is checked against the fixture it was built from, and `'code' in graph` is checked even though `LineageGraph` has no such key. The "snapshot, not a live view" check rebuilds from a *different* registry, so the frozen first graph could never change anyway. These add review noise without proving behaviour. 
+---
+### Low finding
+
+**Location:** `src/core/lineage.ts:333-335`
+
+The docstring says "A later `evaluateBinding` propagates `CYCLE_DETECTED` at the assessment boundary", but no `evaluateBinding` exists anywhere in `src/`. It describes behaviour that has not been built. Mark it as planned or drop it.
