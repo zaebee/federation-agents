@@ -1,0 +1,484 @@
+мержим
+
+---
+
+# Task 18 — CORE-001 Conformance Gap Disposition & Remediation Roadmap
+
+## Mode
+
+**Plan Mode only. Do not implement anything.**
+
+Produce a reviewable remediation roadmap based on the completed Task 17 audit. This task is about disposition, prioritization, dependencies, and acceptance criteria — not about immediately fixing every non-PASS item.
+
+## Context
+
+The following artifacts are authoritative inputs:
+
+- `docs/CORE-001.md` — UIA-CORE-001 Rev 0.3.3 (normative specification).
+- `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md` — implementation plan Rev E.
+- `docs/implementation.md` — implementation documentation.
+- `docs/audits/2026-10-31-core-001-task-17/README.md`
+- `docs/audits/2026-10-31-core-001-task-17/requirement-matrix.md`
+- `docs/audits/2026-10-31-core-001-task-17/conformance-matrix.md`
+- `docs/audits/2026-10-31-core-001-task-17/registers.md`
+
+Task 17 was merged. Its final audit rollups are:
+
+| Area | PASS | PARTIAL | BLOCKED | NOT COVERED | FAIL |
+|---|---:|---:|---:|---:|---:|
+| Runtime conformance | 138 | 4 | 4 | 5 | 0 |
+| Cross-spec / external boundaries | 10 | 1 | 3 | 0 | 0 |
+| §16 readiness | 4 | 3 | 0 | 3 | 0 |
+| **Overall** | **152** | **8** | **7** | **8** | **0** |
+
+These are audit classifications, not an instruction to make every item PASS.
+
+## Objective
+
+Produce a technically justified, dependency-aware roadmap for resolving or explicitly retaining every non-PASS item identified by Task 17.
+
+The roadmap must answer:
+
+1. What exactly is missing?
+2. Is the gap in implementation, tests/evidence, normative specification, cross-spec integration, or an external responsibility?
+3. What is the smallest valid action that addresses it?
+4. What must happen before that action?
+5. What evidence would justify changing its status?
+6. Which items should deliberately remain BLOCKED, NOT COVERED, or PARTIAL?
+
+## Mandatory principles
+
+### 1. Preserve normative boundaries
+
+Do not silently resolve normative ambiguity through implementation choices.
+
+In particular:
+
+- Preserve all existing A-1…A-12 ambiguity dispositions.
+- Do not convert a BLOCKED item into an implementation task unless the necessary normative decision has been made separately.
+- Do not infer new semantics from existing implementation behavior.
+- Do not introduce new authority, grant, revocation, or acceptance semantics without an explicit specification-level decision.
+- Do not add a grant-producing API to CORE-001.
+- Do not conflate Evidence, Finding, Ruling, and Execution Authorization.
+- Do not treat identity continuity as authority inheritance.
+- Do not treat cryptographic signature validity as proof of actor identity, intent, authority, or runtime legitimacy.
+
+### 2. Distinguish gap categories
+
+For every non-PASS item, assign one primary disposition category:
+
+- `IMPLEMENTATION_GAP` — normative behavior is clear, implementation is missing or incorrect.
+- `TEST_GAP` — implementation may be correct, but evidence is insufficient.
+- `SPECIFICATION_DECISION` — normative ambiguity or missing normative rule requires a separate decision.
+- `CROSS_SPEC_DEPENDENCY` — responsibility belongs to another UIA specification or integration boundary.
+- `EXTERNAL_DEPENDENCY` — responsibility belongs to an external system, operator, or infrastructure.
+- `DOCUMENTATION_GAP` — behavior exists but documentation is insufficient or inaccurate.
+- `INTENTIONAL_LIMITATION` — current scope deliberately does not provide this capability.
+- `UNRESOLVED` — insufficient information to classify safely.
+
+A secondary category may be recorded where necessary.
+
+Do not label an implementation gap as a test gap merely because a test is also missing. Conversely, do not claim an implementation defect solely because a test is absent.
+
+### 3. Preserve audit traceability
+
+Every roadmap entry must reference:
+
+- Task 17 requirement ID (`N-###`) or readiness item.
+- Relevant conformance assertion ID (`CASE-*`) where applicable.
+- Relevant ambiguity ID (`AMBIG-*`) where applicable.
+- Relevant Task 17 finding/register ID (`T-*`, if applicable).
+- Exact source file and relevant code/test location, when known.
+
+Do not invent IDs. If an audit item has no suitable identifier, explicitly flag that as a traceability gap.
+
+### 4. Do not optimize for a PASS count
+
+The goal is correct conformance and honest evidence, not maximizing the number of PASS labels.
+
+A valid final state may contain BLOCKED, NOT COVERED, PARTIAL, or intentional limitations.
+
+Do not propose superficial tests that merely reproduce implementation behavior or assert constants without proving the normative property.
+
+## Required analysis
+
+### A. Reconcile all non-PASS items
+
+Read the Task 17 artifacts and enumerate every non-PASS item.
+
+Reconcile the totals against the audit matrices. Do not rely only on the summary rollups.
+
+For each item, explain:
+
+- Current status.
+- What the requirement actually demands.
+- What the implementation currently provides.
+- What evidence currently exists.
+- What is missing.
+- Primary disposition category.
+- Recommended next action.
+- Whether the action changes code, tests, specification, documentation, or an external system.
+- Whether a separate approval or normative decision is required.
+
+If the audit artifacts contain inconsistent classifications or unsupported conclusions, flag them. Do not silently rewrite the audit's conclusions.
+
+### B. Reassess implementation versus evidence
+
+Pay particular attention to these known areas, without assuming that the previous audit conclusion is necessarily final:
+
+- Descriptor digest computation versus actual digest verification (N-084).
+- Downstream decision enforcement versus conflict detection (N-079).
+- Runtime lifecycle and the meaning of a constant `RUNNING` state (D-1 / N-004).
+- Version-label validation boundary (N-019 / F-005).
+- Historical signature evaluation and future authorization policy boundaries (D-4 / T-004).
+- C-1 / C-2 partial graph-level evidence versus missing assessment-level conformance.
+- §14–§16 runtime, boundary, and readiness requirements.
+
+For each, determine whether the smallest appropriate next step is:
+- a test,
+- an implementation change,
+- a specification decision,
+- a separate specification/task,
+- an external integration,
+- or no action beyond documenting the limitation.
+
+Do not assume a missing test proves a defect.
+
+### C. Build a dependency graph
+
+Group proposed work into coherent tasks.
+
+For every proposed task provide:
+
+- Task ID and title.
+- Objective.
+- Included requirement IDs.
+- Explicit exclusions.
+- Prerequisites.
+- Dependencies on other tasks/specifications.
+- Expected source areas.
+- Deliverables.
+- Acceptance criteria.
+- Required verification commands.
+- Whether the task is implementation, test-only, documentation-only, or specification work.
+- Whether it requires normative approval.
+
+Identify parallelizable tasks and critical-path dependencies.
+
+Avoid creating artificial tasks for items that should remain blocked or intentionally out of scope.
+
+### D. Prioritize
+
+Use explicit criteria rather than intuition:
+
+1. Normative correctness and risk of violating CORE-001.
+2. Security and authority-boundary implications.
+3. Impact on downstream specifications or consumers.
+4. Whether the requirement is already sufficiently implemented but under-tested.
+5. Dependency leverage.
+6. Cost and scope of the smallest valid remediation.
+
+Provide a priority (`P0`–`P3`) and explain it.
+
+Do not classify every security-adjacent item as P0 automatically.
+
+### E. Define closure criteria
+
+For each proposed remediation task, state what evidence is sufficient to close it.
+
+Examples:
+
+- A test must demonstrate the normative property, including relevant adversarial cases.
+- An implementation change must be tied to a clear normative requirement.
+- A specification decision must be recorded as an explicit approved normative change, not inferred from code.
+- A cross-spec dependency must identify the receiving specification and its responsibility.
+- An external dependency must identify the external actor/system and what evidence is expected from it.
+
+Specify which Task 17 status transitions are justified by which evidence.
+
+## Deliverables
+
+Create a proposed plan for the following artifacts (do not create or edit them in Plan Mode):
+
+1. `docs/audits/2026-10-31-core-001-task-18/README.md`
+   - Purpose, scope, methodology, authoritative inputs, and summary.
+
+2. `docs/audits/2026-10-31-core-001-task-18/disposition-matrix.md`
+   - One row per Task 17 non-PASS item.
+   - Current status, category, rationale, action, priority, dependencies, closure evidence.
+
+3. `docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md`
+   - Ordered tasks, dependency graph, milestones, parallel work, critical path.
+
+4. `docs/audits/2026-10-31-core-001-task-18/decision-register.md`
+   - Normative questions requiring explicit decisions.
+   - Existing BLOCKED ambiguities.
+   - Proposed decision owner/scope and required evidence.
+   - No decisions made on behalf of the project.
+
+## Constraints
+
+- English documentation.
+- Do not modify source code, tests, normative specification, implementation documentation, or Task 17 audit artifacts.
+- Do not run commands that modify the repository.
+- Read-only inspection and deterministic probes are allowed.
+- Do not create commits, branches, PRs, or GitHub comments.
+- Do not implement any remediation.
+- Do not change Task 17 statuses as part of this task.
+- Do not claim that a gap is resolved merely because a plan exists.
+
+## Expected Plan Mode output
+
+Before proposing the four artifacts:
+
+1. Verify the repository state and identify the exact Task 17 audit revision being used.
+2. Enumerate the actual non-PASS items and reconcile the counts.
+3. Explain any inconsistencies, missing traceability, or unsupported audit claims.
+4. Present the proposed task decomposition and dependencies.
+5. Present the proposed artifact structures.
+6. List all questions that require user/project-owner decisions.
+
+End with a clear list of:
+- Work that can proceed without normative changes.
+- Work blocked on explicit normative decisions.
+- Work delegated to other specifications.
+- Work delegated to external systems.
+- Items that should remain intentional limitations for now.
+
+**Stop after the plan. Wait for approval before Build Mode.**
+
+---
+
+Revise the Task 18 Plan Mode proposal based on the following independent review.
+
+Do not implement anything. Do not modify repository files. Return an updated plan only.
+
+### Required corrections
+
+**1. Reassess N-019 and N-084 disposition**
+
+Both items are currently classified as IMPLEMENTATION_GAP, while their proposed actions first require an ownership/boundary decision.
+
+Do not assume an implementation defect before establishing the normative responsibility.
+
+Reassess whether their primary category should be UNRESOLVED or SPECIFICATION_DECISION until D-02 and D-06 are resolved.
+
+Define explicit conditional outcomes:
+- If the normative requirement assigns responsibility to CORE-001, create an implementation/test task.
+- If responsibility belongs to the caller, document the contract and test the relevant boundary.
+- If the normative requirement does not establish the responsibility, retain the item as unresolved or propose a separate specification decision.
+
+**2. Reclassify N-128**
+
+N-128 is currently BLOCKED and associated with AMBIG-A-9, but its primary disposition is EXTERNAL_DEPENDENCY.
+
+Reassess it as:
+- Primary: SPECIFICATION_DECISION.
+- Secondary: EXTERNAL_DEPENDENCY.
+
+Separate the normative definition of trusted-time requirements from external mechanism ownership and integration.
+
+Do not delegate an undefined normative responsibility to an external system.
+
+**3. Separate C-1 and C-2 remediation**
+
+C-1 is NOT COVERED; C-2 is BLOCKED.
+
+Do not assume that Assessment emission implementation automatically closes both.
+
+For each case:
+- Identify the exact blocked or uncovered assertion.
+- Identify its normative prerequisite.
+- Distinguish graph-level evidence from assessment-level evidence.
+- Define independent closure criteria.
+
+T18-02 must not promise C-2 PASS unless its normative blocker is independently resolved and approved.
+
+**4. Verify D-03 / D-07 ambiguity references**
+
+D-03 references AMBIG-A-9 for signed_at trust.
+D-07 references AMBIG-A-9 for trusted-time mechanism.
+
+Inspect the exact normative source and Task 17 ambiguity register.
+
+Do not reuse one ambiguity ID for distinct questions without explicit justification.
+
+If signed_at trust is a separate question, give it a distinct Task 18 decision ID and explain its normative basis. Do not invent a new Task 17 ambiguity ID.
+
+**5. Split D-01 into two questions**
+
+Separate:
+- Whether CORE-001 normatively requires an Assessment emission mechanism.
+- Which implementation boundary may own that mechanism (Core API or adapter).
+
+Do not assume that Core and adapter are interchangeable until the specification supports both options.
+
+**6. Preserve independent readiness closure**
+
+N-168 must not automatically become PASS when N-138/N-143 are implemented.
+
+Define its own evidence and acceptance criteria, even if it depends on those implementation tasks.
+
+**7. Clarify specification-change constraints**
+
+Task 18 itself remains planning-only and must not modify CORE-001.
+
+However, if a normative decision requires a specification change, the roadmap must permit a separate, explicitly approved specification-change task before dependent implementation.
+
+Do not turn the current Task 18 restriction into a permanent prohibition on normative evolution.
+
+**8. Rename decision IDs**
+
+Use `T18-DEC-01` through `T18-DEC-12` (or another unambiguous namespace), avoiding visual collisions with existing D-1 / D-2 conformance case identifiers.
+
+Update all references consistently.
+
+### Additional requirements
+
+- Reconcile all 23 non-PASS items again.
+- Preserve the Task 17 statuses; do not rewrite historical audit results.
+- Preserve the distinction between implementation defects, missing evidence, normative ambiguity, cross-spec responsibility, and external responsibility.
+- Keep all conditional tasks explicitly conditional.
+- Do not create implementation tasks where the normative requirement is not yet clear.
+- Do not claim that a proposed decision has already been approved.
+- Do not modify any repository files.
+
+### Expected response
+
+Return:
+1. Corrected disposition matrix summary.
+2. Corrected decision register.
+3. Corrected task dependency graph.
+4. Revised critical path and priorities.
+5. Remaining questions requiring project-owner approval.
+6. Explicit list of tasks that can proceed without normative changes.
+
+Stop after presenting the revised plan. Wait for approval.
+
+---
+
+The revised Task 18 plan is approved in principle. Make the following final corrections in Plan Mode only. Do not modify repository files or implement anything.
+
+### 1. Clarify N-143 versus C-2
+
+Inspect the exact Task 17 conformance assertions and normative sources.
+
+Establish whether N-143 / `CASE-C-2.a2` can be independently evidenced while `CASE-C-2.a3` remains blocked by CORE-003 grant suppression.
+
+If so, explicitly distinguish:
+- N-143 requirement disposition;
+- individual assertion status;
+- overall C-2 case status.
+
+Do not imply that implementing `CYCLE_DETECTED` closes C-2.
+Do not introduce grant suppression into CORE-001.
+
+### 2. Refine N-168 readiness semantics
+
+The current criterion says C-1 PASS and C-2 PASS or approved BLOCKED disposition.
+
+Do not allow an approved BLOCKED disposition to automatically imply readiness.
+
+Define separate Task 18 reporting-only readiness outcomes:
+- READY;
+- CONDITIONALLY_READY;
+- NOT_READY.
+
+These are audit/reporting labels, not new CORE-001 normative statuses.
+
+Specify objective criteria for each outcome. In particular, CONDITIONALLY_READY must enumerate accepted limitations, unresolved dependencies, and their impact.
+
+### 3. Clarify N-084 caller responsibility
+
+If T18-DEC-05 assigns digest verification to callers, do not describe this merely as an intentional limitation.
+
+Require:
+- explicit caller responsibility;
+- documented verification contract;
+- evidence that the caller boundary actually enforces the required comparison;
+- negative mismatch evidence.
+
+Do not close N-084 based on documentation alone if the normative requirement requires actual verification.
+
+### 4. Separate priority from risk scope
+
+Add a `risk_scope` dimension to the disposition matrix and task summaries.
+
+Suggested values:
+- CORE-001_RUNTIME
+- AUTHORITY_BOUNDARY
+- CROSS_SPEC
+- EXTERNAL_READINESS
+
+Priority P0–P3 must continue to describe remediation urgency, not risk severity.
+
+Explicitly review N-079 and N-145: low implementation priority must not obscure their authority-boundary significance.
+
+### 5. Final consistency check
+
+Reconcile:
+- all 23 non-PASS items;
+- category counts;
+- all T18-DEC references;
+- task prerequisites;
+- Mermaid dependency graph;
+- critical path;
+- readiness closure criteria.
+
+Preserve Task 17 unchanged.
+
+Return the final plan only. No file modifications, no implementation, no commits, no PRs.
+
+Wait for approval before Build Mode.
+
+---
+
+The final plan is approved in principle, but please make one final Plan Mode revision before Build Mode.
+
+Preserve the current structure, all 23 dispositions, all 14 decision IDs, and all Task 17 statuses. Do not edit repository files.
+
+Required corrections:
+
+1. **Adapter ownership path:** T18-01 allows either CORE-001 or adapter ownership, but T18-13 currently depends on T18-02A/B, which only cover CORE-001 implementation. Define an explicit alternative adapter-evidence path. Make T18-13 depend on the resulting Assessment Emission Boundary Evidence, regardless of which boundary owns it. Also define the outcome if DEC-01 concludes that CORE-001 does not normatively require Assessment emission.
+
+2. **Specification change boundary:** Clarify that T18-06, T18-09, and all other decision packages may record decisions and prepare proposals, but cannot modify `docs/CORE-001.md`. Any normative amendment must go through separately approved T18-SPEC-01.
+
+3. **Priority consistency:** Reconcile the P2/P3 classification of N-020/DEC-08 and N-084/T18-05. Explicitly distinguish task priority from requirement priority if they are allowed to differ.
+
+4. **N-169 erratum:** Clarify that any N-169 clarification is recorded in a separate Task 18 reconciliation artifact. Task 17 audit files and their historical statuses must remain untouched.
+
+5. **Recheck the dependency graph and critical path** after these changes. Ensure every allowed DEC-01/02 outcome has a feasible path to evidence and readiness evaluation.
+
+Return the complete revised plan, not just a diff. Keep all decisions OPEN. No repository edits, commits, branches, PRs, or Build Mode actions. Await project-owner approval.
+
+---
+
+Task 18 final plan is APPROVED.
+
+Proceed to Build Mode with the five planned documentation artifacts only:
+
+- `docs/audits/2026-10-31-core-001-task-18/README.md`
+- `disposition-matrix.md`
+- `remediation-roadmap.md`
+- `decision-register.md`
+- `reconciliation-notes.md`
+
+Constraints:
+
+1. Do not modify `docs/CORE-001.md`, Task 17 audit files, source code, tests, or configuration.
+2. Preserve all Task 17 statuses and historical findings exactly.
+3. Keep all T18-DEC-01…T18-DEC-14 decisions OPEN. Do not infer or approve decisions.
+4. Preserve all three DEC-01/02 outcomes: CORE-001 ownership, adapter ownership, and no normative emission requirement.
+5. Preserve AEBE as evidence from the actual owning boundary, never a hand-constructed test literal.
+6. Keep N-143 / CASE-C-2.a2 independent from CASE-C-2.a3 and overall C-2 closure.
+7. Keep N-168 readiness criteria independent; no automatic PASS or readiness from accepted BLOCKED status.
+8. Record N-169 clarification only in the separate Task 18 reconciliation artifact.
+9. Do not implement remediation tasks, create branches, commits, or PRs.
+
+Before finishing, validate that all 23 disposition items are present exactly once, all 14 decisions are OPEN, all task/dependency references resolve, category and risk-scope counts reconcile, and the five documents are mutually consistent.
+
+Return the changed-file list, validation results, and any unresolved inconsistencies. Stop after documentation delivery and await further approval.
+
+---
+
+делаем PR
