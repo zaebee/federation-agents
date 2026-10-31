@@ -1,0 +1,610 @@
+мержим
+
+---
+
+# Task 13 — Credential Semantics: Usage, Revocation & Temporal Trust (D-3 / D-4)
+
+## Context
+
+Implement Task 13 from the approved implementation plan:
+
+`docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md` — Rev E, UIA-CORE-001 Rev 0.3.3.
+
+Normative source: `docs/CORE-001.md`, Rev 0.3.3.
+
+Task 12 is merged. Property-based tests, traversal invariance and the immediate-closure oracle are already in place.
+
+Before implementation, inspect the current source and tests. In particular:
+
+- `src/core/temporal.ts`
+- `src/core/entities.ts`
+- `src/core/errors.ts`
+- `src/core/ownership.ts`
+- `src/core/index.ts`
+- `src/index.ts`
+- existing unit and conformance fixtures
+- §4.1–4.4, §10 and D-3/D-4 in `docs/CORE-001.md`
+- Task 13 and Global Constraints in the approved Rev E plan
+
+Do not assume the plan's API names or proposed module boundaries are already implemented. Reconcile them with the actual source.
+
+## Goal
+
+Implement credential usage and historical signature evaluation with explicit separation between:
+
+1. Credential usage authorization.
+2. Cryptographic verification result.
+3. Historical signature validity.
+4. Future authorization eligibility.
+5. Revocation reason and its policy implications.
+6. Trust in the timestamps used for retrospective compromise evaluation.
+
+These are distinct dimensions. Do not collapse them into a single boolean or a generic `valid` flag.
+
+Create:
+
+- `src/core/credential.ts`
+- `tests/unit/credential.test.ts`
+- extend `tests/conformance/d.test.ts` with D-3 and D-4
+
+Update public exports in the appropriate barrels.
+
+No runtime dependencies. Core remains pure TypeScript and runtime-independent.
+
+---
+
+## 1. Credential usage
+
+Implement `evaluateCredentialUsage`.
+
+Credential usage is restricted to the usages declared in `CredentialDescriptor.usage`:
+
+- `AUTHENTICATION`
+- `SIGNING`
+- `ENCRYPTION`
+
+Required behavior:
+
+- A declared usage permits evaluation to proceed.
+- A usage not declared by the credential returns `USAGE_DENIED`.
+- An unsupported/undeclared enum value returns `USAGE_UNSUPPORTED`.
+- Do not silently coerce usage values.
+- Do not infer additional permissions from participant identity, lineage, credential issuer or other metadata.
+
+Usage permission is not proof that a signature is valid and does not create an authority grant.
+
+Use discriminated unions for semantic outcomes.
+
+## 2. SignatureVerifier
+
+Provide an injectable `SignatureVerifier` interface and a test double.
+
+The verifier must distinguish:
+
+- `VERIFIED`
+- `INVALID`
+- `CRYPTO_UNAVAILABLE`
+- `CRYPTO_UNSUPPORTED`
+
+These outcomes must remain distinct.
+
+Do not implement cryptography or introduce a concrete crypto dependency in this task. The interface is a replaceable mechanism boundary.
+
+A crypto failure must never be represented as a successful verification or silently converted into a normative historical result.
+
+## 3. Revocation records and reason semantics
+
+Implement the minimum typed, validated representation needed for §4.4.
+
+The normative `CredentialRevocationRecord` fields are:
+
+- `credential_id`
+- `revoked_by_domain`
+- `revoked_at`
+- `reason`
+- optional `compromise_effective_at`
+- optional `compromise_time_basis`
+- optional `compromise_time_evidence_refs`
+- `evidence_refs`
+
+Supported reasons:
+
+- `ROTATION`
+- `KEY_LOST`
+- `SUSPECTED_COMPROMISE`
+- `CONFIRMED_COMPROMISE`
+- `ADMINISTRATIVE`
+
+Use owned, deeply frozen records. Follow existing validation and ownership conventions. Do not mutate caller input.
+
+Implement the reason matrix from §4.4.1:
+
+### ROTATION
+
+- Planned key rotation.
+- Past signatures may remain historically `VALID`, subject to temporal and cryptographic conditions.
+- `future_authorizable` may be `POLICY_DEPENDENT`.
+- Do not treat rotation as retrospective compromise.
+
+### KEY_LOST
+
+- Return a distinct `KEY_LOST_POLICY_REQUIRED` outcome.
+- Never automatically pass or fail historical signatures.
+- Do not collapse this into `INVALID` or `CONTESTED_COMPROMISED`.
+
+### SUSPECTED_COMPROMISE
+
+- Return `SUSPECTED_COMPROMISE_FLAGGED`.
+- Mark dependent assessments for reassessment as appropriate to the result model.
+- Suspicion is not proof of compromise.
+- Do not automatically invalidate historical signatures.
+
+### CONFIRMED_COMPROMISE
+
+- Apply the trust-gated rules in section 4 below.
+- Presence of `compromise_effective_at` alone is not sufficient.
+- If the evidence/time gate is not satisfied, return `CONTESTED_COMPROMISED`.
+
+### ADMINISTRATIVE
+
+- Administrative retirement alone has no compromise implication.
+- Do not retroactively invalidate historical signatures.
+
+Keep historical validity and future authorization eligibility as separate result fields.
+
+Do not introduce a universal policy or invent automatic future-authorization semantics where the specification leaves room for local policy.
+
+## 4. Temporal trust: four outcomes, exact subject binding
+
+This is the central requirement of Task 13.
+
+`src/core/temporal.ts` currently defines the input contracts:
+
+- `AssessedTrustResult`
+- `TemporalTrustInput`
+- `TemporalContext`
+
+Implement the trust derivation helper (planned name: `trustOutcome`) using Global Constraint 10.
+
+The helper must evaluate trust using the composite key:
+
+`(subject_ref, field)`
+
+It must also verify the exact declared timestamp value.
+
+The four outcomes are:
+
+| Input | Required outcome |
+|---|---|
+| `ASSESSED`, matching binding, `trusted: true` | `TRUSTED` |
+| `ASSESSED`, matching binding, `trusted: false` | `UNTRUSTED` |
+| `NOT_ASSESSED` | `UNASSESSED` |
+| `UNAVAILABLE` | `TRUST_ASSESSMENT_UNAVAILABLE` |
+
+Additionally:
+
+- An `ASSESSED` input with mismatched `field`, `subject_ref` or `timestamp_value` MUST produce `TRUST_ASSESSMENT_UNAVAILABLE`.
+- A missing/mismatched assessment must never silently become `TRUSTED`.
+- `UNTRUSTED` must never collapse into `UNASSESSED`.
+- `UNAVAILABLE` must never collapse into `UNASSESSED`.
+- Timestamp presence is not evidence of timestamp trust.
+- Do not introduce a `now` parameter.
+- Do not infer timestamp trust from the timestamp's numeric value.
+
+Validate `TemporalFieldRef` at every relevant boundary using the existing Rev E rule:
+
+`/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/`
+
+The five standard references remain reserved. Extension references such as `compromise_effective_at` must be supported without redefining standard semantics.
+
+Add tests for malformed, empty and reserved/colliding field references as applicable to the existing API.
+
+### Subject-binding regression test
+
+Two credentials may have the same `signed_at` value but different trust results.
+
+Example:
+
+- Credential A: `signed_at = 100`, trust input `ASSESSED/trusted: true`.
+- Credential B: `signed_at = 100`, trust input `ASSESSED/trusted: false`.
+
+Expected:
+
+- A → `TRUSTED`.
+- B → `UNTRUSTED`.
+
+No trust result may be reused across subjects merely because timestamps are equal.
+
+Also test `NOT_ASSESSED` and `UNAVAILABLE` for the second subject.
+
+For D-3, `signed_at` trust is bound to the credential/version subject. `compromise_effective_at` trust is independently bound to the revocation record subject (record ID or the explicitly documented credential+revocation composite).
+
+Never bind both timestamps to one generic subject.
+
+## 5. Historical signature evaluation
+
+Implement:
+
+- `evaluateHistoricalSignature`
+- `SignatureTemporalPolicy`
+
+Use the existing types and naming conventions where possible.
+
+The evaluation must keep distinct:
+
+- verifier result;
+- credential usage result;
+- revocation reason;
+- temporal trust outcome(s);
+- historical validity;
+- future authorization eligibility.
+
+The temporal policy is injected/configurable. Do not invent a global universal policy.
+
+### D-3 — retrospective confirmed compromise
+
+Input:
+
+- Signature `signed_at = 100`.
+- Revocation published at `T = 150`.
+- `reason = CONFIRMED_COMPROMISE`.
+- `compromise_effective_at = 80`.
+- Evidence gate satisfied.
+- Signature claim: `PARENT_SIGNATURE_MATCH`.
+
+Only when BOTH conditions hold:
+
+1. `signed_at` trust outcome is `TRUSTED`;
+2. `compromise_effective_at` trust outcome is `TRUSTED`;
+
+and the local temporal policy accepts the evidence/time basis:
+
+- historical result is `INVALID`;
+- claim status is `CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE`.
+
+When either timestamp trust outcome is any of:
+
+- `UNTRUSTED`
+- `UNASSESSED`
+- `TRUST_ASSESSMENT_UNAVAILABLE`
+
+the evaluation MUST preserve that uncertainty in its corresponding `TEMPORAL_TRUST_*` result.
+
+It MUST NOT produce `INVALID` merely because `100 >= 80`.
+
+The numerical comparison alone is not a historical conclusion.
+
+Assert that neither the original descriptor nor the revocation record is mutated.
+
+### D-4 — unknown compromise time
+
+Input:
+
+- `reason = CONFIRMED_COMPROMISE`.
+- `compromise_effective_at` absent.
+- Historical signature created before `revoked_at`.
+
+Expected:
+
+- `CONTESTED_COMPROMISED`.
+- The signature cannot be treated as sufficient evidence for continuity or future authorization without further normative assessment.
+- The result MUST NOT use D-3's `CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE`.
+- The implementation MUST NOT infer `compromise_effective_at = revoked_at`.
+
+## 6. Evidence gate
+
+A present `compromise_effective_at` is an assertion, not proof.
+
+If the evidence gate or local policy does not accept the asserted compromise time, return `CONTESTED_COMPROMISED`.
+
+Do not silently accept the timestamp merely because it exists.
+
+Keep evidence references and time-basis data intact. Do not invent an evidence verification mechanism; use the injected policy boundary and explicit input state.
+
+## 7. Ownership and forbidden side effects
+
+Follow Global Constraint 5.
+
+Required tests:
+
+- Mutating caller-supplied credential/revocation records after validation/evaluation does not change results.
+- Evaluation does not mutate descriptors.
+- Evaluation does not mutate revocation records.
+- Revocation does not delete `CredentialDescriptor`.
+- Revocation does not delete or rewrite `IdentityVersionDescriptor`.
+- Historical validity and future authorization remain separately observable.
+- Historical records are not rewritten as a side effect of evaluation.
+
+No automatic revocation propagation, no ledger lifecycle, no Local Acceptance implementation.
+
+## 8. Tests
+
+Create `tests/unit/credential.test.ts`.
+
+Extend `tests/conformance/d.test.ts` with D-3 and D-4.
+
+Cover at least:
+
+- all declared credential usages;
+- usage denial;
+- unsupported usage;
+- all five revocation reasons;
+- verifier's four distinct outcomes;
+- all four temporal trust outcomes;
+- field/subject/value mismatch;
+- identical timestamp across different subjects;
+- D-3 with both trust inputs `TRUSTED`;
+- D-3 with each trust input independently `UNTRUSTED`;
+- D-3 with each trust input independently `UNASSESSED`;
+- D-3 with each trust input independently `TRUST_ASSESSMENT_UNAVAILABLE`;
+- D-3 evidence gate unsatisfied;
+- D-4 absent `compromise_effective_at`;
+- descriptor/revocation immutability;
+- separation of historical validity and future authorization.
+
+The tests must assert exact discriminant/status/code values, not merely truthiness.
+
+Where the specification leaves policy-dependent behavior open, test the injected policy boundary rather than inventing a default normative answer.
+
+## 9. Scope boundaries
+
+Do NOT implement:
+
+- RuntimeInstance lifecycle (Task 14).
+- Local Acceptance, ruling storage or lifecycle ledger (Task 15).
+- CORE-002 event format or persistent revocation ledger.
+- Cryptographic implementation.
+- Trusted-time assessment mechanism itself; only consume externally assessed trust inputs.
+- Authority grants or capability issuance.
+- Automatic revocation semantics beyond the explicit §4.4 rules.
+- Any recursive merge closure or traversal changes.
+
+Do not change `docs/CORE-001.md`.
+
+Do not resolve A-4b, A-5, A-8, A-9 or A-11.
+
+In particular, A-9 remains BLOCKED: Task 13 consumes external trust assessments but does not implement the mechanism that produces them.
+
+Identity lineage must not inherit credential authority or capabilities.
+
+## 10. Implementation workflow
+
+1. Inspect existing types, constructors, temporal contracts and tests.
+2. Write unit tests and D-3/D-4 conformance tests first.
+3. Run the focused tests and confirm they fail for the expected missing behavior.
+4. Implement the minimum production code.
+5. Export only the required public API.
+6. Run the full validation suite.
+7. Review the diff for forbidden side effects and scope creep.
+
+If a genuine defect in existing production code is discovered, isolate its correction in a separate commit from Task 13 implementation.
+
+## 11. Validation
+
+Run:
+
+- `bun test`
+- `bun run typecheck`
+- `bun run lint`
+- `bun run format:check`
+- `bun run build`
+- existing duplication check (`jscpd`)
+
+Report exact results, including test count, assertions, todo count, and duplication ratio.
+
+## 12. Expected commit
+
+`feat(core): credential usage, revocation and subject-bound temporal trust (D-3/D-4)`
+
+## 13. Final report
+
+Include:
+
+1. Files changed.
+2. Public API added and exported.
+3. Credential usage semantics.
+4. Revocation reason matrix.
+5. SignatureVerifier outcomes.
+6. Temporal trust mapping and subject-binding behavior.
+7. D-3 and D-4 conformance results.
+8. Immutability and forbidden-side-effect assertions.
+9. Exact validation results.
+10. Commit SHA.
+11. Deviations and unresolved ambiguities.
+
+Explicitly confirm:
+
+- `docs/CORE-001.md` unchanged.
+- No runtime-specific imports added to `src/core/`.
+- No grant-producing API added.
+- No descriptor or historical record mutation.
+- A-9 remains BLOCKED.
+- Tasks 14 and 15 remain untouched.
+
+Do not claim full conformance for any behavior dependent on the unresolved external trusted-time mechanism.
+
+---
+
+Я бы подтвердил направление, но не передавал бы план build-агенту без трёх уточнений. В предложении правильная архитектура: отдельные измерения, subject-bound trust, инъецируемая политика, отсутствие универсального вывода о будущей авторизуемости. Но есть несколько важных нюансов.
+
+## 1. Subject refs — да, но предложенные значения нужно уточнить
+
+Принцип одобряю
+
+`credential:<credential_id>` лучше, чем общий субъект вроде `signed_at`, потому что исключает повторное использование trust между разными credentials с одинаковым timestamp.
+
+Но здесь есть проблема: §4.2 требует привязки Credential к IdentityVersion/RuntimeInstance. Если использовать только `credential:<credential_id>`, эта связь не отражена в subject reference.
+
+Я бы предложил следующую модель:
+
+- `signed_at` — субъект должен идентифицировать конкретную связь Credential с IdentityVersion или RuntimeInstance.
+- `compromise_effective_at` — субъект должен идентифицировать конкретную запись отзыва.
+- Override-параметры допустимы для интеграций, но не должны позволять случайно переиспользовать trust другого субъекта.
+
+Для отзыва `revocation:<credential_id>:<revoked_at>` допустим как минимальный механизм, но он не гарантирует уникальность, если возможны две записи с одинаковыми значениями. Лучше предусмотреть возможность content-derived reference из канонического содержимого записи отзыва — без добавления нормативного поля `revocation_id`.
+
+При этом ни один из этих механизмов не должен менять нормативную модель или добавлять поля в descriptor.
+
+Мой вердикт: одобрить helpers и overrides, но потребовать документировать, как они сохраняют связь с IdentityVersion/RuntimeInstance. Если эту связь нельзя восстановить из существующих данных, результат должен быть `TRUST_ASSESSMENT_UNAVAILABLE`, а не выдуманный subject.
+
+## 2. Приоритет статусов — порядок верный, но вычисления нужно разделить
+
+Одобряю с изменением
+
+Предложенный порядок:
+
+1. Usage.
+2. Crypto.
+3. Revocation reason.
+4. Temporal trust.
+
+Хорош как порядок определения основного `historical` результата. Но я бы не делал его порядком досрочного выхода из функции.
+
+Почему?
+
+Представим:
+
+- credential имеет `SUSPECTED_COMPROMISE`;
+- verifier возвращает `INVALID`;
+- usage запрещён.
+
+Если функция завершится на первом условии, мы потеряем информацию о компрометации и необходимости reassessment.
+
+А это противоречит заявленной цели API — сохранять независимые измерения.
+
+Предлагаю два этапа:
+
+Этап A — независимое вычисление измерений:
+
+- `usage`;
+- `verification`;
+- `revocation_reason`;
+- применимые temporal trust outcomes;
+- `future_authorizable` через обязательную политику.
+
+Этап B — выбор основного historical результата:
+
+Установить детерминированный приоритет:
+
+1. `USAGE_DENIED` / `USAGE_UNSUPPORTED`;
+2. `INVALID_SIGNATURE` / `CRYPTO_UNAVAILABLE` / `CRYPTO_UNSUPPORTED`;
+3. специальные результаты по reason;
+4. `TEMPORAL_TRUST_*`;
+5. `VALID` / `INVALID` по D-3.
+
+При этом `reassessment_required` и `revocation_reason` вычисляются независимо от выбранного основного результата.
+
+Отдельный нюанс: `future_authorizable` не должен вычисляться из `historical` как производное значение. Политика получает необходимые входные измерения и возвращает самостоятельный результат. Это сохраняет различие между исторической валидностью и будущей возможностью использования.
+
+## 3. Colliding field refs — не вводить новое правило
+
+Одобряю
+
+Согласен с твоим предложением.
+
+Если `validateTemporalFieldRef` сейчас разрешает `signed_at` как extension, а стандартный ref — `SIGNED_AT`, то это два разных идентификатора при точном сравнении.
+
+Не нужно вводить case-insensitive запрет коллизий: это новое нормативное правило, которого нет в Rev E.
+
+Но есть важное требование: `trustOutcome` должен сравнивать `field` точно, без нормализации регистра, преобразования алиасов или попытки автоматически сопоставить extension со стандартным ref.
+
+И стандартные refs должны использоваться в стандартных сценариях. Extension — только когда вызывающая сторона действительно объявляет отдельное расширение.
+
+## Ещё два замечания к API
+
+Они не меняют ответы на три вопроса, но я бы исправил их до реализации.
+
+1\. `futureAuthorization()` лучше переименовать в `evaluateFutureAuthorization()`.
+
+Слово `authorization` здесь опасно: результат не должен восприниматься как Authority Grant или универсальное разрешение на выполнение действия. Это только оценка eligibility по переданной политике.
+
+И обязательно: отсутствие policy — ошибка конфигурации/неполная оценка, а не скрытая политика по умолчанию.
+
+2\. `HistoricalValidity` не должен смешивать статус и claim code.
+
+Для D-3 `INVALID` и `CLAIM_FAILED_KEY_COMPROMISED_PRIOR_TO_SIGNATURE` — связанные, но разные вещи. Лучше оставить claim code отдельным полем, как ты уже предложил, и закрепить инвариант:
+
+- `historical = INVALID` по D-3 → claim code обязателен;
+- никакой другой сценарий не может самостоятельно выдать этот claim code;
+- `CONTESTED_COMPROMISED` не равен `INVALID`.
+
+Также `TEMPORAL_TRUST_*` должен сохранять конкретный `field`, по которому trust не прошёл. Не своди два независимых temporal результата к одному общему failure.
+
+## Итоговое решение
+
+| Вопрос               | Решение                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| Subject refs         | Одобрить с уточнением связи с IdentityVersion/RuntimeInstance и уникальности revocation ref |
+| Порядок статусов     | Одобрить как приоритет итогового результата, но вычислять измерения независимо              |
+| Colliding field refs | Не вводить case-insensitive запрет; точное сравнение                                        |
+
+Есть ещё один нюанс с источниками: найденная у меня в Library копия implementation plan — Rev B, а не Rev E. В ней credentials находятся в Task 12, поэтому я не буду выдавать её за актуальный план. Для реализации нужно использовать именно утверждённую Rev E.
+
+Моя рекомендация: можно переходить к build-агенту после этих поправок. Особенно важно не потерять независимость `historical` и `future_authorizable`, не превратить temporal trust в проверку наличия timestamp и не вывести из компрометации автоматическое глобальное аннулирование credential.
+
+Это как раз тот случай, где хороший API должен не скрывать неопределённость, а сохранять её в результате.&#x20;
+
+---
+
+Отлично. Финальную архитектуру Task 13 одобряю. Два этапа вычисления, subject-bound temporal trust и отдельный claim code устраняют основные риски предыдущей версии.
+
+Перед передачей build-агенту я бы зафиксировал ещё четыре небольших технических условия. Это не новые нормативные правила, а защита согласованной модели от ошибок реализации.
+
+### 1. Content-derived revocation subject
+
+`revocation:sha256:<canonicalSha256(record)>` — хорошее решение.
+
+Но важно:
+
+- Хешировать полный валидированный `CredentialRevocationRecord`, включая optional-поля, если они присутствуют.
+- Не хешировать результат после удаления неизвестных полей: неизвестные поля должны отклоняться валидатором.
+- Использовать существующую канонизацию и SHA-256 без отдельной реализации.
+- Не путать этот hash с descriptor hash: запись отзыва не входит в хеш IdentityVersionDescriptor.
+
+### 2. Temporal trust: уточнить результат для UNAVAILABLE
+
+В `HistoricalValidity` сейчас перечислены `UNTRUSTED` и `UNASSESSED`, но отсутствует:
+
+`TEMPORAL_TRUST_ASSESSMENT_UNAVAILABLE`.
+
+Его необходимо добавить с тем же `fields: readonly TemporalFieldRef[]`.
+
+Иначе `trustOutcome` сможет вернуть `TRUST_ASSESSMENT_UNAVAILABLE`, но итоговая оценка не сможет корректно представить этот результат.
+
+### 3. Policy failure должна прерывать оценку целиком
+
+Если `acceptCompromiseTime` или `evaluateFutureAuthorization` отсутствует либо завершается ошибкой, функция должна вернуть mechanism failure через `Result`.
+
+Не следует возвращать частичный `HistoricalSignatureResult` с `future_authorizable`, установленным в какое-либо значение по умолчанию.
+
+Это особенно важно, поскольку политика обязательна и её отсутствие не эквивалентно `POLICY_DEPENDENT`.
+
+### 4. Не смешивать crypto failure с исторической недействительностью
+
+`CRYPTO_UNAVAILABLE` означает, что verifier не смог выполнить проверку, а не то, что подпись недействительна.
+
+Аналогично `CRYPTO_UNSUPPORTED` не является `INVALID_SIGNATURE`.
+
+Сохраняем эти различия и в unit-тестах, и в conformance D-3/D-4.
+
+## Итоговый статус
+
+APPROVED
+
+Task 13 — Ready for implementation
+
+| Область                        | Решение  |
+| ------------------------------ | -------- |
+| Subject binding                | Одобрено |
+| Content-derived revocation ref | Одобрено |
+| Два этапа вычисления           | Одобрено |
+| Historical / future separation | Одобрено |
+| Claim code isolation           | Одобрено |
+| Exact temporal matching        | Одобрено |
+| Normative scope                | Сохранён |
+
+Границы особенно важны: Task 13 не должен создавать Authority Grant, вводить автоматическое глобальное аннулирование credential, разрешать A-9 или менять нормативную спецификацию.
+
+После реализации я бы проверял не только happy path D-3/D-4, но и независимость измерений: например, `USAGE_DENIED` вместе с `SUSPECTED_COMPROMISE` и `CRYPTO_UNAVAILABLE`. Основной статус должен следовать приоритету, но `reassessment_required`, reason и verification не должны теряться.
+
+Можно переключать агента на implementation. После получения diff и результатов тестов проведём независимый review перед merge.
