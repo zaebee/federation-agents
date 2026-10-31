@@ -1,0 +1,45 @@
+{
+  "cli_version": "0.12.3-nightly.202610300619.cea1b3cee",
+  "checkpoint_id": "01M67TV53VPT5KR9XQ7ZX9K5KA",
+  "session_id": "ses_e7105d3e8ffeYfGlU43yND6dyG",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T01:58:18.03873237Z",
+  "branch": "docs/sync-task-8-status",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "README.md",
+    "docs/ARCHITECTURE.md",
+    "docs/ROADMAP.md",
+    "docs/THREAT-MODEL.md"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "c209d40ec817",
+  "checkpoint_transcript_start": 589,
+  "transcript_lines_at_start": 589,
+  "compact_transcript_start": 589,
+  "token_usage": {
+    "input_tokens": 12230,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 7148288,
+    "output_tokens": 4574,
+    "api_call_count": 12
+  },
+  "redaction": {
+    "replacements": 48,
+    "layers": {
+      "betterleaks": 6,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 4,
+      "credentialed_uri": 0,
+      "entropy": 38,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 75
+  }
+}
