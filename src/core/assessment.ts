@@ -86,6 +86,12 @@ export type AssuranceResult =
 
 const UNSATISFIED_NOTE = 'required-claim-not-verified; no-negative-finding-established' as const;
 
+function compareClaims(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 function appliesToEdge(assessment: DeepReadonly<ContinuityAssessment>, edge: EdgeRef): boolean {
   return (
     assessment.subject_version_id === edge.child &&
@@ -216,7 +222,7 @@ function collectContestedClaims(
     }
   }
 
-  return contested ? [...claims].sort() : undefined;
+  return contested ? [...claims].sort(compareClaims) : undefined;
 }
 
 /**
@@ -255,8 +261,8 @@ export function evaluateAssurance(
   }
 
   const disallowedClaims = new Set(requirement.disallowed_claims ?? []);
-  const missing = requirement.required_claims.filter((claim) => !verified.has(claim)).sort();
-  const disallowed = [...verified].filter((claim) => disallowedClaims.has(claim)).sort();
+  const missing = requirement.required_claims.filter((claim) => !verified.has(claim)).sort(compareClaims);
+  const disallowed = [...verified].filter((claim) => disallowedClaims.has(claim)).sort(compareClaims);
 
   if (missing.length > 0 || disallowed.length > 0) {
     return {
