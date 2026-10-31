@@ -295,6 +295,7 @@ describe('evaluateBinding orchestration', () => {
   });
 
   test('requires Policy and TemporalContext at compile time', () => {
+    expect(typeof evaluateBinding).toBe('function');
     void (() => {
       const state = chainState();
       // @ts-expect-error policy and ctx are required

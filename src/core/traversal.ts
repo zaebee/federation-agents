@@ -172,27 +172,21 @@ interface DiscoveryFrame {
   readonly visited: ReadonlySet<IdentityVersionID>;
 }
 
-/**
- * Phase 1: discovers all simple candidate-to-origin paths permitted by the
- * selected scope. Cycle-forming and unresolved parents are dead ends.
- */
-export function discoverPaths(
-  graph: LineageGraph,
+interface PrecheckResult {
+  readonly ok: true;
+}
+
+type CandidatePrecheck =
+  | PrecheckResult
+  | { readonly ok: false; readonly mismatch: true }
+  | { readonly ok: false; readonly mismatch: false; readonly error: MechanismFailure };
+
+function collectPaths(
+  adjacency: ReadonlyMap<IdentityVersionID, readonly LineageEdge[]>,
   scope: LineageTraversalScope,
   candidateID: IdentityVersionID,
   originID: IdentityVersionID,
-): Result<PathSet> {
-  if (!isTraversalScope(scope)) {
-    return pathMechanismFailure(`Unknown traversal scope: ${String(scope)}`);
-  }
-  if (candidateID === originID) {
-    return noPath(candidateID, originID);
-  }
-  if (!graph.nodes.includes(candidateID) || !graph.nodes.includes(originID)) {
-    return noPath(candidateID, originID);
-  }
-
-  const adjacency = adjacencyFor(graph, scope);
+): Path[] {
   const paths: Path[] = [];
   const stack: DiscoveryFrame[] = [
     {
@@ -234,6 +228,30 @@ export function discoverPaths(
     stack.push({ node: edge.parent, edges: [...frame.edges, edge], next: 0, visited });
   }
 
+  return paths;
+}
+
+/**
+ * Phase 1: discovers all simple candidate-to-origin paths permitted by the
+ * selected scope. Cycle-forming and unresolved parents are dead ends.
+ */
+export function discoverPaths(
+  graph: LineageGraph,
+  scope: LineageTraversalScope,
+  candidateID: IdentityVersionID,
+  originID: IdentityVersionID,
+): Result<PathSet> {
+  if (!isTraversalScope(scope)) {
+    return pathMechanismFailure(`Unknown traversal scope: ${String(scope)}`);
+  }
+  if (candidateID === originID) {
+    return noPath(candidateID, originID);
+  }
+  if (!graph.nodes.includes(candidateID) || !graph.nodes.includes(originID)) {
+    return noPath(candidateID, originID);
+  }
+
+  const paths = collectPaths(adjacencyFor(graph, scope), scope, candidateID, originID);
   if (paths.length === 0) {
     return noPath(candidateID, originID);
   }
@@ -353,6 +371,51 @@ function mismatchResult(): BindingResult {
  * Orchestrates §8.3 prechecks, path discovery and per-path validation.
  * Merge Closure Validation is deliberately absent until Task 10.
  */
+function precheckCandidate(
+  candidate: DeepReadonly<IdentityVersionDescriptor>,
+  binding: ConditionalVersionBinding,
+): CandidatePrecheck {
+  if (candidate.participant_id !== binding.target_participant_id) {
+    return { ok: false, mismatch: true };
+  }
+
+  const compiled = compileSelector(binding.selector_expression, candidate.version_scheme);
+  if (!compiled.ok) {
+    return { ok: false, mismatch: false, error: asMechanism(compiled.error) };
+  }
+  const label = validateVersionLabel(candidate.version_label, candidate.version_scheme);
+  if (!label.ok) {
+    return { ok: false, mismatch: false, error: asMechanism(label.error) };
+  }
+  if (!selectorMatches(compiled.value, label.value)) {
+    return { ok: false, mismatch: true };
+  }
+
+  return { ok: true };
+}
+
+function summarizePaths(accepted: readonly Path[], failed: readonly FailedPath[]): BindingResult {
+  if (accepted.length > 0) {
+    return deepFreeze({ eligible: true, acceptedPaths: accepted }) as BindingResult;
+  }
+  if (failed.length > 0 && failed.every((item) => item.outcome.status === 'CONTESTED')) {
+    return deepFreeze({
+      eligible: false,
+      kind: 'CONTESTED',
+      details: { perPath: failed },
+    }) as BindingResult;
+  }
+  return deepFreeze({
+    eligible: false,
+    code: 'ERR_ASSURANCE_PREDICATE_UNSATISFIED',
+    details: { perPath: failed },
+  }) as BindingResult;
+}
+
+/**
+ * Orchestrates §8.3 prechecks, path discovery and per-path validation.
+ * Merge Closure Validation is deliberately absent until Task 10.
+ */
 export function evaluateBinding(
   state: {
     graph: LineageGraph;
@@ -371,20 +434,9 @@ export function evaluateBinding(
     );
   }
 
-  if (candidate.participant_id !== binding.target_participant_id) {
-    return mismatchResult();
-  }
-
-  const compiled = compileSelector(binding.selector_expression, candidate.version_scheme);
-  if (!compiled.ok) {
-    return mechanismResult(asMechanism(compiled.error));
-  }
-  const label = validateVersionLabel(candidate.version_label, candidate.version_scheme);
-  if (!label.ok) {
-    return mechanismResult(asMechanism(label.error));
-  }
-  if (!selectorMatches(compiled.value, label.value)) {
-    return mismatchResult();
+  const precheck = precheckCandidate(candidate, binding);
+  if (!precheck.ok) {
+    return precheck.mismatch ? mismatchResult() : mechanismResult(precheck.error);
   }
 
   const discovered = discoverPaths(state.graph, binding.traversal_scope, candidateID, binding.origin_version_id);
@@ -410,21 +462,5 @@ export function evaluateBinding(
     }
   }
 
-  if (accepted.length > 0) {
-    return deepFreeze({ eligible: true, acceptedPaths: accepted }) as BindingResult;
-  }
-
-  if (failed.length > 0 && failed.every((item) => item.outcome.status === 'CONTESTED')) {
-    return deepFreeze({
-      eligible: false,
-      kind: 'CONTESTED',
-      details: { perPath: failed },
-    }) as BindingResult;
-  }
-
-  return deepFreeze({
-    eligible: false,
-    code: 'ERR_ASSURANCE_PREDICATE_UNSATISFIED',
-    details: { perPath: failed },
-  }) as BindingResult;
+  return summarizePaths(accepted, failed);
 }
