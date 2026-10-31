@@ -15,6 +15,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "bun test",
+    "check:lockfile": "bun scripts/check-lockfile.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.core.json",
     "format": "prettier --write .",
