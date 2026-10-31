@@ -852,7 +852,7 @@ function emitOrphanAssessment(
 - `assessmentIdFor` is called once per emitted group, in sorted relation order and sorted parent order. The adapter validates the returned ID as a non-empty string. It does not generate IDs.
 - The adapter calls `registerOrphanAssessments` once for the complete batch, including an empty batch. It stops before Core admission if the graph is not builder-issued, the child is absent, the callback throws, or an ID is invalid. A callback exception is reported as a mechanism failure that includes the original error message when available.
 - Even when no orphan candidate is emitted, the returned `registered` value is a Core-owned frozen copy, not the caller's mutable `existing` array. The emission object is frozen.
-- The returned `assessments` are the admitted records whose ids came from the candidate set, in the canonical (sorted) admitted order; `registered` is the complete frozen representation. They are selected by id, not by array position, because the registered representation is sorted.
+- The returned `assessments` are the admitted records whose ids came from the candidate set, ordered by the adapter's emission order (sorted relation and parent order); `registered` is the complete frozen representation, canonical (sorted by `assessment_id`). Selection is by id, not by array position, so `assessments` does not inherit the admitted sort.
 - `PARENT_UNRESOLVED` is declaration-scoped. Applicability of the Assessment to a resolved edge does not make that edge unresolved.
 - Callback side effects are outside Core atomicity and are not rolled back. Caller persistence occurs only after successful admission.
 
@@ -885,7 +885,7 @@ function emitCycleAssessments(request: CycleAssessmentRequest): Result<CycleAsse
 - One Assessment per affected edge: subject = child, relation = edge relation, `parent_version_ids = [parent]`, `verified_claims = []`, `unverified_claims = ['CYCLE_DETECTED']`, caller-provided provenance.
 - Emission is deterministic: edges are ordered by `(child, parent, relation)`. `assessmentIdFor` is called once per edge and must return a non-empty string; the adapter does not generate ids.
 - A structural self-loop is a one-node cyclic component but is not emitted: the Assessment contract rejects a subject as its own parent (§5.2 also rejects self-parents for descriptors). The sub-decision is open; the adapter does not silently relax the contract.
-- Calls `registerCycleAssessments` once for the complete batch, including an empty batch; stops before Core admission if the graph is not builder-issued or an id callback fails; selects emitted records by candidate id from the canonical representation; returns a frozen emission.
+- Calls `registerCycleAssessments` once for the complete batch, including an empty batch; stops before Core admission if the graph is not builder-issued or an id callback fails. Returns `assessments` in edge order (`(child, parent, relation)`) and `registered` in canonical `assessment_id` order; selection is by id because admission sorts, so the two orders are deliberately different.
 - The graph and the caller's `existing` array are not mutated. Callback side effects are outside Core atomicity; caller persistence occurs only after successful admission.
 
 ### 2.13 `core/traversal.ts`

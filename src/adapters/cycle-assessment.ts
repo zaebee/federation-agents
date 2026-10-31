@@ -120,11 +120,11 @@ export function emitCycleAssessments(request: CycleAssessmentRequest): Result<Cy
   }
 
   const candidates: unknown[] = [];
-  const candidateIds = new Set<AssessmentID>();
+  const emittedIds: AssessmentID[] = [];
   for (const edge of collectAffectedEdges(request.graph)) {
     const id = assessmentIdForEdge(request, edge);
     if (!id.ok) return id;
-    candidateIds.add(id.value);
+    emittedIds.push(id.value);
     candidates.push(buildCandidate(request, edge, id.value));
   }
 
@@ -133,5 +133,5 @@ export function emitCycleAssessments(request: CycleAssessmentRequest): Result<Cy
     return admitted;
   }
 
-  return { ok: true, value: freezeEmission(admitted.value, candidateIds) };
+  return { ok: true, value: freezeEmission(admitted.value, emittedIds) };
 }

@@ -45,13 +45,21 @@ export function readAssessmentId(callback: () => unknown, context: string): Resu
 
 /**
  * Selects the records emitted by this invocation from the canonical admitted
- * representation (selected by candidate id, not by array position) and freezes
- * the emission.
+ * representation, in the order the adapter emitted them (the admitted array is
+ * sorted by `assessment_id`, so selection by position or by filtering would
+ * leak that order), and freezes the emission. `registered` stays canonical.
  */
 export function freezeEmission(
   registered: readonly DeepReadonly<ContinuityAssessment>[],
-  candidateIds: ReadonlySet<AssessmentID>,
+  orderedIds: readonly AssessmentID[],
 ): AssessmentEmission {
-  const assessments = Object.freeze(registered.filter((assessment) => candidateIds.has(assessment.assessment_id)));
-  return Object.freeze({ assessments, registered });
+  const byId = new Map(registered.map((assessment) => [assessment.assessment_id, assessment] as const));
+  const selected: DeepReadonly<ContinuityAssessment>[] = [];
+  for (const id of orderedIds) {
+    const assessment = byId.get(id);
+    if (assessment !== undefined) {
+      selected.push(assessment);
+    }
+  }
+  return Object.freeze({ assessments: Object.freeze(selected), registered });
 }

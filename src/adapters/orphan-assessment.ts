@@ -91,14 +91,14 @@ export function emitOrphanAssessment(request: OrphanAssessmentRequest): Result<O
   }
 
   const candidates: unknown[] = [];
-  const candidateIds = new Set<AssessmentID>();
+  const emittedIds: AssessmentID[] = [];
   for (const group of collectRelationGroups(request.graph, request.child)) {
     if (!groupHasUnresolvedParent(group, request.graph)) {
       continue;
     }
     const id = assessmentIdForGroup(request, group);
     if (!id.ok) return id;
-    candidateIds.add(id.value);
+    emittedIds.push(id.value);
     candidates.push(buildCandidate(request, group, id.value));
   }
 
@@ -107,5 +107,5 @@ export function emitOrphanAssessment(request: OrphanAssessmentRequest): Result<O
     return admitted;
   }
 
-  return { ok: true, value: freezeEmission(admitted.value, candidateIds) };
+  return { ok: true, value: freezeEmission(admitted.value, emittedIds) };
 }

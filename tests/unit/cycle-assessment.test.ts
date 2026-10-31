@@ -83,6 +83,20 @@ describe('C-2 cycle assessment emission (T18-DEC-16 Option D)', () => {
     expect(plainGraph(graph).cycles).toEqual([['iv-a', 'iv-b']]);
   });
 
+  test('returns assessments in edge order even when assessment ids sort differently', () => {
+    const graph = cycleGraph();
+
+    const result = emit(graph, {
+      assessmentIdFor: (subject: string, _relation: LineageRelationType, parent: string) =>
+        assessmentId(`id-${subject === 'iv-a' ? 'z' : 'a'}-${parent}`),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.assessments.map((record) => String(record.subject_version_id))).toEqual(['iv-a', 'iv-b']);
+    expect(result.value.registered.map((record) => String(record.assessment_id))).toEqual(['id-a-iv-a', 'id-z-iv-b']);
+  });
+
   test('does not assess an acyclic edge whose endpoint belongs to a cycle', () => {
     const graph = cycleGraph();
 
