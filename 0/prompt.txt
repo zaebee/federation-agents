@@ -1,0 +1,353 @@
+мержим
+
+---
+
+# Task 7 — Lineage Graph: Delayed Parents and Cycle Detection
+
+**Branch:** `feat/task-7-lineage-graph`  
+**Commit:** `feat(core): lineage graph with delayed parents and cycle detection (C-series)`  
+**Normative source:** `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3, §§5, 11.1, 11.2  
+**Implementation plan:** `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`, Rev E
+
+## 1. Objective
+
+Extend the existing `src/core/lineage.ts` with lineage graph construction and validation.
+
+Task 6 implemented structural validation of individual descriptors:
+
+- per-relation cardinality;
+- `CONTINUATION` same-participant constraint when the parent exists;
+- self-parent rejection;
+- immutable entity construction.
+
+Task 7 adds graph-level behavior:
+
+1. Delayed parent resolution — a child descriptor may arrive before its parent.
+2. Cycle detection — the local lineage graph must be checked for cyclic relations.
+3. Deterministic graph analysis — results must not depend on registry insertion order.
+4. Preservation — graph analysis must never rewrite, delete, or normalize source declarations.
+
+This task implements only the semantics defined by CORE-001 Rev 0.3.3. Do not implement traversal, assurance, grants, or authority propagation.
+
+## 2. Normative requirements
+
+### 2.1 Delayed Parent Resolution — §11.1
+
+When a child descriptor arrives before its parent:
+
+- The declaration MUST be preserved.
+- The parent reference MUST be preserved.
+- The local graph representation MUST record the unresolved parent.
+- The declaration MUST NOT be deleted or modified merely because the parent is absent.
+- No exception or semantic rejection may be generated solely because the parent is not yet registered.
+
+When the parent descriptor subsequently becomes available:
+
+- The parent reference becomes resolvable in a newly constructed graph.
+- The original child descriptor remains unchanged.
+- The domain MAY issue a new Assessment. This implementation does not automatically create or mutate an Assessment.
+
+Important distinction:
+
+**Unresolved parent is not an invalid relation.**
+
+Do not turn missing parents into `ERR_INVALID_RELATION`, `ERR_INVALID_CARDINALITY`, or another invented error.
+
+The normative example in §11.1 represents `PARENT_UNRESOLVED` as an unverified claim in an Assessment. Do not invent an Assessment lifecycle or silently modify descriptors to represent this condition. Keep graph-resolution state separate from source declarations.
+
+### 2.2 Cycle Detection — §11.2
+
+The local graph MUST be checked for cyclic relations.
+
+When a cycle is detected:
+
+- Original declarations MUST be preserved.
+- The cycle MUST NOT be accepted as valid evidence of succession.
+- The corresponding semantic result must identify `CYCLE_DETECTED`.
+- The domain MUST NOT apply grants dependent on the invalid succession.
+- Read-only or non-consequential processing MAY continue if local policy allows.
+- Cycle detection MUST NOT globally block the Participant or delete IdentityVersion records.
+
+Do not implement grant logic. CORE-001 does not provide a grant-producing API.
+
+## 3. Scope and files
+
+**Primary implementation:**
+
+- Modify `src/core/lineage.ts`.
+- Add or extend `tests/conformance/c.test.ts`.
+- Add `tests/unit/lineage-graph.test.ts` if graph-specific unit tests need separation.
+- Update `src/core/index.ts` only if new public exports are required.
+
+Inspect existing types and exports before changing them:
+
+- `Registry`
+- `IdentityVersionDescriptor`
+- `LineageLink`
+- `StructuralResult`
+- `validateDescriptor`
+- `IdentityVersionID`
+- existing `Result` / failure types
+
+Preserve Task 6 public API compatibility.
+
+Do not refactor unrelated modules.
+
+## 4. Required behavior
+
+### 4.1 Graph construction
+
+Implement `buildLineageGraph` in `src/core/lineage.ts`.
+
+The graph must be derived from the supplied Registry and must preserve the declared direction and identity of lineage links.
+
+A lineage link is declared from child to parent:
+
+`Child IdentityVersion → Parent IdentityVersion`
+
+The graph must distinguish:
+
+- known versions;
+- declared lineage links;
+- resolved parent references;
+- unresolved parent references;
+- cyclic relations.
+
+The implementation must not mutate the Registry or any descriptor.
+
+The graph representation must not replace or normalize the original lineage declarations.
+
+**API design constraint:** inspect existing public types and the plan before deciding the exact return type. Keep the API minimal and strongly typed. If the current plan does not determine a necessary detail, explain the ambiguity before introducing new semantics. Do not invent a new normative error code.
+
+### 4.2 Delayed parent resolution
+
+For a descriptor whose parent is absent from the Registry:
+
+- keep the child version in the graph;
+- keep the original lineage link;
+- include the missing parent reference in `unresolvedParents`;
+- do not reject or remove the child;
+- do not throw.
+
+When a Registry containing the parent is supplied later, a newly built graph must resolve the reference.
+
+Do not mutate a previously built graph or historical descriptor as a side effect of registering the parent.
+
+### 4.3 Cycle detection
+
+Implement deterministic cycle detection over the local graph.
+
+Use sorted deterministic DFS, as required by the implementation plan.
+
+The implementation must detect at least:
+
+- a two-node cycle;
+- a longer cycle;
+- a cycle involving multiple lineage edges;
+- multiple independent cycles, if present;
+- graphs with no cycles.
+
+The exact cycle representation should be deterministic and useful for diagnostics. Do not make the particular DFS traversal order a normative property of the protocol.
+
+Do not silently drop cycle-forming declarations to produce an acyclic graph.
+
+### 4.4 Structural queries on cyclic graphs
+
+Cycle detection must not destroy the graph's read-only utility.
+
+A cyclic graph must remain inspectable:
+
+- source descriptors remain available;
+- declared links remain available;
+- unresolved parent information remains available;
+- cycle information remains available.
+
+A cycle is a semantic restriction on succession evidence, not a reason to erase the underlying declarations.
+
+## 5. Conformance tests — C-series
+
+Implement the C-series tests from §12 of CORE-001.
+
+Every conformance case must assert three dimensions:
+
+1. Expected semantic result.
+2. Observable state effects.
+3. Forbidden side effects.
+
+### C-1 — Delayed Parent Resolution
+
+Construct a child descriptor whose parent is absent from the Registry.
+
+Assert:
+
+- child descriptor remains present;
+- original lineage link remains present and unchanged;
+- `unresolvedParents` contains the missing parent reference;
+- no exception is thrown;
+- no descriptor is deleted;
+- no descriptor or lineage declaration is rewritten;
+- Registry contents remain unchanged.
+
+Then construct a new Registry containing the previously missing parent.
+
+Assert:
+
+- the new graph resolves the parent reference;
+- the original child descriptor remains unchanged;
+- no automatic Assessment is created;
+- the previously constructed graph is not mutated as a side effect.
+
+### C-2 — Cycle Detection
+
+Construct the cycle:
+
+`V1 → V2 → V1`
+
+Assert:
+
+- cycle detection identifies the cycle;
+- the result uses the normative `CYCLE_DETECTED` code at the appropriate semantic boundary;
+- both original declarations remain present;
+- neither descriptor is rewritten or deleted;
+- no exception is used as the semantic result;
+- read-only graph queries remain available;
+- the cycle is not accepted as valid succession evidence.
+
+Also test a graph without cycles to ensure it is not falsely classified.
+
+**Integration note:** `evaluateBinding` belongs to the later traversal tasks and does not yet exist at this point in the implementation sequence. Do not introduce a stub or prematurely implement traversal to satisfy C-2. Expose the graph-level cycle result cleanly so that the later traversal implementation can propagate `CYCLE_DETECTED`. Add the integration assertion when `evaluateBinding` becomes available.
+
+## 6. Determinism
+
+Graph analysis must be deterministic.
+
+Test equivalent registries with different insertion orders.
+
+For the same set of descriptors and lineage declarations:
+
+- resolved parent information must be equivalent;
+- unresolved parent information must be equivalent;
+- cycle detection must produce equivalent results;
+- ordering of diagnostic output must be deterministic.
+
+Sort by stable identifiers before graph traversal and diagnostic output.
+
+Do not depend on JavaScript object insertion order or Registry storage order.
+
+## 7. Immutability and ownership
+
+Preserve Global Constraints 5 and 6 from the plan.
+
+Tests must establish:
+
+- `buildLineageGraph` does not mutate Registry contents;
+- descriptors remain deeply equal before and after graph construction;
+- lineage arrays remain unchanged;
+- graph construction does not retain mutable aliases that allow caller mutations to alter its stored state;
+- returned graph structures are immutable according to the existing ownership conventions;
+- rebuilding after a Registry change produces a new result rather than mutating an earlier graph.
+
+Do not weaken `DeepReadonly` or existing entity constructors.
+
+## 8. Explicit non-goals
+
+Do NOT implement:
+
+- path discovery or traversal (`Task 9`);
+- path validation or assurance evaluation;
+- merge closure (`Task 10`);
+- recursive merge closure;
+- Local Acceptance or lifecycle events;
+- Assessment creation or automatic Assessment updates;
+- authority inheritance;
+- grant creation, revocation, or mutation;
+- global Participant blocking;
+- graph repair or automatic removal of cyclic edges;
+- new normative error codes;
+- semantics for currently blocked ambiguities.
+
+In particular, do not resolve A-5 (recursive merge closure), A-11 (origin merge closure), or any other blocked ambiguity as part of this task.
+
+## 9. Error classification
+
+Use the existing normative error code:
+
+`CYCLE_DETECTED`
+
+Do not add it again or change its classification.
+
+Keep mechanism failures separate from normative protocol failures.
+
+An unresolved parent is not itself a failure.
+
+Do not introduce a new error code for unresolved references, graph construction, or cycle diagnostics.
+
+## 10. Implementation workflow
+
+Follow the repository's established TDD workflow.
+
+1. Inspect current `lineage.ts`, entities, Registry, errors, public exports, and existing tests.
+2. Add C-1 and C-2 tests first.
+3. Run the relevant tests and confirm they fail for the expected reasons.
+4. Implement the smallest graph construction and cycle-detection mechanism.
+5. Run the C-series tests.
+6. Run the complete unit and conformance suite.
+7. Run typecheck, lint, format check, and build.
+8. Review the diff for unintended changes.
+9. Commit using the message specified above.
+
+Do not modify the normative specification to make the implementation easier.
+
+## 11. Final report
+
+Report:
+
+- files changed;
+- public API added or modified;
+- graph representation and cycle-detection approach;
+- how unresolved parents are represented;
+- how deterministic output is guaranteed;
+- C-1 and C-2 assertions implemented;
+- tests executed and actual results;
+- typecheck/lint/format/build results;
+- any assumptions or unresolved design questions;
+- confirmation that no source declarations are rewritten or deleted;
+- confirmation that no traversal, Assessment, or grant semantics were introduced.
+
+Clearly distinguish tests actually executed from tests merely authored.
+
+**Completion criterion:** Task 7 is complete when delayed parent resolution and cycle detection satisfy C-1/C-2, graph analysis is deterministic and immutable, all existing tests remain green, and no blocked or out-of-scope semantics have been introduced.
+
+---
+
+Plan approved. Switch from Plan mode to implementation/build mode now.
+
+The five Task 7 design decisions are confirmed:
+
+1. `LineageEdge { child, parent, relation }`.
+2. `unresolvedParents` grouped by child: `[childId, missingParentIds[]]`.
+3. `cycles` represented as deterministic SCCs: sorted node IDs within each component, sorted components.
+4. `buildLineageGraph(registry): LineageGraph` returns a graph directly, not `Result`. `CYCLE_DETECTED` belongs to the later `evaluateBinding` semantic boundary, not Task 7.
+5. Preserve all declared edges, including duplicates. A self-loop is represented as a cyclic SCC of size 1.
+
+Additional implementation clarifications:
+- `edges` preserves every declared link exactly; do not deduplicate or normalize.
+- SCC traversal may use deduplicated adjacency internally, without changing the exposed `edges`.
+- `unresolvedParents` contains unique missing parent IDs per child, sorted lexicographically. Duplicate declarations remain observable in `edges`.
+- The graph contains only registered versions in `nodes`.
+- Graph construction owns its output and deep-freezes it. It retains no descriptor references.
+- Build a new graph snapshot when the Registry changes; never mutate a previously returned graph.
+- `buildLineageGraph` must remain total for inconsistent Registry input, including self-links. It must not silently repair or discard declarations.
+- Do not implement `evaluateBinding` or add a stub for it.
+
+Proceed with Task 7 using TDD:
+1. Write C-1/C-2 conformance tests and graph-specific unit tests.
+2. Run tests and verify expected failures.
+3. Implement the minimal graph builder and deterministic SCC detection.
+4. Run the full test suite, typecheck, lint, format check, and build.
+5. Review the diff against CORE-001 Rev 0.3.3 and the approved Rev E plan.
+6. Commit only the Task 7 changes using the agreed commit message.
+
+Do not modify the normative spec, do not resolve blocked ambiguities, and do not expand scope into Tasks 8–10.
+
+Report actual command outputs and any unresolved issues. Do not claim CI passed unless independently verified.
