@@ -1,0 +1,35 @@
+PR #77 — хороший шаг, но перед merge нужны исправления. Прошу сделать ещё один adversarial pass, не меняя scope Phase 1.
+
+**P1 — исправить equivalence-matrix.md:**
+
+1. Case A противоречит `summarizePaths()`: если хотя бы один путь имеет `outcome=VALID` и `closure=SATISFIED`, он попадает в `accepted`; результат будет `eligible=true`, даже если другой путь имеет closure failure. Исправить граф/ожидаемый результат либо заменить сценарий на действительно эквивалентный текущей реализации.
+2. Case C также неверен: при отсутствии accepted paths `CONTESTED` проверяется раньше assurance fallback. При сочетании contested + assurance текущий результат — `kind=CONTESTED`, а не `ERR_ASSURANCE_PREDICATE_UNSATISFIED`.
+3. Перепроверить все Case A–G непосредственно по `evaluateBinding()`, `evaluateOnePath()` и `summarizePaths()`. Для каждого указать фактический current result и proposed result. Не выводить aggregation semantics из предположений.
+
+**P1 — согласовать D0–D6:**
+
+`complexity-proof.md` и `oq4-complexity-adversarial-pass.md` revision 3 используют разные определения D2/D3/D4. Привести их к одной таксономии. Revision 3 объявлен source of truth — использовать его определения.
+
+**P1 — исправить Lemma 1:**
+
+`reachableToOrigin()` не исключает циклические SCC. `discoverPaths()` перечисляет простые пути и через циклические SCC; `validatePathWithIndex()` затем preempts их через `cycleForPath()` до assurance. Поэтому A нельзя описывать как граф, который уже вычисляет `discoverPaths()`.
+
+Формально определить `C = nodes in cyclic SCCs`, `A = G[V \\ C]`. Доказать, что пути, доходящие до assurance/closure, лежат в A; cycle paths классифицировать отдельно через D3. Сверить формулировку с oq4 revision 3.
+
+**P2 — D5:**
+
+Оставить OPEN. Не закрывать по факту наличия proof sketch. Добавить oracle cases на коллизии `pathKey` и разные edge sequences с одинаковым ключом. Если canonical witness не удаётся доказать, вынести выбор `any valid witness` в явное owner decision.
+
+**P2 — benchmark:**
+
+Сделать генератор воспроизводимым: точные imports, команда запуска, сохранённый harness или точная ссылка на него. Не называть сниппет exact, пока он содержит `...` и не запускается как приведён.
+
+**Ограничения сохранить:**
+- docs-only Phase 1;
+- не менять CORE-001.md, source, tests, registers или статусы;
+- не регистрировать/утверждать T18-DEC-18;
+- A-8 и A-14 остаются OPEN;
+- не вводить новый normative error code;
+- не закрывать issue #25.
+
+После исправлений прошу отдельно перечислить каждый найденный counterexample и показать, каким изменением он устранён. Не считать наличие таблицы или доказательного текста подтверждением equivalence без сверки с текущим кодом.
