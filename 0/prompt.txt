@@ -1,0 +1,761 @@
+мержим
+
+---
+
+# T18-09A — Assurance Semantics Decision Package
+## Plan Mode — Evidence-Based Investigation Only
+
+You are working in the `zaebee/federation-agents` repository.
+
+Task: T18-09A from the approved Task 18 remediation roadmap.
+
+**Mode: Plan Mode only.**
+
+Do not modify files. Do not implement code. Do not create branches, commits, or pull requests. Do not edit `docs/CORE-001.md` or any Task 17 artifact.
+
+Your goal is to prepare two evidence-based project-owner decision packages for unresolved assurance semantics:
+
+- T18-DEC-06 — contradictory trusted assessments (AMBIG-A-4b).
+- T18-DEC-07 — closure depth (AMBIG-A-5).
+
+These are separate normative questions. Do not assume that choosing one determines the other.
+
+---
+
+# 0. Establish repository state and source hierarchy
+
+Before reasoning:
+
+1. Inspect the current `main` HEAD and working tree state.
+2. Confirm that T18-02A has been merged.
+3. Read the current versions of:
+   - `docs/CORE-001.md`
+   - `docs/implementation.md`
+   - `docs/audits/2026-10-31-core-001-task-18/README.md`
+   - `disposition-matrix.md`
+   - `remediation-roadmap.md`
+   - `decision-register.md`
+   - `reconciliation-notes.md`
+4. Inspect relevant source and tests:
+   - `src/core/assessment.ts`
+   - `src/core/traversal.ts`
+   - `src/core/lineage.ts`
+   - `src/core/entities.ts`
+   - relevant unit, property, and conformance tests.
+
+Use the current repository as the source of truth. Do not rely on remembered line numbers or prior plans.
+
+Source hierarchy:
+
+1. Approved normative specification (`docs/CORE-001.md`).
+2. Approved Task 18 decisions and dispositions.
+3. Existing implementation and tests.
+4. Proposed interpretations and recommendations.
+
+Do not silently promote implementation behavior into normative semantics.
+
+If the current repository differs from the expected Task 18 state, report the discrepancy before proceeding.
+
+---
+
+# 1. T18-DEC-06 — Contradictory trusted assessments
+
+Related ambiguity: `AMBIG-A-4b`.
+
+Related requirements from Task 17: N-078, N-107, N-172.
+
+## 1.1 Establish exact normative evidence
+
+Locate and quote the smallest relevant excerpts from CORE-001, including:
+
+- definitions of `ContinuityAssessment`;
+- `verified_claims` and `unverified_claims`;
+- trusted assessor / applicable assessment semantics;
+- assurance evaluation rules;
+- treatment of multiple applicable Assessments;
+- all relevant conformance examples and constraints.
+
+Identify exactly what the specification says and, equally importantly, what it does not define.
+
+Do not infer that "trusted" automatically means "non-contradictory".
+
+## 1.2 Establish current implementation behavior
+
+Trace the full execution path:
+
+- Assessment selection and applicability (`assessEdge` or equivalent);
+- trust filtering;
+- `evaluateAssurance`;
+- verified-claim aggregation;
+- policy narrowing;
+- treatment of missing, contradictory, or contested claims;
+- interaction with traversal and merge closure.
+
+Use concrete code references and tests.
+
+Determine whether current code:
+
+- accepts two trusted Assessments with contradictory claims;
+- rejects them;
+- treats them as independent evidence;
+- silently chooses one;
+- depends on ordering;
+- can produce different results after reordering equivalent inputs.
+
+Do not assume a behavior without a test or a direct code trace.
+
+## 1.3 Develop independent semantic alternatives
+
+At minimum, analyze:
+
+**Option A — Conflict means CONTESTED**
+
+If two applicable trusted Assessments make mutually incompatible assertions about the same semantic subject, the relevant assurance outcome becomes `CONTESTED`.
+
+**Option B — Claims are independent observations**
+
+Assessments remain independent records. A contradiction is not automatically a conflict unless a specific policy or claim relation establishes incompatibility.
+
+**Option C — Explicit conflict predicate**
+
+Define a conflict predicate based on a narrowly specified set of conditions, such as:
+- same subject;
+- same declared relation;
+- same assessment scope;
+- mutually exclusive claims;
+- both Assessments trusted and applicable.
+
+Do not assume these conditions are correct. Evaluate whether CORE-001 supports them.
+
+You may propose another option if the specification or code requires it.
+
+For each option explain:
+
+- normative support;
+- what counts as a contradiction;
+- whether claims are compared within one Assessment or across Assessments;
+- whether `verified` versus `unverified` claims can conflict;
+- whether two different assessors matter;
+- how supersession affects conflict;
+- whether timestamps or ordering matter;
+- whether conflict is local to an edge, declaration, subject, or traversal;
+- effect on `evaluateAssurance`;
+- effect on `ApplicableAssessments`;
+- effect on existing consumers;
+- false-positive and false-negative risks;
+- adversarial examples.
+
+Do not invent a universal logical contradiction engine if the protocol only defines a small set of claim semantics.
+
+## 1.4 Required adversarial cases
+
+At minimum analyze:
+
+1. Two trusted Assessments, same subject and relation, one verifies claim X and another verifies an incompatible claim Y.
+2. One Assessment verifies X, another marks X unverified.
+3. One Assessment verifies X, another contains X in neither list.
+4. Two Assessments from the same assessor contradict each other.
+5. Two Assessments from different assessors contradict each other.
+6. A newer Assessment supersedes an older contradictory Assessment.
+7. A newer Assessment does not supersede an older contradictory Assessment.
+8. Two Assessments differ only in ordering of claim arrays.
+9. Two Assessments apply to different parent edges of the same merge declaration.
+10. One Assessment is trusted, the other is not.
+11. One Assessment is applicable, the other is not.
+12. The same claim appears in both `verified_claims` and `unverified_claims` within one malformed or boundary-supplied Assessment.
+
+For every case state the expected result under each viable option. If the specification does not determine the result, mark it OPEN.
+
+## 1.5 Decision package output
+
+Prepare a proposed decision record for T18-DEC-06 with:
+
+- decision question;
+- exact normative evidence;
+- implementation evidence;
+- options;
+- trade-offs;
+- adversarial cases;
+- recommended option and rationale;
+- consequences for future tests and implementation;
+- whether a CORE-001 amendment is required.
+
+Recommendation is not approval. Keep the decision OPEN.
+
+---
+
+# 2. T18-DEC-07 — Closure depth
+
+Related ambiguity: `AMBIG-A-5`.
+
+Related requirement: N-112.
+
+## 2.1 Establish exact normative evidence
+
+Locate relevant CORE-001 passages for:
+
+- path validation;
+- merge closure;
+- parent-edge assessments;
+- immediate parent requirements;
+- recursive or transitive closure, if any;
+- termination and cycle behavior;
+- assurance evaluation order.
+
+Determine whether "closure" is defined normatively or only used descriptively.
+
+Distinguish:
+- validating the selected path;
+- validating direct parents of a merge node;
+- recursively validating parents of those parents;
+- traversing the entire ancestry graph.
+
+Do not treat these as equivalent.
+
+## 2.2 Establish current implementation behavior
+
+Trace `validateMergeClosure` and all callers.
+
+Confirm:
+
+- which nodes trigger closure;
+- which parent edges are checked;
+- whether the exact path edge is excluded;
+- whether mixed relation edges are included;
+- whether recursion occurs;
+- whether cycles can cause repeated work or non-termination;
+- what evidence is retained in successful and failed results;
+- whether scope policy changes discovery, closure, or both.
+
+Inspect tests, especially:
+- direct parent missing assessment;
+- deeper ancestor missing assessment;
+- mixed relation edges;
+- merge node reached through a non-merge relation;
+- multiple merge nodes along one path;
+- cycles and graph invariance.
+
+Use actual test names and code references.
+
+## 2.3 Analyze independent closure alternatives
+
+At minimum:
+
+**Option A — Immediate closure**
+
+For each merge node on the selected path, validate all its direct parent edges, excluding only the exact path edge. Do not recursively validate the ancestry of those parents unless they are independently encountered as merge nodes on the selected path.
+
+**Option B — Recursive closure**
+
+Continue validation recursively through parent branches until a defined stopping condition is reached.
+
+**Option C — Bounded/transitive closure**
+
+Define an explicit bounded or policy-controlled closure depth.
+
+You may propose another option if justified by the normative text.
+
+For each option analyze:
+
+- exact meaning;
+- normative support;
+- termination guarantees;
+- cycle behavior;
+- complexity and resource bounds;
+- interaction with scope;
+- behavior on DAGs and cyclic graphs;
+- evidence retention;
+- compatibility with current API;
+- false-positive and false-negative risks;
+- possible denial-of-service implications;
+- whether depth belongs to CORE-001 or a local policy.
+
+Do not introduce a recursion-depth parameter merely because it is convenient to implement.
+
+## 2.4 Required adversarial graph cases
+
+At minimum:
+
+1. Simple merge with all direct parent assessments present.
+2. Direct parent assessment missing.
+3. Direct parent itself has a missing parent.
+4. Deep unresolved ancestor several levels below a merge.
+5. Nested merge where all immediate assessments pass but a deeper merge fails.
+6. Multiple merge nodes along the selected path.
+7. Same graph reached through different valid paths.
+8. Mixed relation parent edges.
+9. Cyclic graph.
+10. A merge node reached through a non-merge relation.
+11. Scope excludes a parent from discovery but closure semantics may still require it.
+12. Large/deep graph to evaluate resource bounds.
+
+For each case state the expected result under each viable option. Mark normative ambiguity explicitly.
+
+## 2.5 Decision package output
+
+Prepare a proposed decision record for T18-DEC-07 with:
+
+- decision question;
+- exact normative evidence;
+- implementation evidence;
+- options;
+- trade-offs;
+- adversarial cases;
+- recommended option and rationale;
+- consequences for tests and implementation;
+- whether a CORE-001 amendment is required.
+
+Recommendation is not approval. Keep the decision OPEN.
+
+---
+
+# 3. Interaction between DEC-06 and DEC-07
+
+Analyze the interaction, but do not collapse the decisions.
+
+In particular:
+
+- Does recursive closure multiply the effect of contradictory Assessments?
+- Can a local CONTESTED result propagate through recursive closure?
+- Does immediate closure limit the scope of conflict?
+- Can a conflict on a non-path parent edge affect a path result?
+- Can scope policy suppress discovery but still leave a closure obligation?
+- Does either decision require changing `ApplicableAssessments` or only the evaluation algorithm?
+
+Present a two-dimensional matrix:
+
+| | Immediate closure | Recursive closure | Bounded closure |
+|---|---|---|---|
+| Conflict → CONTESTED | ... | ... | ... |
+| Independent claims | ... | ... | ... |
+| Explicit conflict predicate | ... | ... | ... |
+
+Mark unresolved combinations rather than guessing.
+
+---
+
+# 4. Cross-check against existing decisions and invariants
+
+Verify that proposed options do not silently violate:
+
+- Evidence ≠ Finding ≠ Ruling ≠ Execution Authorization.
+- External findings do not automatically bind receiving domains.
+- Identity lineage does not imply authority inheritance.
+- ApplicableAssessments nominal brand and runtime validation.
+- B-5 untrusted-assessment exclusion.
+- Policy narrowing cannot reintroduce untrusted Assessments.
+- Missing verified claim remains an actual UNSATISFIED reason.
+- A-4b and A-5 remain separate questions.
+- No automatic revocation.
+- No grant-producing API in CORE-001.
+- No implementation fiat for BLOCKED normative questions.
+
+Also verify consistency with T18-02A:
+- Do not change its implementation.
+- Do not retrospectively alter Task 17.
+- Keep T18-DEC-15 OPEN.
+- Do not treat local Option B for `parent_version_ids` as a normative resolution.
+
+---
+
+# 5. Proposed deliverables
+
+Do not create them yet. Specify exact proposed files and sections for a future docs-only decision package.
+
+Prefer one package directory:
+
+`docs/audits/2026-10-31-core-001-task-18/T18-09A/`
+
+Proposed files:
+
+1. `README.md` — scope, findings, decision status.
+2. `dec-06-contradictory-assessments.md`
+3. `dec-07-closure-depth.md`
+4. `interaction-matrix.md`
+5. `evidence-index.md` — source references and test inventory.
+
+If the current roadmap or repository convention requires a different location, explain why.
+
+Each decision file must distinguish:
+- normative evidence;
+- implementation evidence;
+- interpretation;
+- recommendation;
+- project-owner decision;
+- required spec amendment;
+- downstream implementation tasks.
+
+Do not edit existing Task 18 files in this phase.
+
+---
+
+# 6. Final response format
+
+Return:
+
+1. Repository state and revision.
+2. Normative evidence for DEC-06.
+3. Implementation behavior for DEC-06.
+4. Options and adversarial matrix for DEC-06.
+5. Normative evidence for DEC-07.
+6. Implementation behavior for DEC-07.
+7. Options and adversarial matrix for DEC-07.
+8. Interaction matrix.
+9. Invariant/cross-decision check.
+10. Recommended project-owner decisions.
+11. Proposed deliverables and dependencies.
+12. Explicit OPEN/BLOCKED items.
+13. Exact next step after project-owner review.
+
+Use precise file paths, line references, function names, and test names. Cite the source of every factual claim.
+
+Do not write generic summaries in place of code tracing.
+
+---
+
+# 7. Final constraints
+
+- No files modified.
+- No tests run unless needed for investigation; if run, report exact commands and results.
+- No implementation plan that assumes decisions are approved.
+- No CORE-001 edits.
+- No Task 17 edits.
+- No commits, branches, PRs, or GitHub reviews.
+- Do not change decision statuses.
+- Do not mark either decision APPROVED.
+- Keep T18-DEC-06 and T18-DEC-07 OPEN.
+- If evidence is insufficient, say so explicitly.
+- Do not resolve ambiguity through implementation convenience.
+
+Final gate: **EVIDENCE-BASED DECISION PACKAGE READY FOR PROJECT-OWNER REVIEW**, or explain exactly what prevents that status.
+
+---
+
+# T18-09A — Assurance Semantics Decision Package
+
+**Mode: Build Mode**
+
+## Objective
+
+Create the documentation-only decision package for T18-09A, based on the completed Plan Mode analysis and the project owner's subsequent review.
+
+The package covers two independent normative decisions:
+
+- **T18-DEC-06** — contradictory trusted Assessments / AMBIG-A-4b.
+- **T18-DEC-07** — merge closure depth / AMBIG-A-5.
+
+This task records evidence, alternatives, recommendations, unresolved sub-decisions, and dependencies.
+
+**It does NOT approve either decision.**
+
+Both decisions MUST remain `OPEN`.
+
+## 1. Mandatory preflight
+
+Before modifying anything:
+
+1. Verify repository branch, HEAD, and working-tree state.
+2. Confirm that HEAD contains the T18-02A merge (`454af8c` or a descendant).
+3. Read the current:
+   - `docs/CORE-001.md`
+   - `docs/implementation.md`
+   - Task 17 audit artifacts
+   - Task 18 README, disposition matrix, roadmap, decision register, reconciliation notes
+   - T18-01 decision package
+   - T18-02A implementation and AEBE evidence
+4. Verify all cited line numbers and symbols against the current repository. Do not blindly reuse Plan Mode line numbers.
+5. Verify the current decision register and task statuses. Do not assume the Plan Mode snapshot is still current.
+
+If the repository differs materially from the Plan Mode snapshot, stop and report the discrepancy before writing.
+
+## 2. Output location
+
+Follow the existing convention:
+
+`docs/audits/2026-10-31-core-001-task-18/decision-packages/T18-09A-assurance-semantics/`
+
+Create exactly these five files:
+
+1. `README.md`
+2. `dec-06-contradictory-assessments.md`
+3. `dec-07-closure-depth.md`
+4. `interaction-matrix.md`
+5. `evidence-index.md`
+
+Do not create a competing `T18-09A/` directory.
+
+## 3. DEC-06 — contradictory trusted Assessments
+
+Document the normative ambiguity and implementation behavior without inventing a universal contradiction relation.
+
+### Normative evidence
+
+Cover at least:
+
+- CORE-001 §6.2 and §6.2.2.
+- §6.3 supersession and applicable-assessment selection.
+- §6.4 trusted Assessments and `CONTESTED`.
+- §8.5 edge-level assurance.
+- §12 B-5 and B-7.
+- Related Task 17 requirements N-078, N-107, N-172.
+
+Clearly distinguish:
+
+- `verified_claims`
+- `unverified_claims`
+- absent claims
+- actual semantic contradiction
+- local `CONTESTED` state
+
+Do not equate different claim arrays with contradiction.
+
+Do not treat `unverified` as negation.
+
+Do not treat absence as confirmation or negation.
+
+### Implementation evidence
+
+Verify and document the actual current behavior of:
+
+- `assessEdge`
+- `narrowByPolicy`
+- trust filtering
+- `evaluateAssurance`
+- `collectContestedClaims`
+- `differingClaims`
+- traversal and merge-closure propagation
+
+Preserve the distinction between:
+
+- core applicability;
+- local policy narrowing;
+- trust filtering;
+- conflict detection;
+- assurance evaluation.
+
+Document the fact that current conflict detection uses the post-narrowing set, if still true.
+
+Document the current `contestedClaims` diagnostic behavior and its limitations.
+
+Document that a closure-branch conflict currently becomes a closure failure (`ERR_MERGE_BRANCH_UNSATISFIED`), rather than necessarily surfacing as a top-level `CONTESTED`.
+
+### Project-owner review and recommendation
+
+Record the following as the **reviewed recommendation, not an approved decision**:
+
+**Recommended direction: Option C — explicit domain-defined contradiction predicate.**
+
+The architectural separation should be:
+
+1. CORE-001 defines the normative obligation: when a domain establishes that applicable trusted Assessments contradict one another, the corresponding Claim enters local `CONTESTED`.
+2. The domain's local policy defines what constitutes contradiction within its claim vocabulary and evidence model.
+3. The implementation contract ensures that an established contradiction cannot be silently lost through ordering, narrowing, or incorrect diagnostics.
+
+The package MUST explicitly raise this unresolved question:
+
+> Can a domain claim conformance with the contradiction semantics of §6.4 without providing a mechanism for detecting contradictions between applicable trusted Assessments?
+
+Record the recommended answer as **no, if the domain claims support for that capability**, but keep it pending owner approval.
+
+Do not silently make this a universal requirement for all domains or all CORE-001 implementations. Explain the distinction between general CORE-001 support and a domain's declared use of §6.4 semantics.
+
+### Required unresolved sub-decisions
+
+Keep these visibly OPEN:
+
+1. Conflict scope: same edge vs declaration/subject.
+2. Pre-narrowing vs post-narrowing conflict detection.
+3. `contestedClaims` diagnostic contract.
+4. Conflict vs missing/disallowed precedence (A-8).
+5. Required capability/conformance declaration for local contradiction detection.
+
+Do not resolve these by implementation convenience.
+
+For pre/post narrowing, document both interpretations fairly. In particular, do not assume that every trusted but policy-excluded Assessment must participate in conflict detection. The decision must define whether narrowing is allowed to remove one side of a conflict.
+
+For diagnostics, do not assume symmetric difference of `verified_claims` is a valid representation of disputed claims.
+
+## 4. DEC-07 — merge closure depth
+
+Document the normative ambiguity and current immediate-only implementation.
+
+### Normative evidence
+
+Cover at least:
+
+- CORE-001 §8.5–§8.8.
+- §12 B-3, B-4, B-6, B-7.
+- N-109, N-110, N-111, N-112.
+- AMBIG-A-5, clearly distinguished from the unrelated §12 A-5 test case.
+- A-11 origin closure as a separate ambiguity.
+
+### Implementation evidence
+
+Verify and document:
+
+- `directParentBranches`
+- `collectEdgeClosureFailures`
+- `collectBranchFailure`
+- `evaluateClosureBranch`
+- `collectClosureFailures`
+- `validateMergeClosure`
+- `evaluateOnePath`
+- `summarizePaths`
+
+Confirm whether the current implementation:
+
+1. Activates closure when a path node has a direct `MERGED_FROM` parent.
+2. Checks all direct parent edges, including relations other than `MERGED_FROM`.
+3. Skips only the exact path edge already checked.
+4. Checks direct branches that do not lead to origin.
+5. Does not recursively expand merge nodes encountered only in closure-only branches.
+6. Uses full graph adjacency independently of discovery scope.
+7. Returns flat branch-failure evidence.
+
+Verify the relevant tests, including the experimental nested-merge test.
+
+### Project-owner review and recommendation
+
+Record the following as the **reviewed recommendation, not an approved decision**:
+
+**Recommended direction: Option A — immediate closure.**
+
+Proposed normative clarification:
+
+> Closure is applied to the direct parent edges of every merge node on the selected path. All direct parent edges of that merge node are checked, regardless of their declared relation. Closure is not applied recursively to merge nodes that appear only in closure-only branches.
+
+Ensure that the text preserves the distinction:
+
+- A direct parent edge of a merge node on the selected path MUST be checked.
+- A merge node encountered only inside a closure-only branch is not recursively expanded.
+
+Keep A-11 origin closure separate.
+
+Do not add a configurable recursion-depth parameter.
+
+If recursive closure is discussed, document the additional normative requirements it would need: termination, cycle handling, scope interaction, resource bounds, and failure-evidence structure.
+
+DEC-07 MUST remain `OPEN`.
+
+## 5. Interaction matrix
+
+Create a separate 3×3 interaction matrix:
+
+| Conflict semantics | Immediate closure | Recursive closure | Bounded closure |
+|---|---|---|---|
+| No automatic conflict | ... | ... | ... |
+| Explicit domain predicate | ... | ... | ... |
+| Broad automatic claim-array conflict | ... | ... | ... |
+
+The matrix must explain:
+
+- which edges are evaluated;
+- where `CONTESTED` can arise;
+- how closure failures propagate;
+- how accepted alternative paths affect the result;
+- why recursive closure increases the set of evaluated edges;
+- why bounded closure has no current normative basis.
+
+Do not imply that choosing one DEC automatically resolves the other.
+
+Preserve the current behavior that a closure failure can outrank a path-level `CONTESTED` in top-level aggregation, if verified.
+
+## 6. Cross-cutting invariants
+
+Explicitly verify and preserve:
+
+- Evidence ≠ Finding ≠ Ruling ≠ Execution Authorization.
+- External findings do not automatically bind receiving domains.
+- Identity lineage does not imply authority inheritance.
+- No grant-producing API in CORE-001.
+- No automatic revocation semantics.
+- B-5 exclusion of untrusted Assessments.
+- Policy narrowing cannot reintroduce untrusted Assessments.
+- Missing required verified claims remain an actual UNSATISFIED condition.
+- DEC-06 and DEC-07 remain independent.
+- T18-02A remains unchanged.
+- T18-DEC-15 remains OPEN.
+- A-8 and A-11 remain separate.
+- N-079 / T18-DEC-10 remains separate.
+
+Do not modify any implementation or test to make these invariants appear satisfied.
+
+## 7. Task 17 and Task 18 status preservation
+
+Task 17 is historical evidence and MUST remain unchanged.
+
+Preserve its existing rollups and requirement statuses exactly.
+
+In particular, do not retroactively mark N-078, N-107, N-112, or N-172 as PASS based on this decision package.
+
+Do not change:
+
+- Task 17 audit files;
+- Task 18 disposition matrix;
+- Task 18 roadmap;
+- Task 18 decision register;
+- Task 18 reconciliation notes.
+
+This package is supplemental evidence, not a status transition.
+
+The stale sentence in `docs/implementation.md` concerning C-1/C-2 after T18-02A was reported in Plan Mode. Do not fix it here. Record it as an existing documentation discrepancy only if the current repository still contains it.
+
+## 8. Evidence and citation quality
+
+Every material conclusion must have a traceable source:
+
+- exact normative section and line range;
+- implementation file, symbol, and current line range;
+- test file and exact test name;
+- Task 17 requirement and status.
+
+Clearly label each statement as one of:
+
+- Normative requirement
+- Current implementation behavior
+- Test evidence
+- Interpretation
+- Recommendation
+- OPEN question
+
+Do not present implementation behavior as normative meaning.
+
+Do not present a test as proof of a normative interpretation when the specification leaves that interpretation BLOCKED.
+
+Property tests whose oracle reuses the implementation must be described as implementation-invariance evidence, not independent semantic proof.
+
+## 9. Validation
+
+After writing the five files:
+
+1. Review all five for consistency.
+2. Verify every file and line reference.
+3. Verify both decisions remain `OPEN`.
+4. Verify no Task 17 or existing Task 18 artifact was modified.
+5. Verify no CORE-001, source, test, package, or CI configuration was modified.
+6. Run `git diff --check`.
+7. Review `git status` and the complete diff.
+8. Do not create a branch, commit, or PR unless explicitly requested.
+
+## 10. Final report
+
+Return:
+
+- repository revision and working-tree state before changes;
+- exact list of created files;
+- concise summary of DEC-06 and DEC-07;
+- unresolved sub-decisions;
+- cross-cutting invariants checked;
+- validation results;
+- explicit confirmation that Task 17 and existing Task 18 artifacts remain unchanged;
+- explicit confirmation that both decisions remain `OPEN`.
+
+Final gate:
+
+`T18-09A DOCUMENTATION PACKAGE READY FOR PROJECT-OWNER DECISION`
+
+If any requirement cannot be verified, report it as unresolved rather than silently assuming success.
+
+---
+
+делаем PR
