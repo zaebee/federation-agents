@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.3-nightly.202610300619.cea1b3cee",
+  "checkpoint_id": "01M67TKWXAXXV12ZNR96VJCEMZ",
+  "session_id": "ses_e7105d3e8ffeYfGlU43yND6dyG",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T01:54:18.840010339Z",
+  "branch": "feat/task-8-assessments",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "src/core/assessment.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "cd83c8c51f7f",
+  "checkpoint_transcript_start": 579,
+  "transcript_lines_at_start": 579,
+  "compact_transcript_start": 579,
+  "token_usage": {
+    "input_tokens": 7717,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 5300736,
+    "output_tokens": 2756,
+    "api_call_count": 9
+  },
+  "redaction": {
+    "replacements": 48,
+    "layers": {
+      "betterleaks": 6,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 4,
+      "credentialed_uri": 0,
+      "entropy": 38,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 72
+  }
+}

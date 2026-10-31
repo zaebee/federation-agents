@@ -1,0 +1,19 @@
+Task 8 review: один блокирующий дефект.
+
+**BLOCKER — mutable EdgeRef passed to Policy.applicableAssessments**
+
+В `assessEdge()` локальный `edge` передаётся в `policy.applicableAssessments(edge, applicable, ctx)` до deepFreeze. После callback тот же объект используется в `narrowByPolicy()` и сохраняется в `ApplicableAssessments.edge`.
+
+Это позволяет hook изменить edge binding. Конкретный случай: MERGED_FROM assessment с parent_version_ids `[P1, P2]`; assessEdge вызывается для P1; hook меняет `edge.parent = P2` и возвращает исходный набор. Assessment остаётся применимым, но результат теперь привязан к P2, хотя запрос был для P1.
+
+**Fix:**
+1. Обеспечить неизменяемость локального EdgeRef до вызова policy hook.
+2. Не передавать callback изменяемый объект, который затем используется Core.
+3. Добавить regression test с multi-parent MERGED_FROM и попыткой изменить parent внутри hook.
+4. Проверить, что возвращённый ApplicableAssessments.edge точно соответствует исходному edgeRef.
+
+Остальные проверенные части Task 8 выглядят корректно: WeakSet brand, ранний unbranded guard, edge filtering, narrowing по assessment_id, trusted assessor filtering, unverified semantics, A-4b restriction, supersession и ownership.
+
+Не менять нормативную семантику, не добавлять error codes и не расширять scope.
+
+После исправления пришли новый commit SHA для повторной проверки.
