@@ -79,7 +79,7 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/version-scheme.ts`  | §3.2     | Implemented | `SEMVER_2` validation, `CONTENT_HASH`/`OPAQUE_TAG` non-empty rules, SemVer parsing and precedence |
 | `core/selector.ts`        | §3.2, §8.2 | Implemented | Versioned `uia-ref-selector@1` mechanism with compiled-selector provenance |
 | `core/credential.ts`      | §4, §10  | Planned     | Credential usage, revocation reasons, historical signature semantics    |
-| `core/lineage.ts`         | §5, §11  | Partial     | §5.2 structural validation (`validateDescriptor`); graph, delayed parents and cycles are Task 7 |
+| `core/lineage.ts`         | §5, §11  | Implemented | §5.2 structural validation, graph snapshots, delayed parents, deterministic SCC cycle detection |
 | `core/assessment.ts`      | §6       | Planned     | Edge applicability, supersession, assurance evaluation                  |
 | `core/traversal.ts`       | §8       | Planned     | Path discovery, path validation, merge closure, binding evaluation      |
 | `core/acceptance.ts`      | §9       | Planned     | `LocalAcceptanceRecord` and lifecycle transitions                       |
@@ -230,8 +230,8 @@ A passing test suite does not establish production security or interoperability;
 
 ## 12. Status
 
-Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, §7.1 descriptor hashing, version label validation, and the `uia-ref-selector@1` mechanism.
+Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, §7.1 descriptor hashing, version label validation, and the `uia-ref-selector@1` mechanism.
 
-Planned: the lineage graph and delayed parents, credentials and temporal validation, assessments, traversal, acceptance, ledger.
+Planned: credentials and temporal validation, assessments, traversal, acceptance, ledger. Full C-1/C-2 conformance (assessment recording `PARENT_UNRESOLVED`/`CYCLE_DETECTED`) follows with Tasks 8–9.
 
 Ordering and exit criteria are tracked in [`ROADMAP.md`](./ROADMAP.md) and in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md).
