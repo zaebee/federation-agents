@@ -36,7 +36,7 @@ Implementation behavior is not normative meaning. A passing test is not proof th
 | `collectPaths` | `src/core/traversal.ts:307-359` | Explicit DFS; pushes every simple path |
 | `discoverPaths` | `src/core/traversal.ts:361-389` | Returns all discovered paths, sorted |
 | `evaluateBinding` | `src/core/traversal.ts:902-...` | Validates every discovered path and returns per-path outcomes |
-| `adjudicate` / `summarizePaths` | `src/core/traversal.ts:759-795` | Aggregation after all paths are evaluated |
+| `summarizePaths` | `src/core/traversal.ts:843-875` | Aggregation after all paths are evaluated |
 | `reachableToOrigin` | `src/core/traversal.ts` | Scope-filtered reachability, but does not avoid path enumeration |
 
 ## 4. Test inventory
@@ -44,7 +44,7 @@ Implementation behavior is not normative meaning. A passing test is not proof th
 | Test | File:line | What it proves | Limit |
 | --- | --- | --- | --- |
 | `finds a single path without any assessments input` | `tests/unit/traversal-phases.test.ts:89` | `discoverPaths` returns a path | Single path |
-| `is independent of graph storage order` | `tests/unit/traversal-phases.test.ts:97` | Discovery result sorted/deterministic | Small graph |
+| `is independent of graph storage order` | `tests/unit/traversal-phases.test.ts:99` | Discovery result sorted/deterministic | Small graph |
 | `P1 registry and node storage order are irrelevant` | `tests/property/traversal-invariance.test.ts:209` | Storage-order invariance | Does not measure path count |
 | `P2 descriptor lineage order is irrelevant and closure failure order is canonical` | `tests/property/traversal-invariance.test.ts:219` | Lineage/closure order invariance | Does not measure path count |
 | `P3 assessment arrival order is irrelevant` | `tests/property/traversal-invariance.test.ts:229` | Assessment-order invariance | Does not measure path count |
@@ -64,7 +64,7 @@ Implementation behavior is not normative meaning. A passing test is not proof th
 | Issue #53 / audit revision 1 | Inventories N-176; §8.8 PASS → PARTIAL; leaves the per-path-result reading open |
 | `docs/audits/2026-10-31-core-001-task-17-revision-1/README.md:20-31` | N-176 row, measurement, effect on §8.8 |
 | `STATUS.md:23` | N-176 new and not yet dispositioned by Task 18 |
-| `docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md:48` | T18-03 is test-only; no N-176 task exists yet |
+| `docs/audits/2026-10-31-core-001-task-18/remediation-roadmap.md:59` | T18-09F is the N-176 decision package; N-176 remains PARTIAL |
 | `benchmark-procedure.md` (this package) | Reproducible `G(k)` merge-diamond construction, expected `2^k` counts and measurement procedure |
 
 ## 6. Task 17/18 mapping

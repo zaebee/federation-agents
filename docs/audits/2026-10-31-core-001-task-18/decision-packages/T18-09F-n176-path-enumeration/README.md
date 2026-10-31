@@ -33,7 +33,7 @@ This package does not edit `decision-register.md`. A proposed register row is in
 
 1. `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3 — normative source.
 2. `docs/audits/2026-10-31-core-001-task-17-revision-1/README.md` — N-176 and §8.8 revision.
-3. `src/core/traversal.ts` and `src/core/traversal.ts` result types — current behavior.
+3. `src/core/traversal.ts` — current behavior and result types.
 4. `tests/conformance/b.test.ts`, `tests/property/traversal-invariance.test.ts`, `tests/unit/traversal-phases.test.ts` — existing evidence.
 5. Issue #25 and issue #53 — design and audit context.
 6. This package — interpretations, options and a recommendation; not normative.

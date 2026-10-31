@@ -218,7 +218,7 @@ A cap on discovered paths (option A) preserves the enumeration requirement and m
 | 7 | Cycle in graph | Cycle detection / path dead ends | Must not enumerate cyclic paths; cycle outcome preserved |
 | 8 | Scope restricts edges | Only scope-permitted paths discovered | Compact reachability must use the same scope semantics |
 | 9 | Storage/order permutation (B-7) | Sorted path list | Canonical witness independent of storage order |
-| 10 | 61-node `2^16`-path graph | ~65k paths / seconds | Must complete without path-proportional output |
+| 10 | `k=16` (50-node) `2^16` graph | ~65k paths / seconds | Must complete without path-proportional output |
 | 11 | Caller needs full diagnostics | Current API returns all paths | Optional bounded diagnostic API; not required for validity |
 | 12 | Rejection with no path at all | `ERR_NO_TRAVERSAL_PATH` before path enumeration | Must remain distinct from “paths exist but all fail” |
 
