@@ -1,0 +1,324 @@
+мержим
+
+---
+
+# Task 12 — Property-Based Tests: Invariance & Immediate-Closure Oracle
+
+## Context
+
+Repository: `zaebee/federation-agents`
+
+Normative source: `docs/CORE-001.md`, UIA-CORE-001 Rev 0.3.3.
+
+Implementation plan: `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`, Rev E.
+
+Tasks 1–11 are implemented. Task 11 has been merged.
+
+Task 12 is primarily a testing task. Its purpose is to test global invariants over generated inputs and independently verify traversal/closure behavior against a brute-force oracle.
+
+Read the current source and tests before making changes. Do not assume the plan perfectly reflects the current repository.
+
+## 1. Scope and boundaries
+
+Primary files:
+
+- Create `tests/property/merge-closure-dag.test.ts`.
+- Augment the existing `tests/property/traversal-invariance.test.ts` if that file exists; otherwise inspect the current property-test layout and use the appropriate existing location.
+
+Production changes are allowed **only when a property test demonstrates a genuine implementation defect**.
+
+Do not:
+- resolve A-5 (recursive merge closure);
+- resolve A-8 (normative aggregation precedence);
+- resolve A-11 (terminal origin closure);
+- change `docs/CORE-001.md`;
+- introduce new normative semantics;
+- add grant-producing APIs;
+- expand Task 12 into Tasks 13–15;
+- weaken or remove existing conformance tests.
+
+Keep all generated-graph equivalence claims within the immediate-closure contract.
+
+## 2. Property tests
+
+Use the already installed `fast-check` dependency (currently pinned to 3.23.2). Do not add or upgrade dependencies without justification.
+
+Implement the following properties from the Rev E plan.
+
+### P1. Graph storage order invariance
+
+For equivalent graph inputs with different registry/node storage orders:
+
+- normalized `discoverPaths` results are identical;
+- normalized `evaluateBinding` results are identical;
+- accepted paths and per-path outcomes are identical.
+
+Compare semantic structures, not object identity.
+
+### P2. Edge insertion order invariance
+
+For equivalent lineage graphs with permuted edge insertion order:
+
+- discovered path sets are identical after normalization;
+- `evaluateBinding` results are identical;
+- closure failure ordering is deterministic.
+
+Do not assume insertion order is semantically meaningful.
+
+### P3. Assessment arrival order invariance
+
+For identical final assessment sets supplied in different orders:
+
+- normalized `evaluateBinding` results are identical;
+- accepted paths are identical;
+- per-path validation and closure outcomes are identical.
+
+Do not test a different assessment set as if it were an ordering permutation. Keep policy and all assessment contents fixed.
+
+### P4. Missing applicable assessment cannot produce eligibility
+
+For every generated case in which a required path edge or required immediate closure branch lacks an applicable assessment:
+
+- `eligible` must not be `true`;
+- the result must retain the appropriate path-level or closure-level failure;
+- absence of an assessment must never be interpreted as successful assurance.
+
+Keep discovery failures distinct from validation and closure failures.
+
+### P5. Historical descriptor immutability — currently available operations only
+
+Verify that operations implemented by Tasks 1–11 cannot mutate previously registered `IdentityVersionDescriptor` values.
+
+At minimum:
+- caller mutation of input objects after construction does not mutate stored descriptors;
+- assessment registration/evaluation does not mutate descriptors;
+- graph construction and traversal do not mutate descriptors.
+
+The original plan also mentions revocations and Local Acceptance. Those mechanisms belong to later Tasks 13–15. Do not invent APIs, mocks that simulate nonexistent behavior, or pull those tasks into Task 12. Record the deferred coverage explicitly for the later tasks.
+
+### P6. Supersession/history immutability — dependency-aware
+
+Inspect the current implementation for an actual supersession operation.
+
+If no such operation exists yet, do not invent one. Record this property as deferred until the corresponding lifecycle/acceptance functionality exists.
+
+For any existing operation that creates a newer assessment or record, assert that previous records and descriptors remain unchanged.
+
+### P7. DAG generator + independent brute-force equivalence oracle
+
+This is the central Task 12 property.
+
+Generate bounded DAGs with at most seven nodes, including graphs with merge probability `p > 0`.
+
+For every generated case, compare the production `evaluateBinding` result against an independent brute-force reference implementation of the **immediate-closure contract**.
+
+The oracle must independently implement:
+
+1. Scope-permitted candidate-to-origin path enumeration.
+2. Per-path edge validation.
+3. Immediate merge closure for merge nodes encountered as `edge.child` on a path.
+4. All direct parent edges of such merge nodes, regardless of relation or discovery scope.
+5. Skipping only the exact `(child, parent, relation)` edge already validated on the path.
+6. No recursion into closure-only branches.
+7. Per-path outcome retention.
+8. Top-level aggregation, while preserving the currently approved Task 10 implementation behavior and explicitly not claiming A-8 is resolved.
+
+**Oracle independence is mandatory.**
+
+The reference implementation MUST NOT call:
+
+- `discoverPaths`;
+- `validatePath`;
+- `validateMergeClosure`;
+- `evaluateBinding`.
+
+Otherwise the test risks comparing the implementation with itself.
+
+It may reuse lower-level public assessment primitives where necessary to avoid reimplementing unrelated Task 8 policy semantics, but path enumeration, closure selection, and aggregation must be independently implemented.
+
+Use a deliberately simple algorithm:
+- exhaustive DFS over all permitted simple paths;
+- straightforward direct-parent scans;
+- explicit immediate-only closure;
+- no production memoization or production traversal helpers.
+
+For generated graphs, compare normalized semantic results:
+- no-path vs path-found distinction;
+- per-path edge sequences;
+- VALID / INVALID / CONTESTED / CYCLE_DETECTED outcomes where applicable;
+- closure SATISFIED / UNSATISFIED and exact failure branches;
+- eligible flag and top-level code/kind;
+- retained per-path details.
+
+Keep generated DAG equivalence separate from cyclic graph properties. Do not accidentally claim that a DAG oracle proves cyclic behavior.
+
+**A-5 boundary:** closure-only branches are not recursively traversed. Nested merge behavior inside closure-only branches is excluded from the oracle's conformance claims and remains BLOCKED.
+
+**A-11 boundary:** the terminal origin is not treated as an `edge.child`; preserve the currently pinned experimental behavior. Do not use generated tests to resolve this ambiguity.
+
+**A-8 boundary:** preserve all per-path results. The oracle may model the currently implemented aggregation to detect implementation regressions, but must label it as implementation behavior, not a normative precedence rule.
+
+Use fast-check shrinking. When a counterexample is found, ensure the shrunk case remains reproducible and diagnostically useful.
+
+### P8. Cycles never yield eligibility
+
+Generate graphs containing cyclic segments/SCCs.
+
+Assert that a cyclic path or candidate whose only possible paths are cycle-invalid cannot yield `eligible: true`.
+
+Also include cases where a graph contains a cycle unrelated to an otherwise valid path, so the test does not overstate the rule as "any cycle anywhere invalidates every candidate".
+
+### P9. Static invariant: no grant-producing API
+
+Add a static repository-level assertion that no module under `src/core/` exports a grant-producing API.
+
+Do not rely on a fragile substring search alone if a more reliable AST/export inspection is practical. If using a text-based guard, document its limitations and ensure it checks exported declarations/re-exports rather than arbitrary comments.
+
+This property protects the architectural boundary: identity, lineage, assessment, and local acceptance do not themselves grant authority.
+
+## 3. Generator design
+
+Keep generators bounded and semantically valid.
+
+For DAG generation:
+- maximum seven nodes;
+- deterministic node identifiers;
+- no accidental cycles;
+- valid registered descriptors and participants;
+- valid lineage relations and cardinalities under the current structural validators;
+- configurable merge probability `p > 0`;
+- ensure the generated sample actually includes merge cases;
+- include both merge and non-merge cases;
+- include paths with multiple alternatives and closure-only branches;
+- include mixed-relation parent sets;
+- include missing and passing assessment cases.
+
+Avoid generating mostly trivial graphs that never exercise closure.
+
+Prefer a small number of explicit targeted generators plus a bounded general DAG generator over one overly complicated generator.
+
+For cyclic cases, use a separate generator with deliberately introduced SCCs.
+
+Use reproducible seeds and bounded run counts. Avoid flaky tests and excessive runtime.
+
+## 4. Oracle design and aggregation
+
+Document the oracle's semantic rules next to its implementation.
+
+Important distinctions:
+
+- Discovery scope controls which edges may appear in a candidate-to-origin path.
+- Closure checks all direct parent edges of merge nodes encountered as path children, independently of discovery scope.
+- Closure skips only the exact path edge already checked during path validation.
+- Closure is immediate, not recursive.
+- The terminal origin is excluded under current implementation behavior; A-11 remains BLOCKED.
+- `failures` contains only branches that failed, not all inspected branches.
+- Per-path outcomes are retained even when the top-level result aggregates them.
+- A-8 remains OPEN: no normative aggregation precedence is introduced by this task.
+
+The oracle must not silently normalize or hide any of these distinctions.
+
+## 5. Validation
+
+Run:
+
+```bash
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+bun run build
+```
+
+Also run the repository's duplication check if available.
+
+Report:
+- exact test counts and assertions;
+- property test run counts and seed/replay information;
+- whether shrinking was exercised;
+- runtime of the property suite;
+- all production changes, if any, with the counterexample that justified each change.
+
+## 6. Expected deliverables
+
+1. `tests/property/merge-closure-dag.test.ts`.
+2. Extended existing traversal invariance property tests.
+3. Independent brute-force oracle with documented boundaries.
+4. Deterministic, bounded generators and reproducible seeds.
+5. Static no-grant-export invariant.
+6. Updated implementation plan only if necessary to record deferred P5/P6 coverage or implementation discoveries. Do not change normative specification text.
+7. Commit:
+
+`test(property): invariance and immediate-closure brute-force equivalence`
+
+If a genuine production bug is found, isolate its fix in a separate commit from the property-test work.
+
+## 7. Final report format
+
+Report:
+
+- changed files;
+- properties implemented (P1–P9);
+- properties deferred and why;
+- generator design and bounds;
+- oracle independence: exactly which production APIs it does not call;
+- DAG equivalence coverage and immediate-closure boundaries;
+- test counts, assertions, seeds, run counts, runtime;
+- typecheck/lint/format/build results;
+- duplication result;
+- production changes and their minimal counterexamples, if any;
+- confirmation that `docs/CORE-001.md` is unchanged;
+- commit SHA;
+- remaining ambiguities: A-5, A-8, A-11 and any other affected items.
+
+Do not claim complete Task 12 coverage if P5/P6 portions depend on Tasks 13–15 and remain deferred.
+
+---
+
+Да, я бы выбрал два отдельных support-модуля. Для Task 12 это более правильная архитектура, и особенно важно вынести `merge-oracle.ts`.
+
+Причина не столько в читаемости, сколько в проверяемости независимости оракула: его импорты можно отдельно проверить и убедиться, что он не использует production traversal/closure/binding API. Это делает границу между тестируемой реализацией и эталонной моделью заметнее.
+
+Но перед передачей build-агенту я бы внёс несколько уточнений в постановку.
+
+### Что я одобряю
+
+- Четыре файла — оправданное разделение ответственности.
+- P1–P3 проверяют именно инвариантность результата при перестановках, а не равенство объектов по ссылке.
+- P4 правильно разделяет отсутствие assessment на path-edge, closure-ветви и отдельном альтернативном пути.
+- P7 ограничен DAG и immediate closure. Это не позволяет случайно объявить реализацию соответствующей ещё не решённой рекурсивной семантике.
+- P8 проверяет важное свойство: наличие цикла в графе само по себе не должно уничтожать независимый валидный путь.
+- P9 через TypeScript compiler API лучше текстовой эвристики.
+- Отложенные P5/P6 не пытаются моделировать ещё не реализованные механизмы.
+
+### Четыре уточнения, которые я считаю обязательными
+
+1\. P2: перестановка lineage должна сохранять идентичность графа.
+
+Проверь, что переставляются только массивы рёбер внутри дескрипторов, а не сами данные или семантические отношения. Отдельно сравнивай порядок `closure.failures` с ожидаемым каноническим порядком. Иначе тест может закрепить случайное поведение сериализации вместо контракта детерминизма.
+
+2\. Oracle: не дублировать production-ошибки механически.
+
+Разрешение использовать `assessEdge` и `evaluateAssurance` разумное, но это означает, что оракул независим от алгоритма traversal/closure, а не от всей семантики Task 8. Это нужно прямо зафиксировать в комментарии и отчёте.
+
+Также oracle должен независимо вычислять полный набор путей и closure-результаты. Если он использует production-нормализатор результатов, независимость будет частичной уже на уровне сравнения.
+
+3\. P8: осторожнее с формулировкой про цикл.
+
+Условие «если eligible, accepted-пути не пересекают cycle components» верно для конкретной модели графа, но не должно превращаться в обобщённое утверждение о любых циклических компонентах. Зафиксируйте точную семантику генератора: цикл — отдельная компонента, а валидные пути не должны проходить через неё. Отдельные targeted-тесты на путь через цикл и альтернативный ациклический путь остаются важнее случайной генерации.
+
+4\. P9: проверять весь публичный export surface.
+
+Не ограничиваться файлами `src/core/*.ts` и `src/core/index.ts`, если публичные API могут реэкспортироваться через другие barrel-файлы. Нужно проследить реэкспорты от публичной точки входа Core. Иначе guard может пропустить запрещённое имя, экспортируемое транзитивно.
+
+При этом ограничение guard нужно сохранить: это проверка экспортируемых имён, а не доказательство отсутствия скрытой выдачи полномочий внутри реализации.
+
+### Итог
+
+Структуру одобряю
+
+Передавай build-агенту с четырьмя уточнениями выше. Никаких изменений в production-коде или `CORE-001.md` заранее не нужно.
+
+И отдельно: не считай 60–100 запусков доказательством полноты. Для bounded property testing это разумный первый бюджет, но важнее, чтобы генератор действительно покрывал mixed-relation merge, closure-only branches, несколько путей и разные состояния assessments. Отчёт должен показывать фактическое распределение сгенерированных структур, а не только `numRuns`.
+
+A-5, A-8 и A-11 остаются OPEN/BLOCKED. После реализации я бы проверял в первую очередь независимость oracle и качество генератора — именно там наиболее вероятно получить ложное чувство уверенности от зелёных тестов.
