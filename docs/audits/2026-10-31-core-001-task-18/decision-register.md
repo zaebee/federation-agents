@@ -55,6 +55,8 @@ This is an obligation to record the condition. It does not, by itself, assign co
 - Publication and retention remain separate responsibilities and must be explicitly assigned by the relevant boundary.
 - Downstream consumption does not automatically accept the Assessment as truth or grant authority.
 
+**Scope of approval:** DEC-02 assigns adapter **construction** and Core **semantic validation**. It does **not** assign registration/publication/retention ownership; those remain OPEN. Registration is the enforcement point for validation, not an ownership decision. This paragraph is the canonical scope statement; other documents should reference it rather than paraphrase.
+
 ### Validation enforcement
 
 Mandatory Core validation at the registration boundary is approved. The implementation design may choose between validation inside `registerAssessment` or a guarded validated-registration API, provided the old public API cannot bypass validation. No further implementation detail is approved by this decision.
@@ -63,7 +65,7 @@ Mandatory Core validation at the registration boundary is approved. The implemen
 
 - C-2 Assessment subject model: SCC, node, or edge. Edge-level is a proposal only.
 - Exact Assessment data shape and provenance contract.
-- Publication and retention ownership details where not already normatively specified.
+- Registration, publication and retention ownership details where not already normatively specified.
 - C-2.a3 grant suppression and other cross-specification decisions, including CORE-003.
 
 ### Path correction

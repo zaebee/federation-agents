@@ -1,6 +1,6 @@
 # Remediation Roadmap — Task 18
 
-**Audit base:** `2a83c65`. **Planning only.** `T18-DEC-01` and `T18-DEC-02` are approved; no implementation task is executed. `T18-02A` is eligible; `T18-02B` is BLOCKED on the C-2 model; `T18-02C` is not selected.
+**Audit base:** `2a83c65`. **Planning only.** `T18-DEC-01` and `T18-DEC-02` are approved; no implementation task is executed. `T18-02A` is eligible; `T18-02B` is BLOCKED on the C-2 model; `T18-02C` is retired / superseded.
 
 ## 1. How to read this roadmap
 
@@ -14,15 +14,15 @@
 `T18-01` is complete:
 
 - `T18-DEC-01` = **`REQ-LOCAL`**: local Assessment recording required for `PARENT_UNRESOLVED` and `CYCLE_DETECTED`.
-- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE`**: adapter constructs/registers; Core validates; validation is enforced at registration.
+- `T18-DEC-02` = **`OWN-ADAPTER` + `VAL-CORE`**: adapter constructs; Core validates; registration/publication ownership remains OPEN (see `decision-register.md` §3).
 
 | Status | DEC-01 | DEC-02 | Eligible remediation |
 | --- | --- | --- | --- |
-| **Approved** | `REQ-LOCAL` | `OWN-ADAPTER` + `VAL-CORE` | `T18-02A` eligible; `T18-02B` blocked on C-2 model; `T18-02C` not selected |
+| **Approved** | `REQ-LOCAL` | `OWN-ADAPTER` + `VAL-CORE` | `T18-02A` eligible; `T18-02B` blocked on C-2 model; `T18-02C` retired / superseded |
 | Alternative (not selected) | `REQ-LOCAL` | `OWN-CORE` | `PATH-A`; not active |
 | Alternative (not selected) | `REQ-EXTERNAL` / `REQ-NONE` | n/a | `PATH-C`; `T18-SPEC-01` only |
 
-**Path correction:** `VAL-CORE-CONSTRUCTION` is only compatible with `OWN-CORE`. It is not a valid option under `OWN-ADAPTER`. The selected validation path is `OWN-ADAPTER` + `VAL-CORE`, enforced at registration or through a guarded validated-registration API.
+**Path correction:** `VAL-CORE-CONSTRUCTION` is only compatible with `OWN-CORE`; it is not an adapter option. The selected path is `OWN-ADAPTER` + `VAL-CORE`; see `decision-register.md` §3 for scope and enforcement.
 
 ### Assessment Emission Boundary Evidence (AEBE)
 
@@ -32,7 +32,7 @@ AEBE is a shared deliverable, not a task. It requires:
 2. Negative evidence: a resolved parent produces no `PARENT_UNRESOLVED`; an acyclic graph produces no `CYCLE_DETECTED`.
 3. Ownership: the assessment is frozen/registered; the graph and descriptor are unchanged.
 4. Boundary authenticity: the evidence comes from the boundary that actually owns emission. A hand-constructed literal in a test is not AEBE.
-5. Validation: Core semantic validation is enforced on every supported registration path; malformed assessments are rejected; the old public registration API cannot bypass validation.
+5. Validation: see `decision-register.md` §3; AEBE must show enforcement and malformed rejection.
 6. Public API: the evidence uses the package root; an internal-module import is an API boundary gap.
 
 T18-13 depends on AEBE, not on a specific implementation task.
@@ -69,7 +69,7 @@ The project owner approved `T18-DEC-01 = REQ-LOCAL` and `T18-DEC-02 = OWN-ADAPTE
 
 ### T18-02A — C-1 adapter emission (eligible)
 
-The adapter constructs/registers the C-1 Assessment using domain identity, provenance and time. Core semantic validation must be enforced at registration (inside `registerAssessment` or via a guarded validated-registration API). AEBE must come from the adapter boundary, not a hand-constructed fixture. T18-02A closes N-138/C-1.a3 only.
+The adapter constructs the C-1 Assessment using domain identity, provenance and time. Core semantic validation must be enforced on every supported registration path (see `decision-register.md` §3). Registration/publication ownership remains OPEN. AEBE must come from the adapter boundary, not a hand-constructed fixture. T18-02A closes N-138/C-1.a3 only.
 
 ### T18-02B — C-2.a2 adapter emission (BLOCKED)
 
@@ -77,11 +77,11 @@ The adapter path is selected, but the C-2 subject model (SCC, node, or edge) is 
 
 ### T18-02C — Retired / superseded
 
-`T18-02C` is not the selected task structure. Its original scope has been split into `T18-02A` (C-1) and `T18-02B` (C-2.a2). It is retired and must not be treated as active work.
+`T18-02C` is not the selected task structure. Its original adapter scope has been split into `T18-02A` (C-1) and `T18-02B` (C-2.a2). The historical ID is retired / superseded for traceability (see `reconciliation-notes.md` §8) and must not be treated as active work.
 
 ### Validation enforcement
 
-Core validation is mandatory on every supported registration path. A standalone validator that callers can bypass is insufficient. The implementation may choose validation inside `registerAssessment` or a guarded validated-registration API, provided the old public API cannot bypass validation.
+See `decision-register.md` §3 for the canonical enforcement and registration/publication scope. AEBE must show that validation is enforced on every supported registration path.
 
 ### T18-05 — Digest verification
 
@@ -109,7 +109,7 @@ graph TD
   DEC02[T18-DEC-02 APPROVED OWN-ADAPTER + VAL-CORE] --> T1801
   T1801 --> T1802A[T18-02A C-1 adapter emission]
   T1801 --> T1802B[T18-02B C-2.a2 adapter BLOCKED]
-  T1801 -.->|not selected| T1802C[T18-02C not selected]
+  T1801 -.->|retired / superseded| T1802C[T18-02C retired / superseded]
   T1801 -.->|not selected| SPEC01[PATH-C alternative]
   C2MODEL[C-2 subject model OPEN] --> T1802B
   T1802A --> AEBE[Assessment Emission Boundary Evidence]
@@ -144,7 +144,7 @@ graph TD
 ### Milestones
 
 - **M0** — DEC-01 (`REQ-LOCAL`) and DEC-02 (`OWN-ADAPTER` + `VAL-CORE`) approved; C-2 model still OPEN.
-- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A eligible; T18-02B blocked; T18-02C inactive; T18-04, T18-05).
+- **M1** — CORE-001 implementation/evidence gaps resolved or explicitly dispositioned (T18-02A eligible; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
@@ -184,7 +184,7 @@ A task that bundles requirements of different urgency is split rather than silen
 | P2 | T18-03, T18-04, T18-06, T18-09C, T18-09D, T18-SPEC-01 |
 | P3 | T18-05, T18-07, T18-08, T18-09B, T18-10, T18-11, T18-12 |
 
-`T18-02B` is BLOCKED on the C-2 model; `T18-02C` is not selected. Neither is active P1 work.
+`T18-02B` is BLOCKED on the C-2 model; `T18-02C` is retired / superseded. Neither is active P1 work.
 
 ## 8. Authority-boundary watchlist
 

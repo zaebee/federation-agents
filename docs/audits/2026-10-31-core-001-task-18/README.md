@@ -61,7 +61,7 @@ Task 17 statuses are preserved exactly. Task 18 uses them as inputs and does not
 | `INTENTIONAL_LIMITATION` | 2 | N-004, N-140 |
 | **Total** | **23** | |
 
-No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work is conditional on a decision that establishes CORE-001 ownership.
+No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work is conditional on the relevant decision; DEC-01/02 are approved, all other decisions remain OPEN.
 
 | Risk scope | Count | Items |
 | --- | ---: | --- |
@@ -81,7 +81,7 @@ No item has `IMPLEMENTATION_GAP` as its primary disposition. Implementation work
 ### 4.1 Approved decisions
 
 - **T18-DEC-01 — `REQ-LOCAL`:** CORE-001 requires a local Assessment recording `PARENT_UNRESOLVED` and `CYCLE_DETECTED`. This is a recording obligation; it does not assign construction/publication to Core.
-- **T18-DEC-02 — `OWN-ADAPTER` + `VAL-CORE`:** adapter constructs the Assessment; Core owns semantic validation; validation must be enforced on every supported registration path so the old public API cannot bypass it.
+- **T18-DEC-02 — `OWN-ADAPTER` + `VAL-CORE`:** adapter constructs the Assessment; Core owns semantic validation. Registration/publication/retention ownership remains OPEN. See `decision-register.md` §3 for the canonical scope and enforcement.
 
 Still OPEN: C-2 subject model, exact Assessment shape/provenance, publication/retention ownership, and C-2.a3 / CORE-003.
 
@@ -92,7 +92,7 @@ Still OPEN: C-2 subject model, exact Assessment shape/provenance, publication/re
 | T18-01 Assessment-emission decision package | specification/design | P1 | `CORE-001_RUNTIME` |
 | T18-02A C-1 adapter emission (eligible) | implementation + tests | P1 | `CORE-001_RUNTIME` |
 | T18-02B C-2.a2 adapter emission (blocked on C-2 model) | implementation + tests | P1 | `CORE-001_RUNTIME` |
-| T18-02C Not selected | — | — | `CORE-001_RUNTIME` |
+| T18-02C Retired / superseded (historical ID; scope split into T18-02A/B) | — | — | `CORE-001_RUNTIME` |
 | T18-03 D-4 future-authorization evidence | test-only | P2 | `CORE-001_RUNTIME` |
 | T18-04 Version-label boundary (conditional) | decision + implementation/test or docs | P2 | `CORE-001_RUNTIME` |
 | T18-05 Digest verification (conditional) | decision + implementation/test or docs | P3 | `CORE-001_RUNTIME` |
@@ -112,7 +112,7 @@ Still OPEN: C-2 subject model, exact Assessment shape/provenance, publication/re
 Milestones:
 
 - **M0** — decisions registered and owners assigned (T18-DEC-01…14).
-- **M1** — CORE-001 implementation gaps resolved or explicitly dispositioned (T18-02A eligible; T18-02B blocked; T18-02C inactive; T18-04, T18-05).
+- **M1** — CORE-001 implementation gaps resolved or explicitly dispositioned (T18-02A eligible; T18-02B blocked; T18-02C retired / superseded; T18-04, T18-05).
 - **M2** — evidence gaps closed (T18-03, T18-07).
 - **M3** — cross-spec packages accepted (T18-08, T18-10).
 - **M4** — readiness and external evidence (T18-11, T18-13), documentation reconciliation (T18-12).
