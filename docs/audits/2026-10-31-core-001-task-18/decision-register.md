@@ -44,7 +44,7 @@ Registered in response to the independent audit (issue #55). The baseline regist
 - **16.a — subject model:** closing edge, node, or strongly connected component;
 - **16.b — exact shape and provenance:** `subject_version_id`, `parent_version_ids`, `declared_relation`, claim list, method fields.
 
-Evidence, candidate models, adversarial cases and a reviewed recommendation are in `decision-packages/T18-09E-c2-subject-model/`. Approval of this decision unblocks `T18-02B`; this section approves nothing and does not change any Task 18 baseline status.
+Evidence, candidate models, adversarial cases and a reviewed recommendation are in `decision-packages/T18-09E-c2-subject-model/`. Approval of this decision unblocks `T18-02B`; this section approves nothing and does not change any Task 18 baseline status. An approval also does not make the Option D subset reading of `parent_version_ids` normative: `T18-DEC-15` remains OPEN and may impose a different rule.
 
 ### T18-DEC-17 — publication and retention ownership (registered after the baseline, OPEN)
 
@@ -89,10 +89,9 @@ The `Resolution` column is the register's generic field name. For `T18-DEC-15` i
 
 ### Still open
 
-- C-2 Assessment subject model: SCC, node, or edge. Edge-level is a proposal only.
-- Exact Assessment data shape and provenance contract.
-- Persistent storage, publication and retention ownership.
-- C-2 `CYCLE_DETECTED` admission policy (T18-02B; not part of T18-02A).
+- **C-2 subject model and Assessment shape/provenance — registered as `T18-DEC-16`** (OPEN; evidence, models and the reviewed Option D recommendation in `decision-packages/T18-09E-c2-subject-model/`). Model and shape are no longer id-less; the recommendation is not approved.
+- **Publication and retention ownership — registered as `T18-DEC-17`** (OPEN). Persistent storage remains caller-managed under `T18-DEC-02`; what remains is publication and retention.
+- C-2 `CYCLE_DETECTED` admission policy (T18-02B; not part of T18-02A) — depends on `T18-DEC-16`.
 - Parent-coverage semantics (`T18-DEC-15`).
 - C-2.a3 grant suppression and other cross-specification decisions, including CORE-003.
 

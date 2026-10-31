@@ -171,19 +171,19 @@ One Assessment per SCC, with an anchor subject and all members in `parent_versio
 
 ## 5. Adversarial cases
 
-| Case | Option A | Option B | Option C |
-| --- | --- | --- | --- |
-| Two-node cycle with mixed relations (`A CONTINUATION B`, `B FORKED_FROM A`) | two records: `(A, CONTINUATION, [B])`, `(B, FORKED_FROM, [A])` | one back edge from canonical DFS, loses the other relation | one record, relation undefined |
-| Three-node cycle `A→B→C→A` | three records, each naming its SCC parent | one back edge | one record |
-| Two disjoint cycles | two SCCs, records per SCC | per SCC | per SCC |
-| SCC with several internal cycles | all nodes/relations covered | several back edges, multiplicity unclear | one record, loses structure |
-| Node with both SCC-internal and external parents | §7.3 sub-decision: SCC-internal only vs complete declared set | back-edge parent only | members only |
-| Path traverses a cyclic node without using a cycle edge (A-14) | graph-level Assessment exists; binding-level rejection unchanged | no Assessment on that path, but the SCC is still cyclic — model and A-14 diverge | same as A |
-| New declaration closes a cycle among existing nodes | rebuilt graph → new SCC; adapter invoked on the new snapshot; earlier Assessments are historical and not rewritten | same | same |
-| A cycle can never be undone (edges immutable, declarations never deleted) | claim monotone; supersession not needed for structural facts | same | same |
-| Self-loop preserved by the structural builder (invalid per §5.2) | one-node SCC; `(V, R, [V])` record; §7.5 sub-decision | no back edge distinct from forward edge | one record |
-| Duplicate emission on repeated invocation with admitted records | Core rejects duplicate `assessment_id` (existing admission rule); caller passes `existing` | same | same |
-| `CYCLE_DETECTED` also present in `verified_claims` | rejected by the #49 overlap/claim rule; adapter sets unverified only | same | same |
+| Case | Option D (per edge, recommended) | Option A | Option B | Option C |
+| --- | --- | --- | --- | --- |
+| Two-node cycle with mixed relations (`A CONTINUATION B`, `B FORKED_FROM A`) | two records, one per edge: `(A, CONTINUATION, [B])`, `(B, FORKED_FROM, [A])` | two records: `(A, CONTINUATION, [B])`, `(B, FORKED_FROM, [A])` | one back edge from canonical DFS, loses the other relation | one record, relation undefined |
+| Three-node cycle `A→B→C→A` (edges `B→A`, `C→B`, `A→C`) | three records: `(B, R, [A])`, `(C, R, [B])`, `(A, R, [C])` | three records, each naming its SCC parent | one back edge | one record |
+| Two disjoint cycles | two SCCs; one record per internal edge of each | two SCCs, records per SCC | per SCC | per SCC |
+| SCC with several internal cycles | every internal edge gets one record; no multiplicity ambiguity | all nodes/relations covered | several back edges, multiplicity unclear | one record, loses structure |
+| Node with both SCC-internal and external parents | only the SCC-internal edge gets a record; the external-parent edge is not cyclic, so it is not recorded by C-2 | §7.3 sub-decision: SCC-internal only vs complete declared set | back-edge parent only | members only |
+| Path traverses a cyclic node without using a cycle edge (A-14) | graph-level per-edge records exist for the cycle edges; the acyclic path gets none and binding-level rejection is unchanged | graph-level Assessment exists; binding-level rejection unchanged | no Assessment on that path, but the SCC is still cyclic — model and A-14 diverge | same as A |
+| New declaration closes a cycle among existing nodes | rebuilt graph → new SCC; adapter invoked on the new snapshot; earlier Assessments are historical and not rewritten | same | same | same |
+| A cycle can never be undone (edges immutable, declarations never deleted) | claim monotone; supersession not needed for structural facts | claim monotone; supersession not needed | same | same |
+| Self-loop preserved by the structural builder (invalid per §5.2) | one-node SCC; one record `(V, R, [V])`; §7.5 sub-decision | one-node SCC; `(V, R, [V])` record | no back edge distinct from forward edge | one record |
+| Duplicate emission on repeated invocation with admitted records | Core rejects duplicate `assessment_id` (existing admission rule); caller passes `existing` | same | same | same |
+| `CYCLE_DETECTED` also present in `verified_claims` | rejected by the #49 overlap/claim rule; adapter sets unverified only | same | same | same |
 
 ---
 
@@ -221,6 +221,7 @@ Rationale: it adopts the T18-01 recommendation rather than replacing it; no sche
 - **Recommended local disposition:** `parent_version_ids` = `[edge parent]` — exactly the parent of the assessed edge, so the claim is about that declaration and nothing else. For the Option A fallback the list would be the subject's SCC-internal parents under the relation.
 - **Tension with `T18-DEC-15`:** C-1 used the complete declared parent set as a local Option B disposition. A domain that reads `parent_version_ids` uniformly may expect the same rule here; the per-edge record uses the covered-subset reading.
 - Because `T18-DEC-15` is OPEN, either choice must be recorded as a **local disposition**, not a normative reading.
+- **Scope of a `T18-DEC-16` approval:** approving the decision permits the local Option D implementation; it does **not** make the subset reading of `parent_version_ids` normative for CORE-001. `T18-DEC-15` remains OPEN, and its later resolution may require a different `parent_version_ids` rule for the same records.
 
 ### 7.4 Emission trigger and idempotency
 

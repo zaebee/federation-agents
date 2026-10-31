@@ -38,7 +38,7 @@ It does **not**:
 | `T18-DEC-16` — C-2 subject model and Assessment shape/provenance | **OPEN** | Option D — one Assessment per affected lineage edge | Not approved |
 | `T18-DEC-17` — publication and retention ownership | **OPEN** | caller-managed storage stands; publication/retention assigned to the caller boundary (see §7.4) | Not approved |
 
-The recommendation is a project-owner review input, not a normative resolution. It must not be cited as approved semantics.
+The recommendation is a project-owner review input, not a normative resolution. It must not be cited as approved semantics. Approving `T18-DEC-16` would permit the local Option D implementation; it would not make the subset reading of `parent_version_ids` normative, because `T18-DEC-15` stays OPEN.
 
 ## 3. Source hierarchy
 
