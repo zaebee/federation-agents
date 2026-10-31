@@ -33,7 +33,7 @@ Status values: `APPROVED` (explicit project-owner approval recorded here) or `OP
 | **T18-DEC-12** | Is D-2’s “Ruling” a CORE-004 object, or is Local Acceptance the intended CORE-001 object? | §12 D-2, §14.3 | — | CORE-004 owner | Cross-spec decision on Ruling vs Local Acceptance; preservation criteria | D-2 and N-156 remain BLOCKED; N-169/N-174 remain PARTIAL | N-156, D-2, N-169, N-174, T18-10 | — | OPEN |
 | **T18-DEC-13** | How is grant suppression observed if grants belong to CORE-003? | §11.2, §13, §14.2 | — | CORE-003 owner | CORE-003 acceptance criteria and observable evidence | C-2.a3 remains BLOCKED; C-2 cannot close | N-145, CASE-C-2.a3, T18-10 | — | OPEN |
 | **T18-DEC-14** | Who performs independent implementation compatibility, and what evidence closes §16? | §16 | — | project owner | Independent implementation/audit plan and acceptance criteria | N-170/N-175 remain NOT COVERED; readiness cannot be READY | N-170, N-175, T18-11 | — | OPEN |
-| **T18-DEC-15** | Does `ContinuityAssessment.parent_version_ids` denote the full declared parent set for `(subject_version_id, declared_relation)`, or only the subset covered by the Assessment? | §6.2, §6.2.1, §5.2, §8.5, §8.6 | `T18-DEC-01` (recording obligation), `T18-DEC-02` (ownership) | spec editor | Normative reading of “оценка декларации”, the plural `parent_version_ids`, per-edge applicability in §8.5/§8.6, and the B-3 per-edge examples; proposed wording; any amendment via `T18-SPEC-01` | Option B remains a local choice; no normative claim about parent coverage; a future clarification may require adapter/validator change | Normative closure of parent-coverage semantics (not T18-02A build) | `OPTION-B-LOCAL` (local implementation choice/disposition) | **OPEN** |
+| **T18-DEC-15** | Does `ContinuityAssessment.parent_version_ids` denote the full declared parent set for `(subject_version_id, declared_relation)`, or only the subset covered by the Assessment? | §6.2, §6.2.1, §5.2, §8.5, §8.6 | `T18-DEC-01` (recording obligation), `T18-DEC-02` (ownership) | spec editor | Normative reading of “оценка декларации”, the plural `parent_version_ids`, per-edge applicability in §8.5/§8.6, and the B-3 per-edge examples; proposed wording; any amendment via `T18-SPEC-01` | Option B remains a local choice; no normative claim about parent coverage; a future clarification may require adapter/validator change | Normative closure of parent-coverage semantics (not T18-02A build) | `OPTION-B-LOCAL` (non-normative local disposition) | **OPEN** |
 
 ## 3. Approved decisions
 
@@ -67,6 +67,8 @@ Mandatory Core validation at the registration boundary is approved. The implemen
 CORE-001 does not state whether `ContinuityAssessment.parent_version_ids` must equal the full declared parent set for `(subject_version_id, declared_relation)` or may be the subset covered by the Assessment.
 
 T18-02A uses **Option B** — one Assessment per `(child, relation)`, with the complete declared parent set and at least one parent absent from the local graph — as a **local implementation choice/disposition**. This is not a resolution of the normative question. The question remains OPEN and requires a separate `T18-SPEC-01` clarification before either model is described as normative.
+
+The `Resolution` column is the register's generic field name. For `T18-DEC-15` it records a non-normative local disposition, not a normative resolution.
 
 ### Still open
 
