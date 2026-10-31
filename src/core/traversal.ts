@@ -273,30 +273,48 @@ function adjacencyFor(
   scope: LineageTraversalScope,
   reachable: ReadonlySet<IdentityVersionID>,
 ): Map<IdentityVersionID, LineageEdge[]> {
-  const adjacency = new Map<IdentityVersionID, LineageEdge[]>();
+  // Deduplicate per (child, parent, relation) in O(E) using nested maps keyed by
+  // node identity. Keying on a concatenated string would be ambiguous when an id
+  // contains the separator; nested maps avoid that. The first declared edge for a
+  // given (parent, relation) wins, matching the previous `.some()` behaviour.
+  const deduped = new Map<IdentityVersionID, Map<IdentityVersionID, Map<LineageRelationType, LineageEdge>>>();
 
   for (const edge of graph.edges) {
     if (!relationAllowed(scope, edge.relation) || !reachable.has(edge.parent)) {
       continue;
     }
-    const edges = adjacency.get(edge.child) ?? [];
-    if (!edges.some((item) => item.parent === edge.parent && item.relation === edge.relation)) {
-      edges.push({ child: edge.child, parent: edge.parent, relation: edge.relation });
+    let byParent = deduped.get(edge.child);
+    if (byParent === undefined) {
+      byParent = new Map<IdentityVersionID, Map<LineageRelationType, LineageEdge>>();
+      deduped.set(edge.child, byParent);
     }
-    adjacency.set(edge.child, edges);
+    let byRelation = byParent.get(edge.parent);
+    if (byRelation === undefined) {
+      byRelation = new Map<LineageRelationType, LineageEdge>();
+      byParent.set(edge.parent, byRelation);
+    }
+    if (!byRelation.has(edge.relation)) {
+      byRelation.set(edge.relation, { child: edge.child, parent: edge.parent, relation: edge.relation });
+    }
   }
 
-  for (const edges of adjacency.values()) {
+  const adjacency = new Map<IdentityVersionID, LineageEdge[]>();
+  for (const [child, byParent] of deduped) {
+    const edges: LineageEdge[] = [];
+    for (const byRelation of byParent.values()) {
+      for (const edge of byRelation.values()) {
+        edges.push(edge);
+      }
+    }
     edges.sort((a, b) => compareStrings(a.parent, b.parent) || compareStrings(a.relation, b.relation));
+    adjacency.set(child, edges);
   }
   return adjacency;
 }
 
 interface DiscoveryFrame {
   readonly node: IdentityVersionID;
-  readonly edges: readonly LineageEdge[];
   next: number;
-  readonly visited: ReadonlySet<IdentityVersionID>;
 }
 
 type CandidatePrecheck =
@@ -311,14 +329,14 @@ function collectPaths(
   originID: IdentityVersionID,
 ): Path[] {
   const paths: Path[] = [];
-  const stack: DiscoveryFrame[] = [
-    {
-      node: candidateID,
-      edges: [],
-      next: 0,
-      visited: new Set<IdentityVersionID>([candidateID]),
-    },
-  ];
+  // One backtracked prefix and one path-local visited set: a node is "visited"
+  // only while it is on the current path. Backtracking removes it so that the
+  // same node may be reached again through a different branch.
+  const pathEdges: LineageEdge[] = [];
+  const visited = new Set<IdentityVersionID>([candidateID]);
+  const stack: DiscoveryFrame[] = [{ node: candidateID, next: 0 }];
+  // Invariant maintained throughout: pathEdges.length === stack.length - 1
+  // (one root frame with no incoming edge).
 
   while (stack.length > 0) {
     const frame = stack.at(-1);
@@ -327,28 +345,41 @@ function collectPaths(
     }
 
     if (frame.node === originID) {
-      if (frame.edges.length > 0) {
-        paths.push(frozenPath(scope, frame.edges));
+      if (pathEdges.length > 0) {
+        paths.push(frozenPath(scope, pathEdges));
       }
+      // Pop the origin frame and backtrack its incoming edge. The root frame
+      // (candidate === origin) is excluded by discoverPaths, but guard anyway.
       stack.pop();
+      if (stack.length > 0) {
+        visited.delete(frame.node);
+        pathEdges.pop();
+      }
       continue;
     }
 
     const edges = adjacency.get(frame.node) ?? [];
     if (frame.next >= edges.length) {
       stack.pop();
+      // Backtrack the incoming edge of the exhausted frame, unless it is the
+      // root frame, which has no incoming edge.
+      if (stack.length > 0) {
+        visited.delete(frame.node);
+        pathEdges.pop();
+      }
       continue;
     }
 
     const edge = edges[frame.next];
     frame.next += 1;
-    if (frame.visited.has(edge.parent)) {
+    if (visited.has(edge.parent)) {
+      // Cycle or repeated node on the current path: skip this edge.
       continue;
     }
 
-    const visited = new Set(frame.visited);
     visited.add(edge.parent);
-    stack.push({ node: edge.parent, edges: [...frame.edges, edge], next: 0, visited });
+    pathEdges.push(edge);
+    stack.push({ node: edge.parent, next: 0 });
   }
 
   return paths;
