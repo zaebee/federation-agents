@@ -790,19 +790,25 @@ export function registerAssessment(
 }
 
 /**
- * C-1 atomic batch admission. All candidates are validated before any
- * representation is returned; one failure admits none.
+ * Shared atomic batch admission for the contextual C-1 and C-2 paths. Every
+ * candidate is validated generically, then contextually; one failure admits
+ * none. The caller supplies the path label and the contextual validator.
  */
-export function registerOrphanAssessments(
+function admitContextualCandidates(
   candidates: readonly unknown[],
   graph: LineageGraph,
   existing: readonly DeepReadonly<ContinuityAssessment>[],
+  path: 'C-1' | 'C-2',
+  validateContextually: (
+    candidate: DeepReadonly<ContinuityAssessment>,
+    graph: DeepReadonly<LineageGraph>,
+  ) => Result<void>,
 ): Result<readonly DeepReadonly<ContinuityAssessment>[]> {
   if (!isBuiltLineageGraph(graph)) {
     return mechanismRejection('graph must be produced by buildLineageGraph');
   }
   if (!Array.isArray(candidates)) {
-    return mechanismRejection('C-1 admission requires an array of candidates');
+    return mechanismRejection(`${path} admission requires an array of candidates`);
   }
 
   const validated: DeepReadonly<ContinuityAssessment>[] = [];
@@ -815,13 +821,25 @@ export function registerOrphanAssessments(
   }
 
   for (const candidate of validated) {
-    const result = validateOrphanAssessment(candidate, graph);
+    const result = validateContextually(candidate, graph);
     if (!result.ok) {
       return result;
     }
   }
 
   return admitAssessments(existing, validated);
+}
+
+/**
+ * C-1 atomic batch admission. All candidates are validated before any
+ * representation is returned; one failure admits none.
+ */
+export function registerOrphanAssessments(
+  candidates: readonly unknown[],
+  graph: LineageGraph,
+  existing: readonly DeepReadonly<ContinuityAssessment>[],
+): Result<readonly DeepReadonly<ContinuityAssessment>[]> {
+  return admitContextualCandidates(candidates, graph, existing, 'C-1', validateOrphanAssessment);
 }
 
 /** Convenience wrapper for one C-1 candidate. */
@@ -905,30 +923,7 @@ export function registerCycleAssessments(
   graph: LineageGraph,
   existing: readonly DeepReadonly<ContinuityAssessment>[],
 ): Result<readonly DeepReadonly<ContinuityAssessment>[]> {
-  if (!isBuiltLineageGraph(graph)) {
-    return mechanismRejection('graph must be produced by buildLineageGraph');
-  }
-  if (!Array.isArray(candidates)) {
-    return mechanismRejection('C-2 admission requires an array of candidates');
-  }
-
-  const validated: DeepReadonly<ContinuityAssessment>[] = [];
-  for (const candidate of candidates) {
-    const result = validateContinuityAssessment(candidate);
-    if (!result.ok) {
-      return result;
-    }
-    validated.push(result.value);
-  }
-
-  for (const candidate of validated) {
-    const result = validateCycleAssessment(candidate, graph);
-    if (!result.ok) {
-      return result;
-    }
-  }
-
-  return admitAssessments(existing, validated);
+  return admitContextualCandidates(candidates, graph, existing, 'C-2', validateCycleAssessment);
 }
 
 /** Convenience wrapper for one C-2 candidate. */
