@@ -93,7 +93,13 @@ type EdgeEvaluation =
   { readonly ok: true; readonly value: EdgeAssessment } | { readonly ok: false; readonly error: string };
 
 function compareStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
 }
 
 function permitted(scope: LineageTraversalScope, relation: Relation): boolean {
@@ -274,7 +280,11 @@ function validateOnePath(
   policy: Policy,
   ctx: TemporalContext,
 ):
-  | { readonly ok: true; readonly outcome: NormalizedPath['outcome']; readonly closure?: NormalizedPath['closure'] }
+  | {
+      readonly ok: true;
+      readonly outcome: NormalizedPath['outcome'];
+      readonly closure?: NonNullable<NormalizedPath['closure']>;
+    }
   | { readonly ok: false; readonly error: string } {
   for (const edge of path) {
     const evaluation = evaluateEdge(edge, assessments, requirement, policy, ctx);
@@ -295,9 +305,41 @@ function validateOnePath(
 }
 
 /**
- * Immediate closure: for every path edge whose child is a merge node, check all
+ * Immediate closure for one path edge: if the child is a merge node, check all
  * direct parent edges except the exact path edge. No recursion.
  */
+function closureFailuresForEdge(
+  edge: SimpleEdge,
+  graph: LineageGraph,
+  requirement: ContinuityAssuranceRequirement,
+  assessments: readonly ContinuityAssessment[],
+  policy: Policy,
+  ctx: TemporalContext,
+):
+  | { readonly ok: true; readonly failures: readonly NormalizedFailure[] }
+  | { readonly ok: false; readonly error: string } {
+  const parents = directParents(graph, edge.child);
+  if (!parents.some((parent) => parent.relation === 'MERGED_FROM')) {
+    return { ok: true, failures: [] };
+  }
+
+  const failures: NormalizedFailure[] = [];
+  for (const branch of parents) {
+    if (branch.parent === edge.parent && branch.relation === edge.relation) {
+      continue;
+    }
+    const evaluation = evaluateEdge(branch, assessments, requirement, policy, ctx);
+    if (!evaluation.ok) {
+      return evaluation;
+    }
+    if (evaluation.value.status !== 'SATISFIED') {
+      failures.push(closureFailure(branch, evaluation.value));
+    }
+  }
+  return { ok: true, failures };
+}
+
+/** Immediate closure over all path edges; closure-only branches are not recursed. */
 function immediateClosure(
   path: readonly SimpleEdge[],
   graph: LineageGraph,
@@ -305,30 +347,21 @@ function immediateClosure(
   assessments: readonly ContinuityAssessment[],
   policy: Policy,
   ctx: TemporalContext,
-): { readonly ok: true; readonly closure: NormalizedPath['closure'] } | { readonly ok: false; readonly error: string } {
+):
+  | { readonly ok: true; readonly closure: NonNullable<NormalizedPath['closure']> }
+  | { readonly ok: false; readonly error: string } {
   const failures = new Map<string, NormalizedFailure>();
 
   for (const edge of path) {
-    const parents = directParents(graph, edge.child);
-    if (!parents.some((parent) => parent.relation === 'MERGED_FROM')) {
-      continue;
+    const collected = closureFailuresForEdge(edge, graph, requirement, assessments, policy, ctx);
+    if (!collected.ok) {
+      return collected;
     }
-    for (const branch of parents) {
-      if (branch.parent === edge.parent && branch.relation === edge.relation) {
-        continue;
+    for (const failure of collected.failures) {
+      const key = failure.branch.join('\u0000');
+      if (!failures.has(key)) {
+        failures.set(key, failure);
       }
-      const key = edgeKey(branch);
-      if (failures.has(key)) {
-        continue;
-      }
-      const evaluation = evaluateEdge(branch, assessments, requirement, policy, ctx);
-      if (!evaluation.ok) {
-        return evaluation;
-      }
-      if (evaluation.value.status === 'SATISFIED') {
-        continue;
-      }
-      failures.set(key, closureFailure(branch, evaluation.value));
     }
   }
 

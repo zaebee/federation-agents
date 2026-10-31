@@ -14,7 +14,13 @@ import type { EdgeTriple, NormalizedFailure, NormalizedPath, NormalizedResult } 
 import { pathKey } from './merge-oracle.js';
 
 function compareStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
 }
 
 function edgesOf(path: Path): readonly EdgeTriple[] {
