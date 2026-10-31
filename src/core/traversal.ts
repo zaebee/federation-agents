@@ -169,33 +169,23 @@ function pathKey(path: Path): string {
     .join('\u0001');
 }
 
-function edgeKey(edge: {
-  readonly child: IdentityVersionID;
-  readonly parent: IdentityVersionID;
-  readonly relation: LineageRelationType;
-}): string {
-  return `${String(edge.child)}\u0000${String(edge.parent)}\u0000${edge.relation}`;
-}
-
-type EdgeMembership = ReadonlySet<string>;
-
-function edgeMembership(graph: LineageGraph): EdgeMembership {
-  const keys = new Set<string>();
-  for (const edge of graph.edges) {
-    keys.add(edgeKey(edge));
-  }
-  return keys;
-}
-
 /**
  * A path is meaningful only against the graph it was discovered from. Every
  * edge must exist in that graph; without this check a path assembled from a
  * stale snapshot or from another domain's JSON would validate against any
  * graph that happens to accept its declarations.
+ *
+ * The direct scan is deliberate: a path holds a handful of edges, so comparing
+ * them against `graph.edges` costs no per-call allocation, while a key set
+ * would allocate one string per graph edge on every call.
  */
-function pathMembershipFailure(path: Path, membership: EdgeMembership): Result<void> {
+function pathMembershipFailure(path: Path, graph: LineageGraph): Result<void> {
   for (const edge of path.edges) {
-    if (!membership.has(edgeKey(edge))) {
+    const present = graph.edges.some(
+      (candidate) =>
+        candidate.child === edge.child && candidate.parent === edge.parent && candidate.relation === edge.relation,
+    );
+    if (!present) {
       return pathMechanismFailure(
         `Path edge ${String(edge.child)} -[${edge.relation}]-> ${String(edge.parent)} is not present in the supplied graph`,
       );
@@ -512,7 +502,7 @@ export function validatePath(
   if (!shape.ok) {
     return shape;
   }
-  const membership = pathMembershipFailure(path, edgeMembership(graph));
+  const membership = pathMembershipFailure(path, graph);
   if (!membership.ok) {
     return membership;
   }
@@ -734,7 +724,7 @@ export function validateMergeClosure(
   if (!shape.ok) {
     return shape;
   }
-  const membership = pathMembershipFailure(path, edgeMembership(graph));
+  const membership = pathMembershipFailure(path, graph);
   if (!membership.ok) {
     return membership;
   }
