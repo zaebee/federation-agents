@@ -31,6 +31,11 @@ export type SelectorOperator = '=' | '>' | '>=' | '<' | '<=' | '^' | '~';
 
 const COMPILED_SELECTOR_BRAND: unique symbol = Symbol('uia-ref-selector@1');
 
+// Runtime factory provenance. The symbol brand above is nominal typing only;
+// an inherited symbol would otherwise pass a property lookup, so authenticity
+// is decided by identity in this set.
+const COMPILED_SELECTORS: WeakSet<object> = new WeakSet<object>();
+
 /** Raised when a value not produced by `compileSelector` reaches `selectorMatches`. */
 export class InvalidCompiledSelectorError extends Error {
   constructor(message = 'CompiledSelector must be produced by compileSelector') {
@@ -80,15 +85,14 @@ function brandedSelector(fields: {
     enumerable: false,
     configurable: false,
   });
-  return deepFreeze(selector);
+
+  const frozen = deepFreeze(selector);
+  COMPILED_SELECTORS.add(frozen);
+  return frozen;
 }
 
 function assertCompiledSelector(selector: CompiledSelector): void {
-  if (
-    selector === null ||
-    typeof selector !== 'object' ||
-    (selector as unknown as Record<symbol, unknown>)[COMPILED_SELECTOR_BRAND] !== true
-  ) {
+  if (selector === null || typeof selector !== 'object' || !COMPILED_SELECTORS.has(selector)) {
     throw new InvalidCompiledSelectorError();
   }
 }
@@ -201,8 +205,9 @@ function compileNonSemverSelector(value: string, scheme: VersionScheme): Result<
 
 /**
  * Parses and validates a selector expression for a given version scheme.
- * The result is a frozen, owned record carrying a module-private runtime
- * brand; it cannot be reproduced from a plain object.
+ * The result is a frozen, owned record. Its runtime provenance is tracked in a
+ * module-private WeakSet, so a plain object — even one that inherits the
+ * nominal brand — cannot be used as a compiled selector.
  */
 export function compileSelector(value: unknown, scheme: VersionScheme): Result<CompiledSelector> {
   if (!isVersionScheme(scheme)) {

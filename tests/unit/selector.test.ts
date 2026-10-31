@@ -288,6 +288,7 @@ describe('malformed selectors', () => {
 
 describe('compiled selector provenance', () => {
   const target = label('1.0.0');
+  const compiled = selector('=1.0.0');
 
   function forged(overrides: Partial<CompiledSelector> = {}): CompiledSelector {
     return {
@@ -303,20 +304,13 @@ describe('compiled selector provenance', () => {
     expect(() => selectorMatches(forged(), target)).toThrow(InvalidCompiledSelectorError);
   });
 
-  test('rejects a forged mechanism label without the runtime brand', () => {
-    expect(() => selectorMatches(forged({ mechanism: 'uia-ref-selector@1' }), target)).toThrow(
-      InvalidCompiledSelectorError,
-    );
-  });
-
   test('rejects an unknown mechanism version', () => {
     expect(() =>
       selectorMatches(forged({ mechanism: 'uia-ref-selector@2' as unknown as 'uia-ref-selector@1' }), target),
     ).toThrow(InvalidCompiledSelectorError);
   });
 
-  test('rejects a copy that lost the non-enumerable brand', () => {
-    const compiled = selector('=1.0.0');
+  test('rejects a spread copy of a compiled selector', () => {
     const copy = { ...compiled } as unknown as CompiledSelector;
 
     expect(() => selectorMatches(copy, target)).toThrow(InvalidCompiledSelectorError);
@@ -326,7 +320,48 @@ describe('compiled selector provenance', () => {
     expect(() => selectorMatches(null as unknown as CompiledSelector, target)).toThrow(InvalidCompiledSelectorError);
   });
 
-  test('accepts a selector produced by compileSelector', () => {
-    expect(selectorMatches(selector('=1.0.0'), target)).toBe(true);
+  test('rejects an object inheriting from a compiled selector', () => {
+    const derived = Object.create(compiled) as Record<string, unknown>;
+
+    expect(() => selectorMatches(derived as unknown as CompiledSelector, target)).toThrow(InvalidCompiledSelectorError);
+  });
+
+  test('rejects an inheriting object that overrides selector fields', () => {
+    const derived = Object.create(compiled) as Record<string, unknown>;
+    const overrides = {
+      kind: 'WILDCARD',
+      scheme: 'OPAQUE_TAG',
+      mechanism: 'uia-ref-selector@2',
+      comparators: [],
+    };
+    for (const [key, value] of Object.entries(overrides)) {
+      Object.defineProperty(derived, key, { value, writable: true, enumerable: true, configurable: true });
+    }
+
+    expect(() => selectorMatches(derived as unknown as CompiledSelector, target)).toThrow(InvalidCompiledSelectorError);
+  });
+
+  test('rejects a Proxy around a compiled selector', () => {
+    const proxied = new Proxy(compiled, {});
+
+    expect(() => selectorMatches(proxied, target)).toThrow(InvalidCompiledSelectorError);
+  });
+
+  test('rejects a Proxy with traps without reading selector fields', () => {
+    const trap = () => {
+      throw new Error('selector fields must not be read during the provenance check');
+    };
+    const proxied = new Proxy(compiled, { get: trap, has: trap, getPrototypeOf: trap });
+
+    expect(() => selectorMatches(proxied, target)).toThrow(InvalidCompiledSelectorError);
+  });
+
+  test('keeps accepting the original selector after failed attempts', () => {
+    expect(() => selectorMatches(Object.create(compiled) as unknown as CompiledSelector, target)).toThrow(
+      InvalidCompiledSelectorError,
+    );
+    expect(() => selectorMatches(new Proxy(compiled, {}), target)).toThrow(InvalidCompiledSelectorError);
+
+    expect(selectorMatches(compiled, target)).toBe(true);
   });
 });
