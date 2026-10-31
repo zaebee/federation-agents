@@ -371,7 +371,14 @@ function runVerifier(
   if (!isVerificationOutcome(outcome)) {
     return mechanismResult('SignatureVerifier returned an unknown verification outcome');
   }
-  return { ok: true, value: outcome };
+  if (outcome.status === 'CRYPTO_UNAVAILABLE' || outcome.status === 'CRYPTO_UNSUPPORTED') {
+    return {
+      ok: true,
+      value:
+        outcome.reason === undefined ? { status: outcome.status } : { status: outcome.status, reason: outcome.reason },
+    };
+  }
+  return { ok: true, value: { status: outcome.status } };
 }
 
 function runAcceptCompromiseTime(policy: SignatureTemporalPolicy, input: CompromiseTimeInput): Result<boolean> {

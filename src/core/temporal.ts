@@ -69,7 +69,11 @@ export function trustOutcome(
     };
   }
 
-  const entry = ctx.trust[subjectRef]?.[validated.value];
+  const subjectTrust = Object.prototype.hasOwnProperty.call(ctx.trust, subjectRef) ? ctx.trust[subjectRef] : undefined;
+  const entry =
+    subjectTrust !== undefined && Object.prototype.hasOwnProperty.call(subjectTrust, validated.value)
+      ? subjectTrust[validated.value]
+      : undefined;
   if (entry === undefined || entry.status === 'NOT_ASSESSED') {
     return { ok: true, value: 'UNASSESSED' };
   }

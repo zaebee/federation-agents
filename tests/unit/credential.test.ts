@@ -306,6 +306,18 @@ describe('§10 temporal trust outcomes and subject binding', () => {
     });
   });
 
+  test('own-property lookup ignores inherited Object.prototype fields', () => {
+    const ctx = trustContext({ subject: {} });
+    expect(trustOutcome(ctx, 'constructor', 'subject', timestamp(SIGNED_AT))).toEqual({
+      ok: true,
+      value: 'UNASSESSED',
+    });
+    expect(trustOutcome(ctx, 'toString', 'subject', timestamp(SIGNED_AT))).toEqual({
+      ok: true,
+      value: 'UNASSESSED',
+    });
+  });
+
   test('a missing subject binding makes signed_at trust unavailable without inventing a subject', () => {
     const result = expectOk(evaluate({ subject_binding: undefined }));
 
@@ -390,6 +402,20 @@ describe('verifier runtime validation', () => {
     expect(unsupported.verification).toEqual({ status: 'CRYPTO_UNSUPPORTED' });
     expect(unsupported.historical).toEqual({ status: 'CRYPTO_UNSUPPORTED' });
   });
+  test('verifier-owned outcome objects are copied and never frozen', () => {
+    const shared: { status: SignatureVerificationOutcome['status'] } = { status: 'VERIFIED' };
+    const verifier: SignatureVerifier = { verify: () => shared as SignatureVerificationOutcome };
+
+    const first = expectOk(evaluate({ revocation: undefined }, undefined, verifier));
+    expect(first.verification).toEqual({ status: 'VERIFIED' });
+    expect(Object.isFrozen(shared)).toBe(false);
+    expect(Object.isFrozen(first.verification)).toBe(true);
+
+    shared.status = 'INVALID';
+    const second = expectOk(evaluate({ revocation: undefined }, undefined, verifier));
+    expect(second.verification).toEqual({ status: 'INVALID' });
+  });
+
   test('strict verifier shape accepts optional reason only on crypto outcomes', () => {
     const withReason = expectOk(
       evaluate(
