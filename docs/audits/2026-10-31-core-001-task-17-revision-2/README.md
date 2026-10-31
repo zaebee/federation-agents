@@ -44,7 +44,7 @@ Task 17 requirement N-143 (§11.2, MUST): a detected cycle must be recorded by a
 | `CASE-C-2.a1` `V1 → V2 → V1` detected exactly | `tests/unit/lineage-graph.test.ts::detects V1 <-> V2 and keeps declarations readable` (Task 17 evidence, unchanged) | PASS |
 | `CASE-C-2.a2` The Assessment records `CYCLE_DETECTED` | `tests/conformance/c.test.ts:86` via `emitCycleAssessments` → `registerCycleAssessments`; one Assessment per affected edge with `unverified_claims: ['CYCLE_DETECTED']`; graph JSON unchanged; frozen array | **PASS** |
 | `CASE-C-2.a3` Dependent grants are not applied | no grant API; CORE-003 / `T18-DEC-13` | BLOCKED |
-| `CASE-C-2.a4` The system does not crash | same graph test; the conformance test also asserts no throw and readable declarations | PASS |
+| `CASE-C-2.a4` The system does not crash | `tests/unit/lineage-graph.test.ts::detects V1 <-> V2 and keeps declarations readable` — no throw, declarations readable (Task 17 evidence, unchanged) | PASS |
 | `CASE-C-2.a5` Historical declarations are not erased, participants not globally deleted | same graph test: nodes and edges remain | PASS |
 
 **Case status: BLOCKED** — four assertions pass, but `CASE-C-2.a3` cannot be judged inside CORE-001, so the case verdict does not move. **`CASE-C-2.a2` itself: NOT COVERED → PASS.**
