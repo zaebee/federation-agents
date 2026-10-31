@@ -236,10 +236,11 @@ describe('discoverPaths (phase 1)', () => {
   });
 
   test('discovers a 10,000-edge chain', () => {
-    const count = 10_000;
+    const edgeCount = 10_000;
+    const nodeCount = edgeCount + 1;
     const alice = participant('participant-a');
     const versions = [descriptor({ id: 'iv-c0', participant: 'participant-a', versionLabel: '1.0.0' })];
-    for (let index = 1; index < count; index += 1) {
+    for (let index = 1; index < nodeCount; index += 1) {
       versions.push(
         descriptor({
           id: `iv-c${index}`,
@@ -254,14 +255,14 @@ describe('discoverPaths (phase 1)', () => {
     const result = discoverPaths(
       graph,
       'CONTINUATION_ONLY',
-      identityVersionId(`iv-c${count - 1}`),
+      identityVersionId(`iv-c${edgeCount}`),
       identityVersionId('iv-c0'),
     );
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value).toHaveLength(1);
-    expect(result.value[0].edges).toHaveLength(count - 1);
+    expect(result.value[0].edges).toHaveLength(edgeCount);
   });
 
   test('keeps a cycle in one branch from invalidating another branch', () => {
@@ -342,6 +343,19 @@ describe('discoverPaths (phase 1)', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value).toHaveLength(2);
+
+    const reorderedGraph = {
+      ...graph,
+      nodes: [...graph.nodes].reverse(),
+      edges: [...graph.edges].reverse(),
+    };
+    const reorderedResult = discoverPaths(
+      reorderedGraph,
+      'FULL_ANCESTRY',
+      identityVersionId('iv-cand'),
+      identityVersionId('iv-origin'),
+    );
+    expect(JSON.stringify(reorderedResult)).toBe(JSON.stringify(result));
   });
 
   test('returns deep-frozen paths', () => {
