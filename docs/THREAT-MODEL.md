@@ -100,8 +100,8 @@ An attacker is **not** assumed to:
 *Status:* protocol + planned implementation.
 
 **T-09 Cycle injection.** A publisher supplies a lineage cycle to make continuity appear provable or to crash the evaluator.
-*Mitigation:* cycles are detected and reported as `CYCLE_DETECTED`; declarations are preserved; the cycle is not accepted as proof; no global deletion or process abortion (§11.2).
-*Status:* planned. Residual risk: availability — see T-17.
+*Mitigation:* cycles are detected and exposed as sorted graph components; declarations are preserved; a cycle is not usable as proof of succession; no global deletion or process abortion (§11.2).
+*Status:* graph-level detection implemented and tested. Recording `CYCLE_DETECTED` in an Assessment and suppressing dependent grants belong to Tasks 8–9. Residual risk: availability — see T-17.
 
 **T-10 Delayed or unresolved parent.** A child arrives before its parent, and the domain treats the missing parent as acceptable.
 *Mitigation:* the declaration is stored, the unresolved reference is preserved, and assessment records `PARENT_UNRESOLVED`; absence of evidence is never success (§11.1, §8.5).
@@ -137,8 +137,8 @@ An attacker is **not** assumed to:
 
 ### E. Availability and integration
 
-**T-17 Graph or payload exhaustion.** An attacker supplies a huge graph, a diamond explosion, or deeply nested JSON to exhaust CPU or memory during traversal.
-*Mitigation (planned):* determinism permits memoization; cycles are dead ends; immediate closure bounds closure work to direct parents.
+**T-17 Graph or payload exhaustion.** An attacker supplies a huge graph, a diamond explosion, or deeply nested JSON to exhaust CPU or memory during graph construction or traversal.
+*Mitigation (current):* graph construction and SCC detection are linear in nodes plus declared edges; duplicates are deduplicated only in the internal adjacency. Traversal mitigation is planned: memoization, cycles as dead ends, immediate closure bounds.
 *Status:* **unmitigated by design gap.** Rev 0.3.3 sets no input limits, and the library defines none. Deployments should enforce descriptor-count, graph-depth, and payload-size limits until an explicit resource-limit contract is defined. This should become an explicit adapter contract.
 
 **T-18 Policy hook abuse.** A caller-supplied hook returns assessments that do not apply to the edge, or a forged "applicable" set.
