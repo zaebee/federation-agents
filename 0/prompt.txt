@@ -1,0 +1,345 @@
+да
+
+---
+
+# UIA-CORE-001 — Task 6 Implementation Handoff
+
+## Context
+
+We are implementing the approved **UIA-CORE-001 Rev 0.3.3** reference implementation.
+
+Tasks 1–5 are complete. Task 5 (version schemes and selectors) has been code-reviewed and approved. Continue on the existing working branch and build on the current implementation.
+
+**Your scope is Task 6 only: Structural validation (§5), A-series conformance.**
+
+Before changing code, read:
+
+1. `docs/CORE-001.md` — normative source, especially §3 and §5.
+2. `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md` — approved implementation plan, especially Global Constraints and Task 6.
+3. Existing implementations:
+   - `src/core/entities.ts`
+   - `src/core/lineage.ts`
+   - `src/core/primitives.ts`
+   - `src/core/errors.ts`
+   - `src/core/version-scheme.ts`
+   - `src/core/selector.ts`
+   - `src/core/hashing.ts`
+4. Existing tests in `tests/unit/` and the current project exports.
+
+Do not rely on this prompt instead of reading the normative spec and approved plan. If they appear to conflict, stop and report the exact conflict.
+
+## 1. Scope and files
+
+Task 6 owns:
+
+- `src/core/entities.ts` — complete the entity definitions and frozen entity constructors required by §3–§5.
+- `src/core/lineage.ts` — implement the `validateDescriptor` structural-validation part.
+- `tests/conformance/a.test.ts` — A-1 through A-5 conformance cases.
+- `tests/unit/lineage.test.ts` — structural validation unit tests.
+- Existing entity tests may be extended where necessary.
+
+Do not implement Task 7 graph construction, delayed-parent resolution, or cycle detection. Do not implement Tasks 8–17.
+
+Task 6 produces:
+
+- The `Registry` interface.
+- `validateDescriptor`.
+- Required frozen entity constructors.
+- Structural validation behavior consumed by Tasks 7–9.
+
+Keep the existing Task 4 descriptor hashing and Task 5 version-scheme/selector implementations compatible.
+
+## 2. Normative and architectural constraints
+
+All global constraints in the approved plan remain binding.
+
+In particular:
+
+- Normative source is **CORE-001 Rev 0.3.3 only**.
+- Core remains pure TypeScript and runtime-independent. No `node:*`, Bun APIs, filesystem, process, network, or environment access under `src/core/`.
+- No runtime dependencies.
+- No exported `any`.
+- Validate untrusted input at the boundary; do not expose unvalidated `unknown` as a public domain record or semantic result.
+- Domain records must be readonly, owned by the domain layer, and deeply frozen.
+- Construction must not retain mutable aliases to caller-owned objects.
+- Preserve existing error taxonomy. Do not invent normative error codes.
+- Keep semantic failures as discriminated results, not thrown exceptions or bare booleans.
+- Preserve deterministic behavior.
+- Do not mutate historical descriptors, registry entries, parent records, or lineage declarations.
+- No entity or API may create, imply, or store an Authority Grant.
+- Identity lineage does not imply authority inheritance.
+- Do not copy credentials from parent or ancestor descriptors.
+- Do not add `DEPRECATED` status or equivalent parent-mutation semantics.
+- Do not implement assessment, acceptance, traversal, revocation, or lifecycle behavior in this task.
+
+## 3. Structural validation requirements
+
+Implement the structural rules from §5, using the approved plan's interpretation:
+
+1. Validate relation cardinality **per relation type**, according to the §5.2 cardinality table.
+2. Mixed relation arrays are structurally legal unless the normative spec explicitly prohibits the combination.
+3. A `CONTINUATION` relation must satisfy the same-participant constraint.
+4. A `CONTINUATION` relation crossing participants must be rejected with `ERR_INVALID_RELATION`.
+5. Self-parent references must be rejected with `ERR_INVALID_RELATION`.
+6. A descriptor violating a relation cardinality constraint must be rejected with `ERR_INVALID_CARDINALITY`.
+7. Structural validation must not silently normalize, drop, rewrite, or reinterpret declared lineage links.
+8. Do not require parent existence at this stage unless §5 explicitly requires it. Delayed-parent handling belongs to Task 7.
+9. Do not infer additional semantic constraints from implementation convenience.
+10. Keep validation separate from graph construction and traversal.
+
+Use the exact field names and relation types defined by the spec and existing Task 4 entity types. Do not introduce alternative naming or parallel representations.
+
+## 4. Registry and validation behavior
+
+Implement the minimal `Registry` contract required by the approved plan:
+
+```ts
+interface Registry {
+  participants(): ParticipantRecord[];
+  versions(): IdentityVersionDescriptor[];
+}
+```
+
+Use the existing branded ID and descriptor types where applicable.
+
+Implement:
+
+```ts
+function validateDescriptor(
+  descriptor: IdentityVersionDescriptor,
+  registry: Registry,
+): StructuralResult;
+```
+
+The approved plan describes the result family as:
+
+```ts
+type StructuralResult =
+  | { status: 'VALID' }
+  | { status: 'INVALID' }
+  | {
+      status: 'REJECTED';
+      code: 'ERR_INVALID_RELATION' | 'ERR_INVALID_CARDINALITY';
+      parent_version_id?: IdentityVersionID;
+    };
+```
+
+Treat this as the planned shape, but verify it against the current code and normative spec before implementation. Preserve existing conventions if the repository has already made a compatible refinement. Do not silently redesign the public API.
+
+A rejected descriptor must not be inserted into or otherwise mutate the registry. The validator must not mutate existing registry records.
+
+## 5. Required conformance tests — A-1 through A-5
+
+Each conformance test must assert:
+
+- The expected validation result.
+- Expected state effects.
+- Forbidden side effects.
+
+### A-1 — Valid CONTINUATION
+
+Assert:
+
+- Validation returns `VALID`.
+- The parent remains present and unchanged in the registry.
+- No `DEPRECATED` status concept is introduced or applied to the parent.
+- No credentials are copied from the parent to the child.
+- No grant or authority artifact is created.
+
+### A-2 — Cross-participant CONTINUATION
+
+Assert:
+
+- Validation rejects the relation with `ERR_INVALID_RELATION`.
+- The rejected edge is not added to any `CONTINUATION` relation map or graph state.
+- Neither participant nor descriptor is mutated.
+
+### A-3 — Valid FORKED_FROM
+
+Assert:
+
+- A cross-participant `FORKED_FROM` relation is accepted where permitted by §5.
+- The ancestor remains deeply unchanged.
+- No ancestor credentials are copied into the child.
+- No grant or authority artifact is created.
+
+### A-4 — FORKED_FROM cardinality violation
+
+Assert:
+
+- A version declaring two `FORKED_FROM` parents is rejected with `ERR_INVALID_CARDINALITY`, according to the approved per-relation cardinality interpretation.
+- The invalid descriptor is not registered as a valid version.
+- Registry contents remain unchanged.
+- No lineage declaration is silently discarded.
+
+### A-5 — Valid MERGED_FROM
+
+Assert:
+
+- A valid `MERGED_FROM` declaration with two parents is accepted.
+- Parent records remain unchanged.
+- No credentials or authority are unioned or inherited from the parents.
+- No grant artifact is created.
+
+Use realistic fixtures grounded in §3–§5 and the existing test conventions. Avoid tests that merely restate implementation details.
+
+## 6. Immutability and adversarial validation tests
+
+In addition to A-1…A-5, test the structural boundary:
+
+- Caller-owned input objects cannot mutate constructed domain records after construction.
+- Nested arrays and records are deeply frozen.
+- Existing parent descriptors remain byte-/deep-equal after validation.
+- Invalid input does not partially mutate registry state.
+- Unknown fields and malformed structures are handled consistently with the existing strict boundary-validation policy.
+- Do not introduce a second, weaker validation path around `validateUnknown` or the existing ownership helpers.
+- Ensure the descriptor accepted by structural validation is the validated, owned representation—not an untrusted mutable alias.
+
+Do not duplicate Task 4 hashing validation unnecessarily. Reuse existing primitives and constructors.
+
+## 7. TDD implementation sequence
+
+Follow this sequence strictly:
+
+1. Inspect the normative sections, plan, current code, and tests.
+2. Write A-1…A-5 conformance tests and focused unit tests first.
+3. Run the relevant tests and confirm they fail for the expected missing behavior.
+4. Implement the smallest changes required to make them pass.
+5. Run the complete test suite.
+6. Run typecheck, lint, formatting checks, and build.
+7. Inspect the final diff for accidental scope expansion.
+8. Commit the completed Task 6 implementation.
+
+Do not modify the approved plan or normative spec as part of implementation.
+
+## 8. Explicit exclusions
+
+Do not:
+
+- Implement `buildLineageGraph`.
+- Implement orphan tracking or delayed-parent resolution.
+- Implement cycle detection.
+- Implement assessments, supersession, conflicts, or assurance.
+- Implement selector evaluation beyond consuming the existing Task 5 API where structurally required.
+- Implement traversal or merge closure.
+- Implement credential temporal evaluation.
+- Implement local acceptance or lifecycle.
+- Add Authority Grant types, stores, constructors, or APIs.
+- Add new normative error codes.
+- Change Task 4 descriptor hashing scope or Task 5 selector/version-scheme semantics.
+- Resolve ambiguities by silently choosing new normative behavior.
+
+If implementation appears to require behavior outside Task 6, stop and report the dependency instead of implementing it.
+
+## 9. Ambiguity handling
+
+The approved plan explicitly records the interpretation that:
+
+- Cardinality is checked per relation type.
+- Mixed relation arrays are structurally legal unless the spec forbids them.
+- `CONTINUATION` has a same-participant constraint.
+- Self-parent references are invalid.
+
+Do not expand these interpretations.
+
+If another ambiguity is discovered:
+
+1. Identify the exact normative section and wording.
+2. Explain the competing interpretations.
+3. Explain the implementation consequence.
+4. Stop before making a normative choice.
+5. Ask for a decision.
+
+Do not add an error code or change the spec unilaterally.
+
+## 10. Completion report
+
+When finished, report:
+
+1. Branch name and commit SHA.
+2. Exact changed files.
+3. Public types, constructors, and functions added or changed.
+4. A-1…A-5 test coverage and the important assertions.
+5. Additional negative/adversarial cases.
+6. Test results, including counts.
+7. Typecheck, lint, format, and build results.
+8. Any assumptions or unresolved ambiguities.
+9. Confirmation that Tasks 7–17 were not started.
+10. Confirmation that no grant-producing API or authority inheritance was introduced.
+
+Clearly distinguish checks actually run from checks that were not run.
+
+**Do not merge the branch or PR.** Stop after the implementation commit and report the result for review.
+
+---
+
+# Task 6 — Decisions Approved. Switch to Implementation Mode.
+
+The user has reviewed and explicitly approved the following Task 6 decisions. Treat them as binding implementation instructions.
+
+**Exit Plan mode now. Switch to implementation mode. Do not remain in planning or ask for another approval.**
+
+## Approved decisions
+
+1. `validateDescriptor` accepts `DeepReadonly<IdentityVersionDescriptor>`. The caller must first pass untrusted input through `validateIdentityVersionDescriptor`. `validateDescriptor` is a structural validator, not a second boundary-validation path. Add a composition test proving the intended call sequence. Remember that `DeepReadonly` is a compile-time contract, not runtime provenance proof.
+
+2. `Registry` exposes readonly collections:
+   - `readonly DeepReadonly<ParticipantRecord>[]`
+   - `readonly DeepReadonly<IdentityVersionDescriptor>[]`
+
+3. Missing parent: skip same-participant validation when the parent is absent from Registry. This is delayed-parent handling and belongs to Task 7. Do not reject solely because the parent is missing. Always reject self-parent references, regardless of Registry contents.
+
+4. Duplicate IDs in Registry: use deterministic first-match lookup (`find`). Document that Registry is assumed consistent. This is an implementation assumption, not a normative UIA rule. Do not invent a new error code or duplicate-ID rejection behavior.
+
+5. Use these public validator names:
+   - `validateParticipantRecord`
+   - `validateCredentialDescriptor`
+   - `validateLineageLink`
+   - `validateRuntimeInstanceDescriptor`
+
+   Reuse internal validators. Do not introduce weaker or parallel validation paths.
+
+## Structural rules
+
+- `CONTINUATION`: exactly 1 parent.
+- `FORKED_FROM`: exactly 1 parent.
+- `MERGED_FROM`: at least 2 parents.
+- Empty lineage is valid.
+- Mixed relation arrays are valid unless the normative spec explicitly prohibits them.
+- Self-parent: `ERR_INVALID_RELATION`.
+- Cross-participant CONTINUATION with a known parent: `ERR_INVALID_RELATION`, including `parent_version_id`.
+- Cardinality violation: `ERR_INVALID_CARDINALITY`, without `parent_version_id`.
+- Preserve the exact planned `StructuralResult` union.
+- Never normalize, remove, or rewrite declared lineage links.
+
+## A-2 test limitation
+
+There is no `lineage.ts` or conformance test directory yet; create them as Task 6 specifies.
+
+Because Task 7 has not created graph state, A-2 must assert:
+- `ERR_INVALID_RELATION`;
+- no Registry mutation;
+- no graph state or graph mutation exposed by the result.
+
+Do not pretend to test absence from a graph relation map before a graph exists. Record this limitation in the completion report.
+
+## Scope and execution
+
+Implement Task 6 only:
+- Complete `src/core/entities.ts`.
+- Create `src/core/lineage.ts` with `Registry` and `validateDescriptor`.
+- Create `tests/conformance/a.test.ts` for A-1…A-5.
+- Create `tests/unit/lineage.test.ts`.
+- Export the approved public API through `src/core/index.ts`.
+
+Follow TDD: tests first, confirm RED, implement, confirm GREEN.
+
+Run the full suite, typecheck, lint, format check, and build. Inspect the final diff for scope creep.
+
+Do not start Task 7 or any later task. Do not modify the normative spec or approved plan. Do not add error codes, grant-producing APIs, authority inheritance, graph construction, orphan handling, or cycle detection.
+
+Commit using the approved message:
+
+`feat(core): frozen entities and lineage structural validation (A-series)`
+
+Do not merge. Report branch, commit SHA, changed files, test results, assumptions, and any unresolved ambiguity. Clearly distinguish checks actually run from checks not run.
