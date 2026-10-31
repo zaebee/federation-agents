@@ -17,58 +17,66 @@ import ts from 'typescript';
 export function collectExportedNames(entryPath: string): Set<string> {
   const exported = new Set<string>();
   const visited = new Set<string>();
-
-  const visit = (filePath: string): void => {
-    if (visited.has(filePath)) {
-      return;
-    }
-    visited.add(filePath);
-    const source = ts.createSourceFile(filePath, readFileSync(filePath, 'utf8'), ts.ScriptTarget.Latest, true);
-
-    for (const statement of source.statements) {
-      collectDeclaration(statement, exported);
-
-      if (ts.isExportAssignment(statement)) {
-        exported.add('default');
-      }
-
-      if (!ts.isExportDeclaration(statement)) {
-        continue;
-      }
-
-      const target =
-        statement.moduleSpecifier !== undefined && ts.isStringLiteral(statement.moduleSpecifier)
-          ? resolve(dirname(filePath), statement.moduleSpecifier.text.replace(/\.js$/, '.ts'))
-          : undefined;
-
-      if (statement.exportClause === undefined) {
-        if (target !== undefined) {
-          visit(target);
-        }
-        continue;
-      }
-
-      if (ts.isNamedExports(statement.exportClause)) {
-        for (const element of statement.exportClause.elements) {
-          exported.add(element.name.text);
-          if (element.propertyName !== undefined) {
-            exported.add(element.propertyName.text);
-          }
-        }
-        continue;
-      }
-
-      if (ts.isNamespaceExport(statement.exportClause)) {
-        exported.add(statement.exportClause.name.text);
-        if (target !== undefined) {
-          visit(target);
-        }
-      }
-    }
-  };
-
-  visit(entryPath);
+  visitModule(entryPath, exported, visited);
   return exported;
+}
+
+function visitModule(filePath: string, exported: Set<string>, visited: Set<string>): void {
+  if (visited.has(filePath)) {
+    return;
+  }
+  visited.add(filePath);
+  const source = ts.createSourceFile(filePath, readFileSync(filePath, 'utf8'), ts.ScriptTarget.Latest, true);
+
+  for (const statement of source.statements) {
+    collectDeclaration(statement, exported);
+    if (ts.isExportAssignment(statement)) {
+      exported.add('default');
+    }
+    if (ts.isExportDeclaration(statement)) {
+      collectExportDeclaration(statement, filePath, exported, visited);
+    }
+  }
+}
+
+function collectExportDeclaration(
+  statement: ts.ExportDeclaration,
+  filePath: string,
+  exported: Set<string>,
+  visited: Set<string>,
+): void {
+  const target = moduleTarget(statement, filePath);
+
+  if (statement.exportClause === undefined) {
+    if (target !== undefined) {
+      visitModule(target, exported, visited);
+    }
+    return;
+  }
+
+  if (ts.isNamedExports(statement.exportClause)) {
+    for (const element of statement.exportClause.elements) {
+      exported.add(element.name.text);
+      if (element.propertyName !== undefined) {
+        exported.add(element.propertyName.text);
+      }
+    }
+    return;
+  }
+
+  if (ts.isNamespaceExport(statement.exportClause)) {
+    exported.add(statement.exportClause.name.text);
+    if (target !== undefined) {
+      visitModule(target, exported, visited);
+    }
+  }
+}
+
+function moduleTarget(statement: ts.ExportDeclaration, filePath: string): string | undefined {
+  if (statement.moduleSpecifier === undefined || !ts.isStringLiteral(statement.moduleSpecifier)) {
+    return undefined;
+  }
+  return resolve(dirname(filePath), statement.moduleSpecifier.text.replace(/\.js$/, '.ts'));
 }
 
 function collectDeclaration(statement: ts.Statement, exported: Set<string>): void {
