@@ -78,10 +78,11 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/hashing.ts`         | §7.1     | Implemented | Explicit 8-field descriptor projection, `urn:hash:sha256:…`, pinned known-answer test |
 | `core/version-scheme.ts`  | §3.2     | Implemented | `SEMVER_2` validation, `CONTENT_HASH`/`OPAQUE_TAG` non-empty rules, SemVer parsing and precedence |
 | `core/selector.ts`        | §3.2, §8.2 | Implemented | Versioned `uia-ref-selector@1` mechanism with compiled-selector provenance |
-| `core/credential.ts`      | §4, §10  | Planned     | Credential usage, revocation reasons, historical signature semantics    |
+| `core/credential.ts`      | §4, §10  | Implemented | Credential usage, revocation reasons, historical signature evaluation, subject-bound temporal trust |
 | `core/lineage.ts`         | §5, §11  | Implemented | §5.2 structural validation, graph snapshots, delayed parents, deterministic SCC cycle detection |
 | `core/assessment.ts`      | §6       | Implemented | Edge applicability, policy narrowing, assurance evaluation, copy-on-write supersession |
-| `core/temporal.ts`        | §10      | Partial     | Type contracts only (`TemporalContext` and trust inputs); trust derivation is Task 13 |
+| `core/temporal.ts`        | §10      | Implemented | Temporal contracts and four-outcome trust derivation with exact subject/field/value binding |
+| `core/runtime.ts`         | §3.3, D-1 | Implemented | Runtime registry, minimal FAILURE event, separated RUNNING lifecycle state |
 | `core/traversal.ts`       | §8       | Implemented | Path discovery, path validation, immediate merge closure, binding evaluation |
 | `core/acceptance.ts`      | §9       | Planned     | `LocalAcceptanceRecord` and lifecycle transitions                       |
 | `core/ledger.ts`          | —        | Planned     | Append-only in-memory stores — a **mechanism**, not protocol semantics  |
@@ -92,7 +93,7 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 
 ### 4.1. Intake
 
-The validation and ownership steps exist today for every §3–§5 record: `validateJsonValue`, the entity constructors, and `validateIdentityVersionDescriptor`; each rejects unknown fields and returns an owned, deep-frozen copy. Structural lineage validation, lineage graph construction, assessment evaluation and traversal also exist; credentials, acceptance and ledger remain planned. The flow is the contract every future record constructor must follow.
+The validation and ownership steps exist today for every §3–§5 record: `validateJsonValue`, the entity constructors, and `validateIdentityVersionDescriptor`; each rejects unknown fields and returns an owned, deep-frozen copy. Structural lineage validation, lineage graph construction, assessment evaluation, traversal, credentials and runtime lifecycle events also exist; acceptance and ledger remain planned. The flow is the contract every future record constructor must follow.
 
 ```text
 untrusted input (JSON, transport, storage)
@@ -223,7 +224,7 @@ The architecture omits these on purpose; each omission is a boundary, not an unf
 | Suite                     | Purpose                                                             | Exists | Conformance claim |
 | ------------------------- | ------------------------------------------------------------------- | ------ | ----------------- |
 | `tests/unit/`             | Module behavior, rejection cases, ownership, canonicalization vectors | Yes    | Yes              |
-| `tests/conformance/`      | The §12 corpus A-1…D-4, exact fixtures and side-effect contracts       | Partial (A, B) | Yes, once present |
+| `tests/conformance/`      | The §12 corpus A-1…D-4, exact fixtures and side-effect contracts       | Partial (A, B, D-1/D-3/D-4) | Yes, once present |
 | `tests/property/`         | Determinism and brute-force equivalence (fast-check)                   | Yes    | Yes, for immediate closure |
 | `tests/experimental/`     | BLOCKED interpretations (recursive closure, origin closure)            | Yes    | **No** — excluded |
 
@@ -231,8 +232,8 @@ A passing test suite does not establish production security or interoperability;
 
 ## 12. Status
 
-Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, the type-level temporal contracts, §8 conditional version binding with three-phase traversal and immediate merge closure, and property-based invariance with an independent immediate-closure oracle.
+Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, temporal contracts with four-outcome trust derivation, §8 conditional version binding with three-phase traversal and immediate merge closure, credential usage/revocation/historical evaluation (D-3/D-4), runtime lifecycle decomposition (D-1), and property-based invariance with an independent immediate-closure oracle.
 
-Planned: temporal trust derivation (Task 13), credentials, acceptance, ledger, and the full C-1/C-2 conformance cases (assessment recording of `PARENT_UNRESOLVED`/`CYCLE_DETECTED`).
+Planned: Local Acceptance and lifecycle (Task 15/D-2), the ledger, and the full C-1/C-2 conformance cases (assessment recording of `PARENT_UNRESOLVED`/`CYCLE_DETECTED`).
 
 Ordering and exit criteria are tracked in [`ROADMAP.md`](./ROADMAP.md) and in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md).

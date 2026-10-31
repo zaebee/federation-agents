@@ -108,6 +108,8 @@ Implemented so far:
 - Continuity assessments: edge-bound applicability, policy narrowing without expansion, trusted-assessor filtering, spec-literal unverified-claim semantics, explicit-only `CONTESTED`, and copy-on-write supersession.
 - Conditional version binding and three-phase traversal (§8): scope-filtered path discovery, per-path validation, and immediate merge closure over every direct parent edge of merge nodes on a path.
 - §12 B-series conformance (B-1…B-7), including per-path outcomes and the trusted-assessor refusal in B-5.
+- Credential usage, revocation reason semantics, subject-bound four-outcome temporal trust, and historical signature evaluation with separate historical and future results (D-3/D-4).
+- RuntimeInstance registry with a minimal `FAILURE` lifecycle event; event recording leaves descriptors, lifecycle state and credential observations unchanged (D-1).
 - Property-based invariance for storage, lineage and assessment arrival order, plus an independent brute-force oracle for the immediate-closure contract on bounded DAGs.
 - Descriptor hashing over the explicit §7.1 projection, pinned by a known-answer test.
 - Version label validation: strict SemVer 2.0.0 for `SEMVER_2`, non-empty labels for `CONTENT_HASH` and `OPAQUE_TAG` (no format or ordering inferred).
@@ -115,9 +117,8 @@ Implemented so far:
 
 Still to come:
 
-- Credential semantics and temporal validation.
-- Local Acceptance and lifecycle semantics.
-- The remaining §12 conformance corpus (C-1/C-2 and the D-series).
+- Local Acceptance and lifecycle semantics (D-2).
+- The remaining §12 conformance corpus (C-1/C-2 and D-2).
 
 Implementation progress is tracked task by task in the implementation plan. Not every capability described in the specification is necessarily implemented in the current repository state.
 
@@ -198,7 +199,7 @@ Related concerns may be addressed by separate specifications.
 
 The normative specification is currently a Candidate Draft Normative document.
 
-The reference implementation is being developed incrementally. Unit, A/B conformance and property suites exist today; the C/D conformance cases are not yet present. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
+The reference implementation is being developed incrementally. Unit, A/B/D conformance and property suites exist today; C-1/C-2 and D-2 are not yet present. Some semantic questions are deliberately marked BLOCKED rather than resolved through undocumented implementation assumptions.
 
 ## Design philosophy
 
