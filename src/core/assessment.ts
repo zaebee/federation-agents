@@ -86,10 +86,28 @@ export type AssuranceResult =
 
 const UNSATISFIED_NOTE = 'required-claim-not-verified; no-negative-finding-established' as const;
 
-function compareClaims(a: string, b: string): number {
+function compareStrings(a: string, b: string): number {
   if (a < b) return -1;
   if (a > b) return 1;
   return 0;
+}
+
+function compareAssessments(
+  left: DeepReadonly<ContinuityAssessment>,
+  right: DeepReadonly<ContinuityAssessment>,
+): number {
+  return compareStrings(left.assessment_id, right.assessment_id);
+}
+
+function mechanismRejection(message: string): Result<never> {
+  return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', message) };
+}
+
+function cycleRejection(assessmentId: AssessmentID): Result<never> {
+  return {
+    ok: false,
+    error: specFailure('CYCLE_DETECTED', `Supersession chain containing ${assessmentId} would contain a cycle`),
+  };
 }
 
 function appliesToEdge(assessment: DeepReadonly<ContinuityAssessment>, edge: EdgeRef): boolean {
@@ -128,14 +146,25 @@ export function assessEdge(
     return copied;
   }
 
+  const seenIds = new Set<AssessmentID>();
+  for (const assessment of copied.value) {
+    if (seenIds.has(assessment.assessment_id)) {
+      return mechanismRejection(`Duplicate assessment_id in candidate assessments: ${assessment.assessment_id}`);
+    }
+    seenIds.add(assessment.assessment_id);
+  }
+
   const edge: EdgeRef = {
     child: edgeRef.child,
     parent: edgeRef.parent,
     relation: edgeRef.relation,
   };
-  const applicable = deepFreeze(copied.value.filter((assessment) => appliesToEdge(assessment, edge)));
+  const ordered = copied.value.filter((assessment) => appliesToEdge(assessment, edge)).sort(compareAssessments);
+  const applicable = deepFreeze(ordered);
   const hook = policy.applicableAssessments;
-  const narrowed = hook === undefined ? applicable : narrowByPolicy(hook(edge, applicable, ctx), applicable, edge);
+  const narrowed = (hook === undefined ? applicable : narrowByPolicy(hook(edge, applicable, ctx), applicable))
+    .slice()
+    .sort(compareAssessments);
 
   const value = {
     edge,
@@ -148,13 +177,12 @@ export function assessEdge(
 
 /**
  * Accepts only members of the core-computed set. Items are matched by
- * assessment id and revalidated against the edge; the stored value is always
- * the core copy, so a hook cannot inject altered claims under a known id.
+ * assessment id against the core copy, so a hook cannot inject altered claims
+ * under a known id; duplicates are dropped.
  */
 function narrowByPolicy(
   selected: readonly DeepReadonly<ContinuityAssessment>[],
   applicable: readonly DeepReadonly<ContinuityAssessment>[],
-  edge: EdgeRef,
 ): readonly DeepReadonly<ContinuityAssessment>[] {
   const coreById = new Map(applicable.map((assessment) => [assessment.assessment_id, assessment]));
   const accepted: DeepReadonly<ContinuityAssessment>[] = [];
@@ -162,12 +190,7 @@ function narrowByPolicy(
 
   for (const candidate of selected) {
     const core = coreById.get(candidate.assessment_id);
-    if (
-      core === undefined ||
-      seen.has(core.assessment_id) ||
-      !appliesToEdge(candidate, edge) ||
-      !appliesToEdge(core, edge)
-    ) {
+    if (core === undefined || seen.has(core.assessment_id)) {
       continue;
     }
     seen.add(core.assessment_id);
@@ -202,6 +225,12 @@ function differingClaims(
   return [...claims];
 }
 
+/**
+ * A-4b is BLOCKED: only an explicit predicate can declare a conflict. The
+ * predicate defines why; `contestedClaims` is a diagnostic of verified claims
+ * that differ between the pair, and may be empty when the predicate fires on
+ * identical verified claim sets.
+ */
 function collectContestedClaims(
   assessments: readonly DeepReadonly<ContinuityAssessment>[],
   edge: EdgeRef,
@@ -222,7 +251,7 @@ function collectContestedClaims(
     }
   }
 
-  return contested ? [...claims].sort(compareClaims) : undefined;
+  return contested ? [...claims].sort(compareStrings) : undefined;
 }
 
 /**
@@ -261,8 +290,8 @@ export function evaluateAssurance(
   }
 
   const disallowedClaims = new Set(requirement.disallowed_claims ?? []);
-  const missing = requirement.required_claims.filter((claim) => !verified.has(claim)).sort(compareClaims);
-  const disallowed = [...verified].filter((claim) => disallowedClaims.has(claim)).sort(compareClaims);
+  const missing = requirement.required_claims.filter((claim) => !verified.has(claim)).sort(compareStrings);
+  const disallowed = [...verified].filter((claim) => disallowedClaims.has(claim)).sort(compareStrings);
 
   if (missing.length > 0 || disallowed.length > 0) {
     return {
@@ -320,14 +349,21 @@ export function registerAssessment(
   }
   const registered = deepFreeze(copied.value);
 
+  if (registered.supersedes_assessment_id === registered.assessment_id) {
+    return cycleRejection(registered.assessment_id);
+  }
+
+  if (registeredExisting.some((item) => item.assessment_id === registered.assessment_id)) {
+    return mechanismRejection(`Duplicate assessment_id: ${registered.assessment_id}`);
+  }
+
+  const predecessor = registered.supersedes_assessment_id;
+  if (predecessor !== undefined && !registeredExisting.some((item) => item.assessment_id === predecessor)) {
+    return mechanismRejection(`Unknown supersedes_assessment_id: ${predecessor}`);
+  }
+
   if (closesSupersessionCycle(registeredExisting, registered)) {
-    return {
-      ok: false,
-      error: specFailure(
-        'CYCLE_DETECTED',
-        `Supersession chain containing ${successor.assessment_id} would contain a cycle`,
-      ),
-    };
+    return cycleRejection(registered.assessment_id);
   }
 
   return { ok: true, value: Object.freeze([...registeredExisting, registered]) };

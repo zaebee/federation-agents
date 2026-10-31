@@ -257,6 +257,43 @@ describe('policy narrowing', () => {
     expect(narrowed.unresolved).toBe(true);
   });
 
+  test('orders applicable assessments by id before invoking the hook', () => {
+    const first = assessment({ assessment_id: assessmentId('a-1'), verified_claims: ['C1'] });
+    const second = assessment({ assessment_id: assessmentId('b-1'), verified_claims: ['C2'] });
+    const hook: Policy['applicableAssessments'] = (_edge, assessments) => assessments.slice(0, 1);
+
+    const forward = applicable([first, second], policy({ applicableAssessments: hook }));
+    const reversed = applicable([second, first], policy({ applicableAssessments: hook }));
+
+    expect(forward.assessments.map((item) => String(item.assessment_id))).toEqual(['a-1']);
+    expect(reversed.assessments.map((item) => String(item.assessment_id))).toEqual(['a-1']);
+  });
+
+  test('rejects duplicate candidate assessment ids', () => {
+    const result = assessEdge(
+      EDGE,
+      [assessment({ assessment_id: assessmentId('a-1') }), assessment({ assessment_id: assessmentId('a-1') })],
+      policy(),
+      CTX,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe('MECHANISM');
+    expect(result.error.code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
+  });
+
+  test('a hook cannot inject altered claims under a known id', () => {
+    const genuine = assessment({ assessment_id: assessmentId('a-1'), verified_claims: ['C1'] });
+    const forged = assessment({ assessment_id: assessmentId('a-1'), verified_claims: ['FORGED'] });
+    const narrowed = applicable([genuine], policy({ applicableAssessments: () => [forged] }));
+
+    expect(narrowed.assessments[0].verified_claims).toEqual(['C1']);
+    expect(evaluateAssurance(narrowed, trustedRequirement({ required_claims: ['FORGED'] }), policy(), CTX)).toEqual(
+      unsatisfiedResult(['FORGED']),
+    );
+  });
+
   test('discarded assessments are not consumed by assurance evaluation', () => {
     const applicableAssessment = assessment({ assessment_id: assessmentId('a-1'), verified_claims: ['C1'] });
     const foreign = assessment({
@@ -418,6 +455,20 @@ describe('conflict handling (A-4b blocked)', () => {
 
     expect(result).toEqual({ status: 'SATISFIED' });
   });
+
+  test('an explicit predicate may declare conflict with no differing claims', () => {
+    const result = evaluateAssurance(
+      applicable([
+        assessment({ assessment_id: assessmentId('a-1'), verified_claims: ['C1'] }),
+        assessment({ assessment_id: assessmentId('a-2'), verified_claims: ['C1'] }),
+      ]),
+      trustedRequirement(),
+      policy({ conflictPredicate: () => true }),
+      CTX,
+    );
+
+    expect(result).toEqual({ status: 'CONTESTED', contestedClaims: [] });
+  });
 });
 
 describe('supersession', () => {
@@ -485,6 +536,34 @@ describe('supersession', () => {
     const result = evaluateTrusted([older, newer], { required_claims: ['C1'] });
 
     expect(result).toEqual({ status: 'SATISFIED' });
+  });
+
+  test('rejects a duplicate assessment id without replacing the record', () => {
+    const existing = [assessment({ assessment_id: assessmentId('a-1'), verified_claims: ['C1'] })];
+    const before = snapshot(existing);
+
+    const result = registerAssessment(
+      existing,
+      assessment({ assessment_id: assessmentId('a-1'), verified_claims: ['C2'] }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe('MECHANISM');
+    expect(result.error.code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
+    expect(snapshot(existing)).toBe(before);
+  });
+
+  test('rejects an unknown supersession predecessor', () => {
+    const result = registerAssessment(
+      [],
+      assessment({ assessment_id: assessmentId('a-2'), supersedes_assessment_id: assessmentId('a-1') }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe('MECHANISM');
+    expect(result.error.code).toBe('E_UNKNOWN_BOUNDARY_REJECTED');
   });
 });
 

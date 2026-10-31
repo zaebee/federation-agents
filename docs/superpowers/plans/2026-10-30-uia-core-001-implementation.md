@@ -398,6 +398,8 @@ function applyLifecycle(record: DeepReadonly<LocalAcceptanceRecord>, event: Deep
 - Items discarded by policy narrowing are never exposed or consumed by assurance evaluation; no `discarded` field is added to the public type.
 - `AssuranceResult` is `SATISFIED | UNSATISFIED | CONTESTED | MechanismFailure`; the unbranded guard returns before any assurance logic runs.
 - Trusted assessors resolve as `requirement.trusted_assessors` → `Policy.trustedAssessorDefault` → empty set. There is no trust-all default.
+- Applicable assessments are sorted by `assessment_id` before the policy hook and sorted again before storage; duplicate candidate ids in `assessEdge` are rejected as `E_UNKNOWN_BOUNDARY_REJECTED`.
+- `registerAssessment` also rejects a duplicate `assessment_id` and an unknown `supersedes_assessment_id` as `E_UNKNOWN_BOUNDARY_REJECTED`; only a genuine supersession cycle returns `CYCLE_DETECTED`.
 
 ### Task 9: Traversal Phases 1+2 — discovery, validation — B-1..B-3
 
