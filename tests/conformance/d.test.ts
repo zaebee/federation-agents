@@ -153,6 +153,7 @@ describe('§12 Category D: runtime independence', () => {
     expect(updated.stateOf(runtimeInstanceId('rt-2'))).toBe('RUNNING');
     expect(updated.stateOf(runtimeInstanceId('rt-1'))).toBe('RUNNING');
     expect(registry.events()).toEqual([]);
+    expect(updated.runtimes().every((runtime) => runtime.identity_version_id === identity.id)).toBe(true);
 
     expect(JSON.stringify(updated.runtimes()[0])).toBe(rt1Before);
     expect(JSON.stringify(updated.runtimes()[1])).toBe(rt2Before);

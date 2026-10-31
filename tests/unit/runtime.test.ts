@@ -86,7 +86,6 @@ describe('RuntimeLifecycleEvent', () => {
       { runtime_instance_id: 'rt-1', kind: 'STOPPED' },
       { runtime_instance_id: 'rt-1' },
       { kind: 'FAILURE' },
-      { runtime_instance_id: '', kind: 'FAILURE' },
       { runtime_instance_id: 'rt-1', kind: 'FAILURE', timestamp: timestamp(BASE_TIME) },
       { runtime_instance_id: 1, kind: 'FAILURE' },
       null,
@@ -97,6 +96,24 @@ describe('RuntimeLifecycleEvent', () => {
       const result = createRuntimeLifecycleEvent(value);
       expect(result.ok).toBe(false);
     }
+  });
+
+  test('allows an empty RuntimeInstanceID consistently with the entity validator', () => {
+    const registry = runtimeRegistry(runtimeDescriptor(''));
+    const event = failureEvent('');
+    const updated = expectOk(recordRuntimeEvent(registry, event));
+
+    expect(updated.events()).toHaveLength(1);
+    expect(updated.stateOf(runtimeInstanceId(''))).toBe('RUNNING');
+  });
+
+  test('rejects arrays with extra or symbol properties', () => {
+    const runtime = rawRuntime('rt-1');
+    const withExtra = Object.assign([runtime], { metadata: 'unexpected' });
+    const withSymbol = Object.assign([runtime], { [Symbol('extra')]: true });
+
+    expect(createRuntimeRegistry(withExtra).ok).toBe(false);
+    expect(createRuntimeRegistry(withSymbol).ok).toBe(false);
   });
 
   test('rejects forged registry and event values', () => {

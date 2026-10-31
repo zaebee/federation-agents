@@ -48,8 +48,8 @@ function isJsonObject(value: JsonValue): value is JsonObject {
 }
 
 function requireString(value: JsonValue | undefined, path: string): Result<string> {
-  if (typeof value !== 'string' || value.length === 0) {
-    return invalid(path, 'expected non-empty string');
+  if (typeof value !== 'string') {
+    return invalid(path, 'expected string');
   }
   return { ok: true, value };
 }
@@ -131,14 +131,16 @@ function makeRegistry(
  * validated, copied and frozen; duplicate runtime IDs are rejected.
  */
 export function createRuntimeRegistry(value: unknown): Result<RuntimeRegistry> {
-  if (!Array.isArray(value)) {
+  const json = validateJsonValue(value);
+  if (!json.ok) return json;
+  if (!Array.isArray(json.value)) {
     return invalid('$', 'expected array of RuntimeInstanceDescriptor values');
   }
   const runtimes: DeepReadonly<RuntimeInstanceDescriptor>[] = [];
   const seen = new Set<string>();
 
-  for (let index = 0; index < value.length; index += 1) {
-    const validated = validateRuntimeInstanceDescriptor(value[index]);
+  for (let index = 0; index < json.value.length; index += 1) {
+    const validated = validateRuntimeInstanceDescriptor(json.value[index]);
     if (!validated.ok) return validated;
     const id = String(validated.value.id);
     if (seen.has(id)) {
