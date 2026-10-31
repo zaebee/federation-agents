@@ -1,0 +1,406 @@
+Проверил. Хорошая новость: все три замечания предыдущего аудита исправлены. Причём исправления сделаны аккуратно, без расширения scope.
+
+Но есть один нюанс: ссылка, которую ты прислал, ведёт на старый commit `8778ec3`. Текущий HEAD PR #36 уже обновлён до `1f91ff0`:
+
+- Старый: `8778ec3d5307de22b6af6d736e203b8d152ff410`
+- Новый HEAD: `1f91ff055c66be4aff7ff3ae7acc8fcc9e20f9d8`
+- Новый commit: [correct A-5 status, D-2 terminology and ARCHITECTURE drift evidence](https://github.com/zaebee/federation-agents/commit/1f91ff055c66be4aff7ff3ae7acc8fcc9e20f9d8?utm_source=chatgpt.com)
+
+## Повторный аудит
+
+3 из 3 замечаний исправлены
+
+| Замечание                                  | Результат                                                                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| §9.4 — неверное описание `ARCHITECTURE.md` | Исправлено: теперь явно показано противоречие между актуальными §3/§4.1 и устаревшими A7/§8/§9                                                               |
+| §8.2 — A-5 ошибочно назван закрытым        | Исправлено: immediate-only описан как текущее поведение реализации, A-5 остаётся BLOCKED                                                                     |
+| D-2 — смешение Local Acceptance и Ruling   | Исправлено: теперь используется `historical Local Acceptance preservation fixture`, а сохранность описана через Local Acceptance record, assessment и ledger |
+
+Особенно важно исправление A-5. Теперь документ не превращает реализационное решение в нормативное разрешение неоднозначности. Это именно то разделение, которое мы хотели сохранить.
+
+## Проверки
+
+- Изменён только `docs/implementation.md`.
+- Второй commit содержит только исправления трёх замечаний.
+- PR по-прежнему открыт, не смержен.
+- CI на актуальном HEAD: success (run `41178149264`).
+- Sonar Quality Gate проходил на предыдущем commit; нового результата Sonar для последнего HEAD в проверенных данных пока нет.
+- GitHub review submissions пока отсутствуют.
+
+## Один небольшой housekeeping
+
+В описании самого PR осталась фраза:
+
+> Single commit, single file: `docs/implementation.md`
+
+Теперь commits уже два. Это не проблема содержимого документа, но описание PR стоит привести в соответствие с историей. Также PR body содержит прежнюю формулировку follow-up про `ARCHITECTURE.md`; она не критична, но теперь описание в самом документе точнее.
+
+## Вердикт
+
+APPROVE
+
+По существу документа замечаний больше не осталось. Три найденные проблемы исправлены, важные границы CORE-001 / CORE-004, OPEN/BLOCKED и implementation-vs-normative сохранены.
+
+Я бы уже принимал этот PR. Единственное — обновить описание PR, чтобы не оставлять фактическую неточность про один commit. Сам GitHub review я не отправлял.
+
+---
+
+мержим
+
+---
+
+# Task 17 — Full CORE-001 Conformance Verification
+
+## Mode
+
+**PLAN MODE ONLY.**
+
+Do not modify files, create commits, open PRs, change tests, or alter implementation. This task is verification and audit planning only.
+
+## Context
+
+We have completed implementation Tasks 1–15 and documentation Task 16 for UIA-CORE-001 Rev E (0.3.3).
+
+Relevant repository artifacts:
+
+- Normative specification: `docs/CORE-001.md`
+- Implementation reference: `docs/implementation.md`
+- Architecture overview: `docs/ARCHITECTURE.md`
+- Approved implementation plan: `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`
+- Implementation: `src/core/`
+- Conformance tests: `tests/conformance/`
+- Unit and property tests: `tests/`
+
+Task 16 produced an evidence-backed implementation reference. It explicitly distinguishes normative semantics, implementation mechanisms, test coverage, and unresolved ambiguities.
+
+Known baseline at the beginning of Task 16:
+- 511 tests total
+- 507 passing
+- 4 todo
+- 3283 assertions
+- `format:check` passing
+
+Treat these as historical baseline figures, not guaranteed current results. Re-run verification and report actual results.
+
+## Objective
+
+Perform a complete, assertion-level conformance audit of the current implementation against `docs/CORE-001.md` Rev E (0.3.3).
+
+The central question is:
+
+**Does the implementation satisfy each normative requirement of CORE-001, and what evidence supports that conclusion?**
+
+This is not a code-quality review, refactoring exercise, or feature-development task.
+
+## Non-negotiable principles
+
+1. **Specification is the normative authority.** Do not treat implementation behavior, tests, or the implementation plan as substitutes for normative requirements.
+
+2. **Evidence ≠ Finding ≠ Ruling ≠ Execution Authorization.** Preserve these distinctions throughout the audit.
+
+3. Do not infer conformance from test success alone. A passing test may be incomplete, weak, or test the wrong property.
+
+4. Do not infer non-conformance merely because a behavior is not implemented if the specification leaves it OPEN or BLOCKED.
+
+5. Do not resolve normative ambiguity through implementation behavior or personal interpretation. Record it as OPEN/BLOCKED and explain why it prevents a conformance judgment.
+
+6. Do not silently reconcile contradictions between:
+   - `docs/CORE-001.md`
+   - `docs/implementation.md`
+   - source code
+   - tests
+   - approved implementation plan
+
+   Identify the conflicting statements and their provenance.
+
+7. Do not change normative semantics, add requirements, or invent new conformance criteria.
+
+8. Do not modify production code or tests, even when you find defects. Report findings separately.
+
+9. Do not claim full conformance if any applicable requirement is FAIL, PARTIAL, BLOCKED, or NOT COVERED.
+
+10. Do not create new normative error codes, APIs, authority mechanisms, revocation semantics, or recursive closure behavior as part of this task.
+
+## Scope
+
+### A. Normative requirement inventory
+
+Read the complete `docs/CORE-001.md`.
+
+Extract every normative requirement, including:
+- MUST / MUST NOT
+- SHALL / SHALL NOT
+- REQUIRED / PROHIBITED
+- explicit invariants and constraints
+- normative field and type requirements
+- validation and rejection requirements
+- temporal semantics
+- authority and trust boundaries
+- lifecycle semantics
+- cryptographic and provenance claims
+- explicit OPEN/BLOCKED items and limitations
+
+Do not restrict the inventory to §12 conformance cases.
+
+Assign stable audit identifiers such as `N-001`, `N-002`, etc. These are audit identifiers only, not new specification identifiers.
+
+For each requirement record:
+- specification section and exact text or a concise faithful paraphrase;
+- normative strength;
+- applicability;
+- relevant implementation module(s);
+- relevant test(s);
+- verification method;
+- current assessment status;
+- evidence and reasoning.
+
+### B. §12 conformance case audit
+
+Audit all 18 conformance cases in §12.
+
+Known coverage caveat:
+- C-1 and C-2 have `test.todo` entries.
+- There are partial graph-level tests, but these must not be presented as full conformance coverage.
+- Task 16 documented 16/18 cases as covered; independently verify this against current files.
+
+For every case:
+1. Identify each individual assertion in the normative case.
+2. Locate the corresponding test(s), if any.
+3. Inspect the actual assertion and its setup.
+4. Trace the behavior to the implementation.
+5. Determine whether the test genuinely proves the normative property.
+6. Identify missing negative cases, boundary cases, or adversarial cases where relevant.
+7. Assign a status and explain it.
+
+Do not use a single status for a case if its individual assertions have different outcomes. Preserve assertion-level granularity.
+
+### C. Implementation traceability
+
+Inspect relevant source code, not just exported API declarations.
+
+Trace each requirement through:
+- public API;
+- runtime validation;
+- internal mechanism;
+- state transition or result construction;
+- error behavior;
+- ownership, immutability, and provenance controls where applicable.
+
+Pay particular attention to the following known risk areas, without assuming they are defective:
+
+- Global Constraint 4: normative error codes vs mechanism errors.
+- Global Constraint 5: deep-copy, deep-freeze, and unsupported structures.
+- Global Constraint 17: no public domain record or semantic result may expose unvalidated `unknown`; no exported API may use `any`.
+- Temporal trust keyed by `(subject_ref, field)` and timestamp semantics.
+- `ApplicableAssessments` nominal branding and runtime validation.
+- B-5 adversarial policy narrowing and exclusion of untrusted assessments.
+- Merge closure semantics, including mixed relation edges and direct-parent checking.
+- Immediate closure vs recursive closure.
+- A-11 origin closure and terminal-origin treatment.
+- Credential revocation and historical signature evaluation.
+- Runtime lifecycle decomposition.
+- Local Acceptance record vs lifecycle ledger.
+- Separation of identity lineage from authority inheritance.
+- No grant-producing API.
+- No blanket automatic revocation.
+- No implicit authority transfer.
+
+Do not assume that the existence of a type, brand, helper, or test establishes the full normative property.
+
+### D. Property and adversarial test audit
+
+Inspect all property and experimental tests.
+
+In particular:
+- Task 12 property tests P1–P9.
+- Merge-closure DAG tests.
+- Traversal invariance tests.
+- Experimental origin-merge-closure tests.
+- Scope matrix tests.
+- Task 13 credential/revocation adversarial tests.
+- Task 14 runtime lifecycle tests.
+- Task 15 Local Acceptance lifecycle tests.
+
+Check whether:
+- properties are actually invariant under generated transformations;
+- generators cover meaningful cases;
+- shrinking preserves useful counterexamples;
+- test oracles are independent enough from the implementation;
+- tests accidentally encode implementation assumptions as normative truth;
+- experimental tests are incorrectly counted as conformance coverage.
+
+### E. Ambiguity and blocked-semantics register
+
+Preserve the specification's existing ambiguity identifiers and statuses.
+
+At minimum, inspect A-1 through A-12 and the relevant B/C/D cases.
+
+Do not mint new A-identifiers.
+
+If a newly discovered implementation issue needs an identifier, use a separate audit namespace, for example:
+- `F-001` — potential implementation finding
+- `T-001` — test coverage gap
+- `D-001` — documentation discrepancy
+
+For every OPEN/BLOCKED requirement, explain:
+- what is unresolved;
+- which normative decision is missing;
+- what can and cannot be concluded without that decision;
+- whether the current implementation deliberately avoids deciding it.
+
+In particular, do not turn:
+- immediate closure into recursive closure;
+- a Finding into a Ruling;
+- Local Acceptance into a Ruling;
+- credential validity into execution authorization;
+- identity continuity into authority inheritance.
+
+### F. Current repository verification
+
+Inspect repository state before and after the audit.
+
+Run the existing, relevant verification commands without modifying files. Discover the repository's actual scripts rather than guessing command names.
+
+At minimum, determine whether the following can be run and report exact results:
+- unit tests;
+- conformance tests;
+- property tests;
+- typecheck;
+- lint;
+- format check;
+- build;
+- duplication checks, if configured.
+
+Report:
+- exact command;
+- exit status;
+- test/assertion counts;
+- skipped/todo counts;
+- relevant warnings;
+- whether documentation files are included in formatting checks.
+
+Do not fix failures.
+
+## Required audit statuses
+
+Use exactly these statuses:
+
+- `PASS` — requirement is sufficiently supported by implementation and adequate verification evidence.
+- `FAIL` — implementation demonstrably violates an applicable normative requirement.
+- `PARTIAL` — some but not all parts of the requirement are implemented or verified.
+- `BLOCKED` — a normative ambiguity or missing decision prevents a valid conformance judgment.
+- `NOT COVERED` — no adequate verification evidence exists. This does not automatically mean implementation is wrong.
+
+Keep implementation status and verification status distinguishable. For example, a requirement may appear implemented but remain NOT COVERED due to missing tests.
+
+Do not use `PASS` where evidence is only indirect.
+
+## Required deliverable: audit plan
+
+Since this is Plan Mode, do not perform the full audit yet.
+
+Return a detailed, executable audit plan containing:
+
+1. Repository preflight:
+   - branch, HEAD, working tree status;
+   - source/spec versions;
+   - test inventory and current baseline.
+
+2. Requirement extraction strategy:
+   - how normative requirements will be enumerated;
+   - how stable audit IDs will be assigned;
+   - how normative strength and applicability will be represented.
+
+3. §12 assertion-level coverage strategy:
+   - all 18 cases;
+   - treatment of C-1/C-2;
+   - how partial and experimental tests will be distinguished.
+
+4. Source-to-test traceability strategy:
+   - modules and test files to inspect;
+   - how implementation behavior will be traced;
+   - how negative/adversarial cases will be evaluated.
+
+5. Property-test audit strategy:
+   - P1–P9;
+   - generator and oracle independence;
+   - invariance and shrinking.
+
+6. OPEN/BLOCKED semantics strategy:
+   - A-1 through A-12;
+   - how unresolved semantics will be preserved.
+
+7. Verification commands:
+   - exact scripts/commands discovered in the repository;
+   - expected outputs and limitations.
+
+8. Deliverables proposed for Build Mode:
+   - suggested audit artifact(s), preferably under `docs/audits/`;
+   - proposed matrix format;
+   - findings register;
+   - test coverage gap register;
+   - concise executive summary.
+
+9. Explicit non-goals and safety rails:
+   - no source/test/spec changes;
+   - no bug fixes;
+   - no automatic semantic decisions;
+   - no claims of full conformance without evidence.
+
+## Expected output format
+
+Return:
+- a concise summary of repository state;
+- the proposed audit workflow in ordered steps;
+- the exact files and commands to inspect/run;
+- the proposed audit artifact structure;
+- risks or questions requiring my approval before Build Mode.
+
+Do not start Build Mode.
+
+Do not modify any files.
+
+Do not create a commit or PR.
+
+End with a clear statement:
+**"Task 17 audit plan prepared. No files modified."**
+
+---
+
+Task 17 plan approved with the following clarifications. You may proceed to Build Mode.
+
+1. **C-1 / C-2**
+   - Graph-level preservation and cycle-detection assertions may receive PASS individually, but only for the exact properties demonstrated by their tests.
+   - Assessment assertions (`PARENT_UNRESOLVED`, `CYCLE_DETECTED`) remain NOT COVERED.
+   - "Dependent grants not applied" must NOT receive vacuous PASS merely because CORE-001 has no grant-producing API. Mark it BLOCKED / outside CORE-001 scope, explaining that absence of an API does not establish downstream CORE-003 behavior.
+   - C-1 and C-2 remain non-PASS at case level.
+
+2. **Artifacts**
+   Use the proposed four-file structure under `docs/audits/2026-10-31-core-001-task-17/`.
+
+3. **§14–§16**
+   Include relevant normative material, but separate runtime conformance requirements from boundary requirements and readiness/project acceptance criteria. Do not silently exclude normative readiness criteria from the overall assessment.
+
+4. **Inline probes**
+   `bun -e` is permitted for isolated, deterministic, read-only adversarial checks. No filesystem writes, network access, repository mutations, or external state changes.
+
+5. **Language**
+   All audit artifacts must be in English.
+
+6. **Identifier disambiguation**
+   Use identifiers such as `CASE-A-1.a1` for §12 assertions. Preserve existing ambiguity identifiers exactly; distinguish them contextually (e.g. `AMBIG-A-1`) without renaming the normative identifiers.
+
+7. **Evidence discipline**
+   Keep implementation status and verification status independent. A missing test is not proof of missing implementation. A passing test is not automatically proof of the full normative property.
+
+8. **Ambiguity provenance**
+   Derive ambiguity status primarily from the normative specification. Use implementation documentation and the plan as secondary evidence, not as normative authority.
+
+9. **Status discipline**
+   Keep BLOCKED distinct from NOT COVERED:
+   - BLOCKED = normative uncertainty prevents a valid judgment.
+   - NOT COVERED = requirement is sufficiently clear, but adequate verification evidence is absent.
+
+Proceed with the approved docs-only audit. Do not modify source, tests, specification, implementation plan, lockfile, or configuration. Do not fix findings. Do not merge. Produce the four audit artifacts and a PR for independent review.
+
+The final conclusion must be evidence-based. Do not claim full conformance unless every applicable normative requirement is adequately established.
