@@ -1,0 +1,414 @@
+да
+
+---
+
+# Task 8 — Assessments: edge-bound applicability, assurance and supersession
+
+**Repository:** `zaebee/federation-agents`  
+**Base:** актуальный `main` после merge Task 7  
+**Branch:** `feat/task-8-assessments`  
+**Normative source:** `docs/CORE-001.md`, Rev 0.3.3  
+**Implementation plan:** `docs/superpowers/plans/2026-10-30-uia-core-001-implementation.md`, Rev E  
+**Scope:** §6.2–6.4, mechanism-level assessment and assurance.
+
+## 1. Objective
+
+Implement the Assessment layer as an independent, immutable mechanism for evaluating Lineage declarations.
+
+The implementation must preserve these distinctions:
+
+- Lineage Declaration is an immutable statement made by the descriptor author.
+- ContinuityAssessment is a separate, immutable local evaluation of that declaration.
+- Applicability is specific to a particular Lineage edge.
+- Assurance evaluates whether applicable assessments satisfy a requirement.
+- Local policy may narrow the applicable set, but cannot expand it.
+- An unverified claim is not a negative finding.
+- A newer Assessment does not automatically supersede or outrank an older one.
+
+Task 8 provides `assessEdge`, `evaluateAssurance`, and `Policy`. Task 9 will consume these interfaces for traversal and binding evaluation.
+
+Do not implement traversal in this task.
+
+## 2. Files
+
+Create:
+
+- `src/core/assessment.ts`
+- `tests/unit/assessment.test.ts`
+
+Update only where necessary:
+
+- `src/core/index.ts` — export public types and functions, never the private brand.
+- `src/core/errors.ts` — only if an already-approved mechanism error is genuinely missing.
+
+Do not modify normative specification or implementation plan to accommodate implementation choices.
+
+## 3. Public interfaces
+
+Follow the signatures and semantics already specified in the approved plan. In particular:
+
+```ts
+interface EdgeRef {
+  readonly child: IdentityVersionID;
+  readonly parent: IdentityVersionID;
+  readonly relation: LineageRelationType;
+}
+
+type ApplicableAssessments = {
+  readonly [ApplicableAssessmentsBrand]: true;
+  readonly edge: EdgeRef;
+  readonly assessments: readonly DeepReadonly<ContinuityAssessment>[];
+  readonly unresolved: boolean;
+};
+
+function assessEdge(
+  edgeRef: EdgeRef,
+  candidateAssessments: readonly ContinuityAssessment[],
+  policy: Policy,
+  ctx: TemporalContext
+): Result<ApplicableAssessments>;
+
+function evaluateAssurance(
+  applicable: ApplicableAssessments,
+  requirement: ContinuityAssuranceRequirement,
+  policy: Policy,
+  ctx: TemporalContext
+): AssuranceResult;
+```
+
+`ApplicableAssessmentsBrand` must be a module-private `unique symbol`. Do not export it through any barrel.
+
+`ApplicableAssessments` is a nominal, runtime-enforced value. Its only constructor is `assessEdge`.
+
+`Policy` must support:
+
+```ts
+interface Policy {
+  readonly trustedAssessorDefault?: readonly DomainID[];
+
+  readonly applicableAssessments?: (
+    edgeRef: EdgeRef,
+    assessments: readonly ContinuityAssessment[],
+    ctx: TemporalContext
+  ) => readonly ContinuityAssessment[];
+
+  readonly conflictPredicate?: (
+    left: ContinuityAssessment,
+    right: ContinuityAssessment,
+    edgeRef: EdgeRef,
+    ctx: TemporalContext
+  ) => boolean;
+}
+```
+
+Adapt optionality and readonly details to existing repository conventions without changing semantics.
+
+`AssuranceResult` must preserve the approved result model:
+
+- `SATISFIED`
+- `UNSATISFIED`, including `ERR_ASSURANCE_PREDICATE_UNSATISFIED`, exact `missing` and `disallowed` sets, and the note `required-claim-not-verified; no-negative-finding-established`
+- `CONTESTED`, reachable only through an explicitly configured `conflictPredicate`
+
+Use the exact result types already present in the approved plan. Do not introduce new normative error codes.
+
+## 4. ApplicableAssessments brand enforcement
+
+This is a critical security boundary.
+
+Requirements:
+
+1. Declare `ApplicableAssessmentsBrand` as a module-private `unique symbol`.
+2. `assessEdge` is the sole runtime constructor.
+3. Set the brand using an actual runtime property:
+
+```ts
+Object.defineProperty(value, ApplicableAssessmentsBrand, {
+  value: true,
+  writable: false,
+  enumerable: false,
+  configurable: false
+});
+```
+
+4. Deep-freeze the resulting value before returning it.
+5. `evaluateAssurance` must validate the brand at runtime before doing any assurance work.
+6. An unbranded value must return:
+
+```ts
+{
+  kind: 'MECHANISM',
+  code: 'E_APPLICABLE_ASSESSMENTS_UNBRANDED'
+}
+```
+
+7. Do not accept structural lookalikes, ordinary string properties, or TypeScript casts as proof of construction.
+
+The brand must not be forgeable through an ordinary object literal or a copied object.
+
+Tests MUST verify:
+
+- Compile-time: a structurally identical object literal cannot be assigned to `ApplicableAssessments`.
+- Runtime: an unbranded value passed through an unsafe cast is rejected.
+- A forged ordinary property such as `__brand: "ApplicableAssessments"` is rejected.
+- A value returned by `assessEdge` passes the guard.
+- The unbranded path does not execute assurance logic.
+
+Do not export the brand or add a public brand factory.
+
+## 5. Edge binding
+
+`assessEdge` computes applicability internally.
+
+An Assessment is applicable to an edge only when its declared binding matches the complete edge triple:
+
+- `subject_version_id` matches `edgeRef.child`;
+- `declared_relation` matches `edgeRef.relation`;
+- the Assessment's parent binding matches `edgeRef.parent`.
+
+Do not trust a caller-provided pre-filtered array as proof of applicability.
+
+A caller must not be able to inflate the applicable set by supplying assessments belonging to another subject, relation, or parent.
+
+The resulting `ApplicableAssessments.edge` must preserve the edge being assessed.
+
+Test all three mismatch dimensions independently, plus a fully matching Assessment.
+
+## 6. Policy narrowing — never expansion
+
+`Policy.applicableAssessments` is a narrowing hook.
+
+The core must first calculate the applicable set itself. The policy hook may select a subset of that set.
+
+The core MUST revalidate every item returned by the hook against the original edge and the original applicable set.
+
+Any item that is not applicable to the edge, or was not in the core-computed set, must be discarded. It must not enter assurance evaluation.
+
+Discarded items should be reported in mechanism-level result details where the existing `Failure`/result contract allows it. Do not invent a new normative error code or turn discarded items into an automatic failure.
+
+Tests MUST demonstrate:
+
+- A hook can narrow the set.
+- A hook returning an unrelated assessment cannot expand the set.
+- A hook returning an assessment for a different edge cannot introduce it.
+- Discarded items are not consumed by `evaluateAssurance`.
+- The resulting applicable set remains edge-bound.
+
+## 7. Unverified-claim semantics
+
+This distinction is mandatory.
+
+For a requirement:
+
+```ts
+{
+  required_claims: ['C1', 'C2']
+}
+```
+
+and an applicable Assessment:
+
+```ts
+{
+  verified_claims: ['C1'],
+  unverified_claims: ['C2']
+}
+```
+
+the result MUST be `UNSATISFIED`, with:
+
+```ts
+missing: ['C2']
+```
+
+The implementation and tests must pin all four parts:
+
+1. `unverified_claims` provides no positive support for the claim.
+2. The required claim remains unsatisfied when it is not in `verified_claims`.
+3. The result uses `ERR_ASSURANCE_PREDICATE_UNSATISFIED`.
+4. No negative finding about C2 is established.
+
+The result must not contain or imply a negative-evidence field for C2. `CONTESTED` must not be inferred from `unverified_claims`.
+
+Do not interpret absence from `verified_claims` as refutation.
+
+## 8. Supersession
+
+Implement the §6.3 constraints.
+
+Requirements:
+
+- One Assessment may directly supersede at most one predecessor.
+- Supersession chains must not contain cycles.
+- A superseded Assessment remains available as an immutable historical record.
+- Registering a successor must not mutate, replace, or rewrite its predecessor.
+- There is no implicit "latest wins" rule.
+- Selection of an applicable Assessment is a local policy decision.
+
+Tests MUST cover:
+
+- A valid single-predecessor supersession.
+- Rejection of a supersession cycle.
+- Preservation of the predecessor byte-for-byte or by an equivalent deep-equality snapshot before and after successor registration.
+- No mutation of existing Assessment objects.
+- No implicit selection of the newest Assessment when no policy hook selects it.
+
+Use the repository's existing in-memory mechanism conventions if a registration/store abstraction is needed. Do not build a general-purpose Ledger in this task.
+
+## 9. Conflict handling — preserve BLOCKED A-4b
+
+The specification does not define a universal conflict predicate.
+
+Therefore:
+
+- With no `conflictPredicate`, the implementation MUST NOT return `CONTESTED`.
+- Do not infer contradiction merely because two Assessments differ.
+- Do not use majority voting.
+- Do not select the newest Assessment as the winner.
+- Do not let a trusted assessor automatically win because its Assessment is newer or more positive.
+- Trusted-assessor filtering must happen before conflict evaluation.
+- An explicitly configured `conflictPredicate` is the only permitted source of `CONTESTED`.
+
+A-4b remains BLOCKED by the approved plan. Do not invent a default conflict algorithm.
+
+Tests MUST demonstrate that the default configuration cannot produce `CONTESTED`, and that only an explicitly configured predicate can make it reachable.
+
+## 10. Trusted assessors and disallowed claims
+
+Implement the §6.4 semantics without broadening them.
+
+- `trusted_assessors` in the requirement defines which assessor domains may contribute to that requirement.
+- `Policy.trustedAssessorDefault` supplies the approved default where applicable.
+- Assessments from non-trusted domains must not satisfy required claims.
+- A positive Assessment from an untrusted domain must not override missing verification by a trusted assessor.
+- `disallowed_claims` act as vetoes when present in the verified claims of applicable trusted Assessments.
+- Report `missing` and `disallowed` precisely.
+
+Do not treat an untrusted Assessment as a negative finding. Do not let it create `CONTESTED`.
+
+The B-5 mechanism behavior must be covered by unit tests in this task. Its normative conformance fixture remains in Task 10.
+
+## 11. Ownership and immutability
+
+Follow Global Constraint 5 and the existing ownership helpers.
+
+- Assessment inputs must not be mutated.
+- Returned `ApplicableAssessments` must own its data.
+- The edge reference and assessment collection must be copied as needed.
+- The returned object and all nested structures must be deeply frozen.
+- Do not retain mutable aliases to caller-owned arrays or objects.
+- Do not rewrite historical Assessment records during filtering, supersession, or assurance evaluation.
+
+Add adversarial ownership tests where useful, consistent with existing repository conventions.
+
+## 12. TemporalContext boundary
+
+`assessEdge` and `evaluateAssurance` receive `TemporalContext` as specified by the approved plan.
+
+Reuse the existing `TemporalContext` and temporal-trust contracts. Do not create a competing temporal model or silently reinterpret trust.
+
+In particular:
+
+- Do not treat timestamp presence as proof of trust.
+- Do not collapse `UNTRUSTED`, `UNASSESSED`, and `TRUST_ASSESSMENT_UNAVAILABLE`.
+- Do not implement the external trusted-time mechanism blocked under A-9.
+- Do not move Task 13 temporal conformance work into Task 8.
+
+If the current repository does not yet provide a required temporal type or helper, report the exact dependency and stop for clarification rather than inventing a replacement.
+
+## 13. Explicit exclusions
+
+Do NOT implement:
+
+- `discoverPaths`, `validatePath`, `validateMergeClosure`, or `evaluateBinding` — Task 9/10.
+- B-1…B-7 conformance tests — Task 9/10; B-5 mechanism-level unit behavior is included here.
+- A universal conflict/contradiction algorithm — A-4b remains BLOCKED.
+- Recursive merge closure or origin-node closure.
+- Temporal trust derivation or external trusted-time verification — Task 13.
+- Local Acceptance or lifecycle behavior — Task 15.
+- Grant creation, authority transfer, automatic revocation, or permission inheritance.
+- A general-purpose persistent Ledger.
+- New normative error codes or new protocol semantics.
+
+Do not add stubs for future tasks merely to make the API appear complete.
+
+## 14. Required tests
+
+At minimum, `tests/unit/assessment.test.ts` must cover:
+
+| Area | Required cases |
+|---|---|
+| Brand | Compile-time nominality; forged object rejected; valid factory result accepted |
+| Edge binding | Exact match; wrong child; wrong relation; wrong parent |
+| Policy hook | Narrowing works; expansion attempt discarded; unrelated edge discarded |
+| Required claims | All verified; one missing; unverified is not negative evidence |
+| Disallowed claims | Veto behavior; exact `disallowed` reporting |
+| Trusted assessors | Untrusted positive assessment cannot satisfy a requirement |
+| Conflict | Default cannot yield `CONTESTED`; explicit predicate is the only source |
+| Supersession | Valid predecessor; cycle rejection; predecessor immutable; no latest-wins |
+| Ownership | No input mutation; output deeply frozen; no mutable aliases |
+| B-5 mechanism | Trusted assessor's unverified claim remains unsatisfied despite untrusted positive assessment |
+
+Add negative type assertions using the repository's established pattern. Do not use `any` in production Core code.
+
+## 15. Execution workflow
+
+1. Inspect current `main`, `CORE-001.md`, the approved Rev E plan, and existing entity/ownership/error APIs.
+2. Confirm all Task 8 dependencies exist. Report missing dependencies before implementation.
+3. Write unit tests first.
+4. Run the focused test file and confirm expected failures before implementation.
+5. Implement the smallest API and behavior that satisfy the approved plan.
+6. Run the full test suite.
+7. Run typecheck, Core typecheck, lint, format check, and build using the repository's actual scripts.
+8. Inspect the final diff against `main`; remove unrelated changes.
+9. Commit:
+
+`feat(core): nominally edge-bound assessments with spec-literal unverified semantics and hook narrowing`
+
+## 16. Completion report
+
+Return:
+
+- Commit SHA and branch.
+- Files changed.
+- Public API added.
+- Test count and assertion count.
+- Evidence of RED-before-implementation and GREEN-after-implementation.
+- Exact commands and outputs for tests, typecheck, lint, format, and build.
+- Confirmation that the private brand is not exported.
+- Confirmation that policy narrowing cannot expand applicability.
+- Confirmation that `unverified_claims` never becomes negative evidence.
+- Confirmation that supersession preserves historical records.
+- Explicit list of deferred items and blocked ambiguities.
+- Any assumptions or deviations from the approved plan.
+
+**Do not claim full CORE-001 conformance after Task 8.** This task implements only the Assessment mechanism and its unit-level semantics. Conformance cases and traversal integration belong to subsequent tasks.
+
+---
+
+Подтверждаю вариант A.
+
+Добавь `src/core/temporal.ts` как пятый файл Task 8. Только типы и контракты по Global Constraint 10 и approved plan:
+- `AssessedTrustResult`
+- `TemporalTrustInput`
+- `TemporalContext`
+- необходимые связанные типы, если они ещё не экспортируются из существующих модулей.
+
+Не добавляй `trustOutcome`, вычисление temporal trust, runtime validation или temporal conformance tests. Это остаётся Task 13. Не дублируй уже существующие типы.
+
+Решения по вопросам:
+
+1. **Supersession API:** реализуй чистую `registerAssessment(existing, successor): Result<readonly ContinuityAssessment[]>`. Цикл supersession возвращает `SpecFailure` с существующим кодом `CYCLE_DETECTED`. Не вводи новый error code. Не смешивай supersession cycle с Lineage cycle. Исходный массив и все существующие Assessment остаются неизменными. Никакого latest-wins.
+
+2. **`ApplicableAssessments.unresolved`:** `true`, если после edge applicability и policy narrowing итоговый набор Assessment пуст. Не связывай это с `unverified_claims` или temporal trust. Наличие Assessment, который позже не удовлетворяет assurance, само по себе не делает `unresolved=true`.
+
+3. **Merge applicability:** Assessment применим к ребру, если `subject_version_id === edge.child`, `declared_relation === edge.relation` и `edge.parent` входит в `parent_version_ids`. Один Assessment с несколькими parent IDs может применяться к нескольким соответствующим merge edges.
+
+4. **Discarded hook items:** не расширяй публичный `ApplicableAssessments` полем `discarded`. Невалидные или не входящие в исходный applicable set элементы отбрасывай и никогда не передавай в assurance evaluation.
+
+5. **`AssuranceResult`:** включи `MechanismFailure` в union наряду с `SATISFIED`, `UNSATISFIED` и `CONTESTED`. Runtime brand failure должен возвращаться до выполнения assurance logic.
+
+6. **Trusted assessors:** если `requirement.trusted_assessors` не задан, используй `Policy.trustedAssessorDefault`. Если не задан и он — пустое множество. Не вводи trust-all по умолчанию.
+
+Остальные границы handoff сохраняются. A-4b остаётся BLOCKED; `CONTESTED` возможен только через явно заданный `conflictPredicate`. B-5 реализуй на уровне unit tests, но не добавляй conformance fixture из Task 10.
+
+Сначала обнови план Task 8 с этими решениями и проверь, что новые типы не конфликтуют с существующими API. После этого переходи к реализации. Не меняй CORE-001 Rev 0.3.3 и не расширяй нормативный scope.
