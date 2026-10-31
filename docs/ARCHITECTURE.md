@@ -84,8 +84,8 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 | `core/temporal.ts`        | §10      | Implemented | Temporal contracts and four-outcome trust derivation with exact subject/field/value binding |
 | `core/runtime.ts`         | §3.3, D-1 | Implemented | Runtime registry, minimal FAILURE event, separated RUNNING lifecycle state |
 | `core/traversal.ts`       | §8       | Implemented | Path discovery, path validation, immediate merge closure, binding evaluation |
-| `core/acceptance.ts`      | §9       | Planned     | `LocalAcceptanceRecord` and lifecycle transitions                       |
-| `core/ledger.ts`          | —        | Planned     | Append-only in-memory stores — a **mechanism**, not protocol semantics  |
+| `core/acceptance.ts`      | §9       | Implemented | Immutable Local Acceptance, policy-driven lifecycle and contextual applicability |
+| `core/ledger.ts`          | —        | Implemented | Copy-on-write in-memory acceptance/event store — a **mechanism**, not protocol semantics |
 
 `src/index.ts` exports `UIA_CORE_001_REVISION` and re-exports the core barrel. The `ApplicableAssessments` and `CompiledSelector` brands remain module-private and are not exported through `src/index.ts`.
 
@@ -93,7 +93,7 @@ Status reflects the repository, not the plan. `Planned` means the file does not 
 
 ### 4.1. Intake
 
-The validation and ownership steps exist today for every §3–§5 record: `validateJsonValue`, the entity constructors, and `validateIdentityVersionDescriptor`; each rejects unknown fields and returns an owned, deep-frozen copy. Structural lineage validation, lineage graph construction, assessment evaluation, traversal, credentials and runtime lifecycle events also exist; acceptance and ledger remain planned. The flow is the contract every future record constructor must follow.
+The validation and ownership steps exist today for every §3–§5 record: `validateJsonValue`, the entity constructors, and `validateIdentityVersionDescriptor`; each rejects unknown fields and returns an owned, deep-frozen copy. Structural lineage validation, lineage graph construction, assessment evaluation, traversal, credentials, runtime lifecycle events, Local Acceptance and the in-memory ledger also exist. The flow is the contract every future record constructor must follow.
 
 ```text
 untrusted input (JSON, transport, storage)
@@ -224,7 +224,7 @@ The architecture omits these on purpose; each omission is a boundary, not an unf
 | Suite                     | Purpose                                                             | Exists | Conformance claim |
 | ------------------------- | ------------------------------------------------------------------- | ------ | ----------------- |
 | `tests/unit/`             | Module behavior, rejection cases, ownership, canonicalization vectors | Yes    | Yes              |
-| `tests/conformance/`      | The §12 corpus A-1…D-4, exact fixtures and side-effect contracts       | Partial (A, B, D-1/D-3/D-4) | Yes, once present |
+| `tests/conformance/`      | The §12 corpus A-1…D-4, exact fixtures and side-effect contracts       | Partial (A, B, D-1/D-2/D-3/D-4) | Yes, once present |
 | `tests/property/`         | Determinism and brute-force equivalence (fast-check)                   | Yes    | Yes, for immediate closure |
 | `tests/experimental/`     | BLOCKED interpretations (recursive closure, origin closure)            | Yes    | **No** — excluded |
 
@@ -232,8 +232,8 @@ A passing test suite does not establish production security or interoperability;
 
 ## 12. Status
 
-Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, temporal contracts with four-outcome trust derivation, §8 conditional version binding with three-phase traversal and immediate merge closure, credential usage/revocation/historical evaluation (D-3/D-4), runtime lifecycle decomposition (D-1), and property-based invariance with an independent immediate-closure oracle.
+Implemented: primitives, error model, ownership, RFC 8785 canonicalization, SHA-256, the §3–§5 entity model and constructors, §5.2 structural lineage validation, the lineage graph with delayed parents and cycle detection, the §6 assessment mechanism, §7.1 descriptor hashing, version label validation, the `uia-ref-selector@1` mechanism, temporal contracts with four-outcome trust derivation, §8 conditional version binding with three-phase traversal and immediate merge closure, credential usage/revocation/historical evaluation (D-3/D-4), runtime lifecycle decomposition (D-1), Local Acceptance with explicit policy-driven lifecycle (D-2), the in-memory acceptance ledger, and property-based invariance with an independent immediate-closure oracle.
 
-Planned: Local Acceptance and lifecycle (Task 15/D-2), the ledger, and the full C-1/C-2 conformance cases (assessment recording of `PARENT_UNRESOLVED`/`CYCLE_DETECTED`).
+Planned: the full C-1/C-2 conformance cases (assessment recording of `PARENT_UNRESOLVED`/`CYCLE_DETECTED`).
 
 Ordering and exit criteria are tracked in [`ROADMAP.md`](./ROADMAP.md) and in the [implementation plan](./superpowers/plans/2026-10-30-uia-core-001-implementation.md).
