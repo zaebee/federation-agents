@@ -279,7 +279,12 @@ export type AssuranceResult =
       readonly note: 'required-claim-not-verified; no-negative-finding-established';
     }
   | { readonly status: 'CONTESTED'; readonly contestedClaims: readonly string[] }
-  | MechanismFailure;
+  | (MechanismFailure & { readonly status: 'MECHANISM' });
+
+/** A mechanism failure is part of the union, so it carries the discriminant too. */
+function mechanismAssurance(failure: MechanismFailure): AssuranceResult {
+  return { ...failure, status: 'MECHANISM' };
+}
 
 const UNSATISFIED_NOTE = 'required-claim-not-verified; no-negative-finding-established' as const;
 
@@ -338,17 +343,22 @@ export function assessEdge(
   policy: Policy,
   ctx: TemporalContext,
 ): Result<ApplicableAssessments> {
-  const copied = deepCopy(candidateAssessments);
-  if (!copied.ok) {
-    return copied;
-  }
-
+  // Candidates arrive through a public boundary that accepts typed but not
+  // necessarily validated values (a caller cast can pass anything), so each one
+  // is validated rather than merely copied: a malformed record is a mechanism
+  // failure, never a TypeError from reading a missing field.
+  const validated: DeepReadonly<ContinuityAssessment>[] = [];
   const seenIds = new Set<AssessmentID>();
-  for (const assessment of copied.value) {
-    if (seenIds.has(assessment.assessment_id)) {
-      return mechanismRejection(`Duplicate assessment_id in candidate assessments: ${assessment.assessment_id}`);
+  for (const candidate of candidateAssessments) {
+    const assessment = validateContinuityAssessment(candidate);
+    if (!assessment.ok) {
+      return { ok: false, error: assessment.error };
     }
-    seenIds.add(assessment.assessment_id);
+    if (seenIds.has(assessment.value.assessment_id)) {
+      return mechanismRejection(`Duplicate assessment_id in candidate assessments: ${assessment.value.assessment_id}`);
+    }
+    seenIds.add(assessment.value.assessment_id);
+    validated.push(assessment.value);
   }
 
   const edge: EdgeRef = Object.freeze({
@@ -356,7 +366,7 @@ export function assessEdge(
     parent: edgeRef.parent,
     relation: edgeRef.relation,
   });
-  const ordered = copied.value.filter((assessment) => appliesToEdge(assessment, edge)).sort(compareAssessments);
+  const ordered = validated.filter((assessment) => appliesToEdge(assessment, edge)).sort(compareAssessments);
   const applicable = deepFreeze(ordered);
   const hook = policy.applicableAssessments;
   const narrowed = (hook === undefined ? applicable : narrowByPolicy(hook(edge, applicable, ctx), applicable))
@@ -463,9 +473,11 @@ export function evaluateAssurance(
   ctx: TemporalContext,
 ): AssuranceResult {
   if (applicable === null || typeof applicable !== 'object' || !APPLICABLE_ASSESSMENTS.has(applicable)) {
-    return mechanismFailure(
-      'E_APPLICABLE_ASSESSMENTS_UNBRANDED',
-      'evaluateAssurance requires a value produced by assessEdge',
+    return mechanismAssurance(
+      mechanismFailure(
+        'E_APPLICABLE_ASSESSMENTS_UNBRANDED',
+        'evaluateAssurance requires a value produced by assessEdge',
+      ),
     );
   }
 

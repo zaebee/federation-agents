@@ -404,7 +404,7 @@ function evaluateEdgeAssurance(
   }
 
   const assurance = evaluateAssurance(applicable.value, requirement, policy, ctx);
-  if ('kind' in assurance) {
+  if (assurance.status === 'MECHANISM') {
     return { ok: false, error: assurance };
   }
   if (assurance.status === 'SATISFIED') {

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import * as fc from 'fast-check';
 import {
   assessEdge,
   evaluateAssurance,
@@ -29,7 +30,7 @@ const CTX: TemporalContext = {
 };
 
 function outcome(result: AssuranceResult) {
-  if ('kind' in result) {
+  if (result.status === 'MECHANISM') {
     throw new Error(`unexpected mechanism failure: ${result.code}`);
   }
   return result;
@@ -118,9 +119,8 @@ describe('ApplicableAssessments brand', () => {
 
     const result = evaluateAssurance(unbranded, requirement({ required_claims: ['C1'] }), policy(), CTX);
 
-    expect('kind' in result).toBe(true);
-    if (!('kind' in result)) return;
-    expect(result.kind).toBe('MECHANISM');
+    expect(result.status).toBe('MECHANISM');
+    if (result.status !== 'MECHANISM') return;
     expect(result.code).toBe('E_APPLICABLE_ASSESSMENTS_UNBRANDED');
   });
 
@@ -134,8 +134,8 @@ describe('ApplicableAssessments brand', () => {
 
     const result = evaluateAssurance(forged, requirement(), policy(), CTX);
 
-    expect('kind' in result).toBe(true);
-    if (!('kind' in result)) return;
+    expect(result.status).toBe('MECHANISM');
+    if (result.status !== 'MECHANISM') return;
     expect(result.code).toBe('E_APPLICABLE_ASSESSMENTS_UNBRANDED');
   });
 
@@ -145,8 +145,8 @@ describe('ApplicableAssessments brand', () => {
 
     const result = evaluateAssurance(inherited, requirement(), policy(), CTX);
 
-    expect('kind' in result).toBe(true);
-    if (!('kind' in result)) return;
+    expect(result.status).toBe('MECHANISM');
+    if (result.status !== 'MECHANISM') return;
     expect(result.code).toBe('E_APPLICABLE_ASSESSMENTS_UNBRANDED');
   });
 
@@ -166,7 +166,7 @@ describe('ApplicableAssessments brand', () => {
 
     const result = evaluateAssurance(unbranded, requirement(), conflicting, CTX);
 
-    expect('kind' in result).toBe(true);
+    expect(result.status).toBe('MECHANISM');
     expect(calls).toBe(0);
   });
 
@@ -661,5 +661,57 @@ describe('B-5 mechanism semantics', () => {
     );
 
     expect(result).toEqual(unsatisfiedResult(['SPEC_MISMATCH']));
+  });
+});
+
+describe('public boundary hardening', () => {
+  test('assessEdge rejects a malformed candidate as a mechanism failure, not a TypeError', () => {
+    const malformed = { assessment_id: 'assessment-x' } as unknown as ContinuityAssessment;
+    let result: ReturnType<typeof assessEdge> | undefined;
+    expect(() => {
+      result = assessEdge(EDGE, [malformed], policy(), CTX);
+    }).not.toThrow();
+    expect(result?.ok).toBe(false);
+    if (result !== undefined && !result.ok) {
+      expect(result.error.kind).toBe('MECHANISM');
+    }
+  });
+
+  test('assessEdge never throws for arbitrary JSON candidate shapes', () => {
+    fc.assert(
+      fc.property(fc.array(fc.jsonValue(), { maxLength: 3 }), (candidates) => {
+        const result = assessEdge(EDGE, candidates as unknown as readonly ContinuityAssessment[], policy(), CTX);
+        expect(typeof result.ok).toBe('boolean');
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  test('AssuranceResult is discriminated by status and exhausts every case', () => {
+    function describeAssurance(result: AssuranceResult): string {
+      switch (result.status) {
+        case 'SATISFIED':
+          return 'SATISFIED';
+        case 'UNSATISFIED':
+          return `UNSATISFIED:${result.code}`;
+        case 'CONTESTED':
+          return `CONTESTED:${result.contestedClaims.join('|')}`;
+        case 'MECHANISM':
+          return `MECHANISM:${result.code}`;
+        default: {
+          const unreachable: never = result;
+          return unreachable;
+        }
+      }
+    }
+
+    expect(
+      describeAssurance(evaluateTrusted([assessment({ verified_claims: ['C1'] })], { required_claims: ['C1'] })),
+    ).toBe('SATISFIED');
+
+    const unbranded = { edge: EDGE, assessments: [], unresolved: true } as unknown as ApplicableAssessments;
+    expect(describeAssurance(evaluateAssurance(unbranded, requirement(), policy(), CTX))).toBe(
+      'MECHANISM:E_APPLICABLE_ASSESSMENTS_UNBRANDED',
+    );
   });
 });

@@ -659,8 +659,17 @@ export function evaluateHistoricalSignature(
     return mechanismResult('SignatureTemporalPolicy must provide both callbacks');
   }
 
-  if (input.revocation !== undefined && input.revocation.credential_id !== input.credential.credential_id) {
-    return mechanismResult('CredentialRevocationRecord.credential_id does not match the evaluated Credential');
+  if (input.revocation !== undefined) {
+    // The revocation record is hashed into the compromise-trust subject ref. A
+    // record that cannot be canonicalized (for example a non-finite timestamp
+    // from a bad decode) is a mechanism failure, not a thrown CanonicalizationError.
+    const revocationJson = validateJsonValue(input.revocation);
+    if (!revocationJson.ok) {
+      return mechanismResult(`CredentialRevocationRecord is not a JSON value: ${revocationJson.error.message}`);
+    }
+    if (input.revocation.credential_id !== input.credential.credential_id) {
+      return mechanismResult('CredentialRevocationRecord.credential_id does not match the evaluated Credential');
+    }
   }
 
   const usage = evaluateCredentialUsage(input.credential, input.requested_usage);

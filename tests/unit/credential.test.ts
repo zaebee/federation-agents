@@ -791,3 +791,38 @@ describe('ownership and forbidden side effects', () => {
     expect(result.future_authorizable).toBe('NOT_AUTHORIZABLE');
   });
 });
+
+describe('public boundary hardening', () => {
+  test('a non-canonicalizable revocation record is a mechanism failure, not a throw', () => {
+    const broken = { ...revocation, revoked_at: Number.NaN } as unknown as typeof revocation;
+    let result: ReturnType<typeof evaluateHistoricalSignature> | undefined;
+    expect(() => {
+      result = evaluate({ revocation: broken });
+    }).not.toThrow();
+    expect(result?.ok).toBe(false);
+    if (result !== undefined && !result.ok) {
+      expect(result.error.kind).toBe('MECHANISM');
+      expect(result.error.message).toContain('CredentialRevocationRecord is not a JSON value');
+    }
+  });
+
+  test('non-finite timestamps never throw', () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      for (const field of ['revoked_at', 'compromise_effective_at'] as const) {
+        const broken = { ...revocation, [field]: value } as unknown as typeof revocation;
+        expect(() => evaluate({ revocation: broken })).not.toThrow();
+        expect(evaluate({ revocation: broken }).ok).toBe(false);
+      }
+    }
+  });
+
+  test('missing optional fields never throw', () => {
+    expect(() => evaluate({ subject_binding: undefined, revocation: undefined })).not.toThrow();
+    expect(evaluate({ subject_binding: undefined, revocation: undefined }).ok).toBe(true);
+  });
+
+  test('revocationSubjectRef states its precondition by throwing on a non-canonicalizable record', () => {
+    const broken = { ...revocation, revoked_at: Number.NaN } as unknown as typeof revocation;
+    expect(() => revocationSubjectRef(broken)).toThrow();
+  });
+});
