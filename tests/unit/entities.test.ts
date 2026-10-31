@@ -15,7 +15,7 @@ import {
   runtimeInstanceId,
   timestamp,
 } from '../../src/core/primitives.js';
-import { BASE_TIME, credential, participant } from '../support/fixtures.js';
+import { BASE_TIME, credential, descriptor, participant } from '../support/fixtures.js';
 import type {
   UiaErrorCode,
   ImplementationErrorCode,
@@ -229,16 +229,7 @@ describe('entity constructors', () => {
 });
 
 function rawDescriptor(): Record<string, unknown> {
-  return {
-    id: identityVersionId('iv-1'),
-    participant_id: participantId('participant-a'),
-    version_label: '1.0.0',
-    version_scheme: 'SEMVER_2',
-    declared_protocols: [],
-    public_credentials: [],
-    lineage: [],
-    published_at: timestamp(BASE_TIME),
-  };
+  return { ...descriptor({ id: 'iv-1', participant: 'participant-a' }) };
 }
 
 describe('identifier discipline', () => {

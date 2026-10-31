@@ -11,6 +11,7 @@ import type { CredentialDescriptor, CredentialUsage } from './entities.js';
 import { validateCredentialDescriptor } from './entities.js';
 import type { Result } from './errors.js';
 import { mechanismFailure } from './errors.js';
+import { invalidInput as invalid, requireNonEmptyString, requireString } from './validation.js';
 import type { DeepReadonly } from './ownership.js';
 import { deepFreeze, validateJsonValue } from './ownership.js';
 import type {
@@ -173,10 +174,6 @@ const REVOCATION_FIELDS: readonly string[] = [
   'evidence_refs',
 ];
 
-function invalid(path: string, message: string): Result<never> {
-  return { ok: false, error: mechanismFailure('E_UNKNOWN_BOUNDARY_REJECTED', `${path}: ${message}`) };
-}
-
 function isJsonObject(value: JsonValue): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -186,24 +183,6 @@ function requireObject(value: JsonValue | undefined, path: string): Result<JsonO
     return invalid(path, 'expected object');
   }
   return { ok: true, value };
-}
-
-function requireString(value: JsonValue | undefined, path: string): Result<string> {
-  if (typeof value !== 'string') {
-    return invalid(path, 'expected string');
-  }
-  return { ok: true, value };
-}
-
-function requireNonEmptyString(value: JsonValue | undefined, path: string): Result<string> {
-  const result = requireString(value, path);
-  if (!result.ok) {
-    return result;
-  }
-  if (result.value.length === 0) {
-    return invalid(path, 'expected non-empty string');
-  }
-  return result;
 }
 
 function requireTimestamp(value: JsonValue | undefined, path: string): Result<Timestamp> {

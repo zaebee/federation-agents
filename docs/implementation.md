@@ -86,12 +86,13 @@ Boundary rules enforced by configuration, not by convention alone:
 
 ### 1.4 Module map
 
-Every module below exists and is exported through `src/core/index.ts`; `src/index.ts` re-exports that barrel.
+Every module below exists and is exported through `src/core/index.ts` unless it is marked internal; `src/index.ts` re-exports that barrel.
 
 | Module | Spec | Responsibility |
 | --- | --- | --- |
 | `core/primitives.ts` | §1, §3, §10 | Branded identifiers, `Timestamp`, strict `JsonValue`, `TemporalFieldRef`, standard temporal fields, lone-surrogate check |
 | `core/errors.ts` | §0.2, §12 | `Result<T>`, the eight normative codes, nine mechanism codes, `Failure` union, `CanonicalizationError` |
+| `core/validation.ts` | — | Shared boundary helpers (`requireString`, `requireNonEmptyString`, `invalidInput`) — internal, not in the barrel |
 | `core/ownership.ts` | §3, §13 | `DeepReadonly`, `deepCopy`, `deepFreeze`, `validateUnknown`, strict `validateJsonValue` |
 | `core/canonical.ts` | §7.2 | RFC 8785 JCS over the strict data model, `canonicalSha256` |
 | `core/sha256.ts` | §7.2 | Pure-TypeScript SHA-256 (`sha256Bytes`, `sha256Hex`) |
@@ -331,6 +332,18 @@ Exports the types listed in §1.8 plus `CanonicalizationError`, `isOk`, `isFailu
 
 **Normative source:** §0.2 (normative terminology), §12 (error codes named by the corpus). The exact mechanism-code list is an implementation decision (`ID-T02`, `ID-T05`, `ID-T13`).
 
+### 2.3a `core/validation.ts`
+
+**Responsibility:** shared boundary-validation helpers. Internal: not exported through the barrel.
+
+```ts
+function invalidInput(path: string, message: string): Result<never>;
+function requireString(value: JsonValue | undefined, path: string): Result<string>;
+function requireNonEmptyString(value: JsonValue | undefined, path: string): Result<string>;
+```
+
+The string helpers and the `E_UNKNOWN_BOUNDARY_REJECTED` rejection live in one module because identical per-module copies drifted: an empty identifier rejected by one entry point was accepted by another (#48). `requireNonEmptyString` is what identifier fields use; `invalidInput` names the path in the message.
+
 ### 2.4 `core/entities.ts`
 
 **Responsibility:** the §3–§5 record types and their boundary validators.
@@ -403,7 +416,7 @@ function validateRuntimeInstanceDescriptor(value: unknown): Result<DeepReadonly<
 **Semantics**
 
 - Each validator runs `validateJsonValue`, rejects unknown fields at every level, rejects present-`undefined` optional fields (via strict JSON validation), builds the record and deep-freezes it.
-- Identifier fields must be non-empty strings: descriptor `id`, `participant_id`, `version_label`; participant `id`, `home_domain`; credential `credential_id`, `issuer_domain`, `algorithm_family`, `public_key_canonical`; lineage `parent_version_id`; runtime `id`, `identity_version_id`, `execution_context_ref`. Strict JSON accepts `''`, so this is an explicit boundary rule (`E_UNKNOWN_BOUNDARY_REJECTED`). Without it two distinct records could share an identifier and one would silently displace the other in a descriptor hash or a graph node.
+- Identifier fields must be non-empty strings (shared `requireNonEmptyString`): descriptor `id`, `participant_id`, `version_label`; participant `id`, `home_domain`; credential `credential_id`, `issuer_domain`, `algorithm_family`, `public_key_canonical`; lineage `parent_version_id`; runtime `id`, `identity_version_id`, `execution_context_ref`. Strict JSON accepts `''`, so this is an explicit boundary rule (`E_UNKNOWN_BOUNDARY_REJECTED`). Without it two distinct records could share an identifier and one would silently displace the other in a descriptor hash or a graph node.
 - Validators do **not** enforce normative lineage semantics: cardinality, the CONTINUATION participant constraint, self-parent rejection and version-label grammar belong to `validateDescriptor`, `compileSelector` and `validateVersionLabel`.
 - `validateIdentityVersionDescriptor` accepts a descriptor whose parents are not registered. Delayed-parent handling belongs to the graph.
 - `credential.usage` is an array of known enum values; duplicates are preserved.

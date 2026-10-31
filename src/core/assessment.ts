@@ -737,7 +737,7 @@ function admitAssessments(
   // admission orders of the same set serialise identically. Supersession does
   // not depend on order.
   const ordered = [...base, ...candidates].sort(compareAssessments);
-  return { ok: true, value: Object.freeze(ordered) };
+  return { ok: true, value: deepFreeze(ordered) };
 }
 
 /**
