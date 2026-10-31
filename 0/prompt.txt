@@ -1,0 +1,102 @@
+### Medium finding
+
+**Location:** `src/core/selector.ts:149`
+
+`validateVersionLabel('tag ', 'OPAQUE_TAG')` succeeds and preserves the space (`src/core/version-scheme.ts:50–69`), but `compileSelector('=tag ', 'OPAQUE_TAG')` silently compiles an exact selector for `tag`. Matching then rejects the intended label and accepts the distinct unspaced label; CONTENT_HASH has the same problem. Preserve opaque exact-match operands verbatim, adding quoting or escaping if needed. 
+---
+### Medium finding
+
+**Location:** `src/core/selector.ts:149-168`
+
+For non-SemVer schemes, the selector grammar can't express every label that `validateVersionLabel` accepts. `validateVersionLabel` keeps OPAQUE_TAG/CONTENT_HASH labels verbatim, and the tests accept `' tag '` and `' abc '`. But `compileSelector` trims the expression, splits it on `&&`, and rejects operands that contain whitespace. So labels like `' tag '`, `'my tag'` or `'a&&b'` can't be matched by any exact selector; only `*` matches them. This undercuts the 'exact-match fallback' that ROADMAP task 5 promises. Fix one side: give opaque schemes a quoting or escaping rule (or skip splitting for them), or limit their labels to characters the grammar can express. Add a test that a valid label round-trips through `=label`. 
+---
+### Low finding
+
+**Location:** `src/core/selector.ts:56-94`
+
+Some code here can never run or adds nothing. `upperBoundText` always produces valid SemVer, so the `upper === undefined` failure branch in `expandRange` is unreachable. `freezeSelector` is a one-line pass-through to `deepFreeze`. `ALPHANUMERIC_IDENTIFIER` and `BUILD_IDENTIFIER` in `version-scheme.ts` are the same regex. Also, the `SemVer.text` doc says exact selectors compare it, but matching actually uses `label.label`. Remove these or bring them in line with the code. 
+---
+### Low finding
+
+**Location:** `src/core/version-scheme.ts:30`
+
+`VERSION_SCHEMES` copies the list already defined in `src/core/entities.ts:97`, which `requireEnum` uses for `version_scheme`. Two copies of the enum will drift apart. Export one list and reuse it, for example from `entities.ts`. 
+---
+# Task 5 — corrective pass for PR #12
+
+Review and fix the Task 5 implementation on the current PR branch.
+
+PR: https://github.com/zaebee/federation-agents/pull/12
+
+## 1. Blocking issue: CompiledSelector provenance
+
+The approved API contract explicitly requires:
+
+- `CompiledSelector` must be created by `compileSelector`.
+- No unvalidated mutable internals may enter `selectorMatches`.
+
+Current implementation exports a structurally forgeable `CompiledSelector` interface. `selectorMatches()` trusts arbitrary objects and does not verify their provenance.
+
+Implement a module-private runtime brand:
+- Use a module-private `unique symbol` or an equivalently strong private runtime mechanism.
+- Attach the brand only inside `compileSelector`.
+- Verify the brand at the beginning of `selectorMatches`, before accessing selector fields.
+- Do not export the brand.
+- Preserve deep freezing of the selector, comparator array, comparator objects, and nested SemVer records.
+- Do not introduce a public constructor or another way to manufacture branded selectors.
+
+Add tests proving:
+1. A structurally identical manually constructed object is rejected.
+2. An object with a forged `mechanism: 'uia-ref-selector@1'` is rejected.
+3. A mutable selector cannot be accepted.
+4. A selector with an unknown mechanism version is rejected.
+5. A selector returned by `compileSelector` continues to work.
+
+Choose a deterministic failure behavior consistent with the existing API and error taxonomy. Do not silently treat an invalid compiled selector as a valid wildcard.
+
+If this requires changing the public return type of `selectorMatches`, stop and explain the proposed API change before implementing it.
+
+## 2. SonarCloud duplication
+
+Investigate the failed Quality Gate:
+
+- New-code duplication: 7.2%
+- Required: <= 3%
+
+Identify the exact duplicated blocks and their file locations using SonarCloud's duplication details.
+
+Refactor only genuine duplication. Do not distort the SemVer parser or selector implementation merely to satisfy a metric.
+
+Do not disable or weaken the Quality Gate.
+
+## 3. Constraints
+
+- Stay strictly within Task 5.
+- Do not modify CORE-001 or the approved implementation plan.
+- Do not change normative semantics or resolve A-1/A-2/A-7.
+- Preserve the two approved mechanism error codes.
+- Do not add new error codes without stopping for approval.
+- Preserve pure TypeScript Core: no Node/Bun APIs or runtime dependencies.
+- Keep the existing API unless a change is necessary and explicitly reported.
+
+## 4. Verification
+
+Run:
+
+```bash
+bun test
+bun run typecheck
+bun run lint
+bun run format:check
+bun run build
+```
+
+Report:
+- changed files;
+- exact brand mechanism and invalid-selector behavior;
+- new tests;
+- exact Sonar duplication pairs and remediation;
+- validation output;
+- final commit SHA.
+
+Do not merge the PR.
