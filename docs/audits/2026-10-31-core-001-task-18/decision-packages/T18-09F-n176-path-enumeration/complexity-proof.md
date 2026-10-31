@@ -2,65 +2,103 @@
 
 **Status:** proof document for the decision package. **D5 remains OPEN** as a proof sketch with named empirical obligations. No implementation is authorised by this document.
 
-**Source of truth for complexity:** `oq4-complexity-adversarial-pass.md` revision 3. Where this document and earlier revisions differ, revision 3 governs.
+**Source of truth for D0–D6:** `oq4-complexity-adversarial-pass.md` revision 3 §1. This document uses exactly those definitions; it does not introduce a second taxonomy.
 
-## 1. Problem classes
+## 0. Environment assumptions
 
-For a given graph `G`, scope, candidate `s`, origin `t`:
+Every equivalence claim below assumes the `Policy` callbacks (`applicableAssessments`, `conflictPredicate`) are **deterministic and pure**: the same arguments produce the same result, with no observable side effects and no exceptions. The TypeScript type does not enforce this. A callback that depends on call count, wall-clock time or external state makes even the legacy traversal order-dependent (§8.8) and the compact equivalence undefined. Exceptions thrown by callbacks propagate (they are not `MECHANISM` outcomes) and are outside this proof.
 
-- **D0** — does at least one fully valid path exist?
-- **D1** — does at least one simple candidate→origin path exist under the scope?
-- **D2** — does at least one path exist that satisfies assurance for every edge and closure for every merge node on it?
-- **D3** — does at least one path exist whose edges are all satisfied, possibly with cycles erased?
-- **D4** — does at least one path exist whose top-level outcome is a given class (assurance failure, contested, closure failure)?
-- **D5** — which fully valid path is the minimum under the existing `pathKey` order? (acceptance witness)
-- **D6** — under what condition does a malformed assessment array produce a mechanism outcome?
+## 1. Definitions (revision 3 taxonomy)
 
-## 2. Result table
+Graph `G`, traversal scope `σ`, scoped edges `E_σ`, candidate `s`, origin `t`.
+`C` = the set of nodes in `graph.cycles` (cyclic SCCs).
+`A` = the subgraph induced by `V \ C` with edges whose endpoints are both outside `C`.
 
-| ID | Result | Basis |
-| --- | --- | --- |
-| D0 | polynomial | reachability in the `valid` subgraph of `A` |
-| D1 | polynomial | reachability; `s == t` ⇒ no path |
-| D2 | polynomial | Lemmas 1–3; prefix/suffix reachability |
-| D3 | polynomial | Lemma 4; walk + loop erasure |
-| D4 | polynomial | Lemmas 5–6; triple scan + reachability |
-| D5 | polynomial **proof sketch**; empirical obligations open | §4 |
-| D6 | polynomial | prechecks; malformed assessments require `reach_A(s,t)` |
+| ID | Exact question |
+| --- | --- |
+| **D0** | Does a fully valid simple `s→t` path exist? (acceptance / L1) |
+| **D1** | Does any simple `s→t` path exist in `σ`? (`ERR_NO_TRAVERSAL_PATH`; `s == t` means no path) |
+| **D2** | Does a simple path exist whose first non-satisfied edge has class X (invalid / contested)? |
+| **D3** | Does a simple path exist that touches a node of `C`? (`CYCLE_DETECTED` class) |
+| **D4** | Does a simple path exist whose edges are all satisfied and whose closure fails? (`ERR_MERGE_BRANCH_UNSATISFIED`) |
+| **D5** | What is the canonical (minimum `pathKey`) fully valid simple path? (acceptance witness) |
+| **D6** | Does an input-scoped mechanism failure apply before/at the first edge evaluation of a path that survives cycle preemption? |
 
-## 3. Lemmas
+## 2. Lemma 1 — cycle preemption (corrected)
 
-### Lemma 1 — valid paths lie in the acyclic induced subgraph `A`
+`reachableToOrigin()` is a reverse-reachability prepass over **scope-permitted** edges. It does **not** remove nodes that belong to cyclic SCCs. `discoverPaths()` therefore enumerates simple paths that may pass through `C`; it only refuses to repeat a node already on the current path.
 
-Scope-permitted edges that can still reach `t` form a DAG `A` after removing nodes that cannot reach `t` and nodes in cyclic SCCs that cannot be on a simple path to `t`. `discoverPaths` already computes this via `reachableToOrigin`. Any simple candidate→origin path is a path in `A`.
+`validatePathWithIndex()` checks shape, membership and **cycles before edge assurance**. A path containing any node of `C` returns `CYCLE_DETECTED` immediately; assurance and closure are never evaluated for it.
 
-### Lemma 2 — reachability in `A` is polynomial
+**Lemma 1.** Every path that reaches assurance or closure classification contains no node of `C`.
 
-Standard graph reachability (BFS/DFS) on a finite DAG: `O(|V|+|E|)`.
+**Correction relative to the previous draft:** it is wrong to describe `A` as "the graph `discoverPaths` already computes" or to say that `reachableToOrigin` excludes cycles. `A` is defined here explicitly as `G[V \ C]`; it is the domain of the assurance/closure decision problems, not the output domain of discovery. Cycle paths are classified separately by D3.
 
-### Lemma 3 — a fully valid path is an `s→t` path in `H`
+## 3. Lemmas 2–6
 
-Define `H` as the subgraph of `A` containing an edge `u→v` iff:
-1. the edge's assurance outcome is `SATISFIED`; and
-2. the closure of `u`, evaluated with this edge as the path edge, is `SATISFIED`.
+### Lemma 2 — `A` is a DAG
 
-Then every fully valid simple path is an `s→t` path in `H`, and every `s→t` path in `H` is fully valid. Closure is evaluated only on direct parent edges of merge nodes (§8.6) and only for the node that is the source of the path edge, so it does not depend on the rest of the path.
+A directed cycle among nodes outside `C` would be an SCC and those nodes would be in `C` by `buildLineageGraph`. Therefore `A` is acyclic.
 
-### Lemma 4 — cycle erasure (D3)
+### Lemma 3 — prefix/suffix reachability in `A`
 
-If an `s→t` walk exists in `A`, loop erasure (remove each cycle when first repeated) yields a simple path. This is polynomial and does not require enumerating all paths.
+For `u,v ∈ A`, a simple `s→t` path through the edge `u→v` exists iff `reach_A(s,u)` and `reach_A(v,t)`.
 
-### Lemma 5–6 (D4)
+Proof: (⇐) concatenate a simple `s⇝u` path and a simple `v⇝t` path; a shared vertex `x` would give the directed cycle `x⇝u→v⇝x` in `A` (both segments lie in a DAG), contradiction, so the concatenation is simple. (⇒) the prefix and suffix of the path witness the two reachabilities.
 
-For a fixed failure class, existence reduces to: is there an `s→t` path in `A` such that every edge fails (or succeeds) in the required way and no edge fails in a higher-priority way. This is a reachability query on a filtered subgraph; the triple scan is over the three classes that the current top-level aggregation considers.
+### Lemma 4 — D3
 
-## 4. D5 — greedy canonical witness (OPEN)
+A simple `s→t` path touching `C` exists iff some `c ∈ C` satisfies `reach(s,c)` and `reach(c,t)`.
 
-### 4.1 Algorithm
+Proof: (⇒) take the path. (⇐) concatenate walks `s⇝c⇝t`; loop-erase the walk to a simple `s→t` path `P`. If `c` survives, `P` touches `C`. If `c` is erased, the erased closed subwalk has a first vertex `y` that survives in `P`, and that subwalk is a closed walk through `y`, so `y` lies on a cycle; hence `y ∈ C` and `P` touches `C`.
 
-Valid paths are `s→t` paths in `H` (Lemma 3). Maintain a prefix `P` ending at `m`. If `m == t`, stop. Otherwise consider outgoing edges of `m` in `pathKey` order; pick the first edge `e: m→v` such that there is an `H`-path from `v` to `t`. Feasibility is plain reachability in the DAG `H`, so each query is `O(|V|+|E|)`; at most `|E|` queries. Total `O(|E|·(|V|+|E|))` per witness, polynomial.
+This makes D3 polynomial: forward and reverse reachability in the full graph `G`, intersect with `C`.
 
-### 4.2 Exact `pathKey` encoding
+### Lemma 5 — closure semantics as implemented
+
+For a path edge `e = (m→p, rel)`, `collectEdgeClosureFailures` checks every direct parent edge of `m` except the **exact** edge `(parent = p, relation = rel)`; it only does so when `m` has at least one `MERGED_FROM` parent edge. The exclusion of the path edge is a code fact (`collectBranchFailure`), not a literal §8.6 statement. The terminal origin is never a `child` of a path edge, so its parent edges are not checked (endpoint exception, OQ-11).
+
+### Lemma 6 — D4
+
+Let `m` be a non-origin node on a path, `e = (m→p, rel)` the path edge, and `B(m,e)` the other parent edges of `m` (with `m` having a `MERGED_FROM` parent edge). Closure fails iff some `b ∈ B(m,e)` fails branch evaluation.
+
+A simple path with all edges satisfied and closure failing exists iff there are `m`, `e`, `b` with: `reach_{valid}(s,m)`, `e` satisfied, `reach_{valid}(p,t)`, `m` has a `MERGED_FROM` parent edge, `b ≠ e`, and `b` fails. All reachability is in `A`; the conditions are checked over `(m, e, b)` — polynomial.
+
+## 4. D0 — acceptance
+
+D0 is existence of an `s→t` path in the subgraph `H` of `A` whose edges are satisfied and whose source-node closure is satisfied (Lemma 5). Reachability in `H` is polynomial. This is the compact counterpart of `summarizePaths` returning `eligible: true` when `accepted.length > 0`.
+
+## 5. D1 — existence
+
+D1 is reachability in the scope-filtered graph, with the special case `s == t` → no path. Polynomial. This reproduces `ERR_NO_TRAVERSAL_PATH`.
+
+## 6. D2 — first non-satisfied edge class
+
+Fix the requirement, policy and context; by Lemma 1 every relevant path lies in `A`. Define, per edge `e`, its edge-assurance result `R(e) ∈ {SATISFIED, INVALID, CONTESTED}` (mechanism failures are input-scoped, §9). For a class `X`, let `E_X = {e : R(e) has class X}` and `E_valid = {e : R(e) = SATISFIED}`.
+
+**Claim.** A simple path whose first non-satisfied edge has class `X` exists iff there is `e* = (u→v) ∈ E_X` with `reach_{E_valid}(s,u)` and `reach_A(v,t)`.
+
+Proof (⇐): take a simple `s⇝u` path in `E_valid` and a simple `v⇝t` path in `A`; concatenate through `e*`. By Lemma 3 the result is simple; all its edges before `e*` are `SATISFIED`, and `e*` is class `X`, so the first non-satisfied edge is `e*`. (⇒): in the witness path, the prefix before `e*` lies in `E_valid` and reaches `u`; the suffix starts at `v` and reaches `t` in `A`.
+
+**Match with `validatePathWithIndex`.** Shape/membership, then cycle check, then edges in path order; the first edge whose `evaluateEdgeAssurance` is not `SATISFIED` produces the outcome. Lemma 1 removes the cycle case. The claim's prefix/suffix conditions are exactly "all earlier edges satisfied, `e*` not". D2 is polynomial: two reachability computations plus one scan of `E_X`.
+
+## 7. D3 — cycle class
+
+Lemma 4 gives the polynomial decision. The witness is built by BFS predecessor paths `s⇝c` and `c⇝t`, concatenated and loop-erased. Complexity `O(|V|+|E|)`. D3 is separate from D2: a cycle-preempted path never reaches assurance, so it cannot be classified by the first non-satisfied edge.
+
+## 8. D4 — closure failure
+
+Lemma 6 gives the polynomial decision over triples `(m, e, b)`. The number of triples is `O(Σ out-degree²)`; with precomputed reachability sets, the decision is polynomial.
+
+**Normative discrepancies** (not resolved here): the code skips the exact path edge in closure; the terminal origin is not closed. Both are recorded in `oq4` §5 and OQ-11; D4 is proved under the current code semantics (E), and the literal-origin variant (I) is also polynomial.
+
+## 9. D5 — canonical witness (OPEN)
+
+### 9.1 Algorithm (proof sketch, not certified)
+
+Valid paths are `s→t` paths in `H`. Maintain a prefix `P` ending at `m`. If `m == t`, stop. Otherwise consider outgoing edges of `m` in `pathKey` order; pick the first edge `e: m→v` such that there is an `H`-path from `v` to `t`. Feasibility is plain reachability in `H`, so each query is `O(|V|+|E|)`; at most `|E|` queries. Total `O(|E|·(|V|+|E|))` per witness, polynomial **if** the greedy is correct.
+
+### 9.2 Exact `pathKey` encoding
 
 `pathKey(path)` (in `src/core/traversal.ts`) is:
 
@@ -68,39 +106,48 @@ Valid paths are `s→t` paths in `H` (Lemma 3). Maintain a prefix `P` ending at 
 path.edges.map(e => `${e.child}\u0000${e.parent}\u0000${e.relation}`).join('\u0001')
 ```
 
-Comparison is ordinary lexicographic string comparison (`compareStrings`). Important properties:
-- The separator `\u0000` is a valid character in an `IdentityVersionID` (IDs are unvalidated strings at the traversal layer). A parent id containing `\u0000` can make a boundary between `child` and `parent` ambiguous in the *string* encoding, even though the nested-key construction in `adjacencyFor` (post-#24) avoids this for deduplication.
-- The joiner `\u0001` is likewise a valid character. Two different edge sequences can in principle produce the same `pathKey` string if a field contains `\u0001` or `\u0000` in a way that mimics a boundary. This is a real, if exotic, ambiguity in the *ordering key*, not in the path itself.
-- Tie behavior: `Array.prototype.sort` is stable in the runtime, but `pathKey` values for two distinct simple paths cannot be identical unless the edge sequences are identical, because the per-edge triples are concatenated in path order and the path is simple. Therefore ties in `pathKey` imply identical paths; no secondary tie-break is currently defined or needed. A compact implementation must preserve this: if two candidates compare equal under `pathKey`, they are the same path and either may be returned.
+Comparison is ordinary lexicographic string comparison (`compareStrings`). Properties:
 
-### 4.3 Claimed proof
+- The separator `\u0000` and joiner `\u0001` are valid characters in an `IdentityVersionID` (IDs are unvalidated strings at the traversal layer). The encoding is not self-delimiting.
+- **Same-candidate injectivity is not proven.** A collision would require two distinct simple paths from the same `s` to the same `t` whose concatenated triples produce the same string. The first triple's `child` is `s` in both, so a collision must arise in the remaining fields; the fixed relation tokens make a collision less obvious, but no proof is recorded. The previous draft's claim that "ties imply identical paths" was an assumption, not a proof.
+- If two distinct paths do collide, `Array.prototype.sort` stability is not a defined tie-break for the public contract; the current code would return whichever order discovery produced, which may depend on storage order. This is a reason to keep D5 OPEN.
 
-By lexicographic induction on the prefix: the first edge of the minimum path must be the smallest edge (under the `child\0parent\0relation` encoding of that edge, as it appears as the first triple) that admits a completion to `t` in `H`. The greedy choice makes exactly that selection; the argument then recurses on the suffix from the chosen edge's parent. This is the standard lexicographically shortest path in a DAG.
-
-### 4.4 Why D5 is NOT closed
+### 9.3 Why D5 is NOT closed
 
 Three obligations from `oq4` §6 remain open:
 
-1. **Written proof for the exact encoding.** The induction above is stated for an abstract lexicographic order over triples. The concrete `pathKey` encoding has the separator-ambiguity property noted in §4.2. A proof must show that the greedy comparison of single edges (`child\0parent\0relation` as a string) agrees with the comparison of full path keys, including when an id contains `\u0000` or `\u0001`. This has not been written.
-2. **Oracle tests.** No test currently compares the greedy witness against exhaustive enumeration on small generated DAGs. The existing property tests (`traversal-invariance.test.ts`) check storage-order invariance and immutability, not witness minimality.
-3. **Invariance tests.** No test currently reverses `nodes`/`edges` arrays on the exponential merge-diamond shape and compares the canonical witness. P1/P2 cover bounded DAGs only.
+1. **Written proof for the exact encoding.** The lexicographic induction is stated for an abstract order over triples. It must be shown that single-edge string comparison agrees with full-path `pathKey` comparison, including ids containing `\u0000`/`\u0001`. This has not been written.
+2. **Oracle tests.** No test compares the greedy witness against exhaustive enumeration on small generated DAGs. The existing property tests check storage-order invariance and immutability, not witness minimality.
+3. **Invariance tests.** No test reverses `nodes`/`edges` arrays on the exponential merge-diamond shape and compares the canonical witness. P1/P2 cover bounded DAGs only.
 
-**Conclusion: D5 remains OPEN.** The greedy algorithm is a plausible polynomial construction and is the proposed direction, but it is a proof sketch, not a certified result. No implementation should rely on it until the three obligations above are closed. If obligation 1 fails (a counterexample where single-edge string order disagrees with full-path `pathKey` order), the greedy must be revised to compare full prefixes or a different canonical encoding must be chosen.
+**Conclusion: D5 remains OPEN.** The greedy is a plausible polynomial construction and the proposed direction, but it is a proof sketch, not a certified result. No implementation should rely on it until the three obligations are closed, or the owner explicitly chooses "any valid witness" as L2 evidence (`owner-decision-summary.md` D3).
 
-### 4.5 Proposed test obligations (specification only, not executed)
+### 9.4 Required oracle cases (specification only, not executed)
 
-- **Oracle:** for all generated DAGs up to 7 nodes, compute the minimum `pathKey` path by exhaustive enumeration and compare to the greedy witness; assert equality of the full edge sequence, not just length or count.
-- **Invariance:** for the merge-diamond shape at `k=12`, reverse `nodes` and `edges` arrays; assert identical witness edge sequence and identical path count.
-- **Encoding:** include generated ids containing `\u0000` and `\u0001`; assert the greedy witness matches exhaustive enumeration. If any mismatch is found, it is a counterexample to obligation 1 and D5 stays OPEN with the counterexample recorded.
+- **Witness minimality:** for all generated DAGs up to 7 nodes, compute the minimum `pathKey` path by exhaustive enumeration and compare the full edge sequence to the greedy witness.
+- **Encoding collisions:** generate ids containing `\u0000` and `\u0001`; enumerate pairs of distinct simple paths from the same candidate/origin and record any equal `pathKey`. If a collision exists, record the exact counterexample and do not claim canonical witness uniqueness.
+- **Permutation:** for the merge-diamond shape at `k=12`, reverse `nodes` and `edges` arrays; assert identical witness edge sequence and identical path count.
 
-## 5. D6 — input-scoped mechanism failures
+## 10. D6 — input-scoped mechanism failures
 
 Reachable `MECHANISM` results are limited to prechecks before discovery (selector compilation, candidate lookup, duplicated descriptor id) and candidate-array validation inside `assessEdge`. A throwing `Policy` hook propagates and is not a mechanism outcome.
 
 The earlier condition "malformed assessments and at least one path exists (D1)" is incorrect: `validatePathWithIndex` returns `CYCLE_DETECTED` before `assessEdge` is called. If every existing path touches a cyclic SCC, malformed assessments never reach validation and the observable result is a cycle outcome.
 
-**Correct condition:** prechecks pass, the assessment array is malformed, and `reach_A(s,t)` holds — at least one simple path avoids every cyclic SCC and therefore reaches `assessEdge`. If no such path exists, the cycle (or no-path) outcome wins. `reach_A` is a reachability query on the acyclic induced subgraph (Lemma 2), so D6 remains polynomial.
+**Correct condition:** prechecks pass, the assessment array is malformed, `reach_A(s,t)` holds, and at least one simple path that avoids every cyclic SCC reaches an edge where `assessEdge` consults the malformed data. If no such path exists, the cycle (or no-path, or ordinary assurance) outcome wins. `reach_A` is a reachability query on the acyclic induced subgraph (Lemma 2); locating a path that reaches a malformed edge is another reachability query on the same subgraph, so D6 remains polynomial.
 
-## 6. Consequence for the recommendation
+## 11. Result table
 
-D0, D1, D2, D3, D4, D6 are polynomial with stated lemmas. D5 is a proof sketch with three open obligations. A compact implementation that needs a canonical witness must not be authorised until D5 is closed or the witness requirement is dropped. Reading R2 (compact API) is therefore conditional on closing D5 or accepting a non-canonical (any valid) witness as L2 evidence.
+| ID | Result | Basis |
+| --- | --- | --- |
+| D0 | polynomial | reachability in `H ⊆ A` |
+| D1 | polynomial | reachability in `G` with scope filter |
+| D2 | polynomial | prefix/suffix reachability in `A` |
+| D3 | polynomial | Lemma 4; walk + loop erasure |
+| D4 | polynomial | Lemma 6; triple scan + reachability |
+| D5 | **OPEN** | greedy proof sketch; §9.3 obligations |
+| D6 | polynomial | prechecks; malformed assessments require `reach_A(s,t)` |
+
+## 12. Consequence for the recommendation
+
+D0, D1, D2, D3, D4 and D6 are polynomial with stated lemmas. D5 is a proof sketch with three open obligations. A compact implementation that needs a canonical witness must not be authorised until D5 is closed or the witness requirement is relaxed to "any valid witness". Reading R2 (compact API) is therefore conditional on that owner decision.

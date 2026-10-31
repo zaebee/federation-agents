@@ -2,9 +2,27 @@
 
 **Status:** decision-support. **L1/L2/L3 are a hypothesis of Reading B, not an approved normative classification.** `T18-DEC-18` remains PROPOSED / OPEN.
 
-This matrix compares the **current** evaluator (`BindingResult`, `acceptedPaths`, `details.perPath`) with a **proposed compact** evaluator under Reading B. For each case it states the current result, the proposed result, and the argument for equivalence. Where the argument is incomplete, the gap is stated.
+Every "current result" below was checked against `evaluateBinding()`, `evaluateOnePath()` and `summarizePaths()` in `src/core/traversal.ts` (post-#24), not inferred from the option descriptions.
 
-## 1. Layer hypothesis (Reading B)
+## 1. Current aggregation (code facts)
+
+`evaluateBinding()`:
+
+1. Runs input prechecks (duplicate descriptor id, candidate lookup, participant/selector). These return `MECHANISM` or `ERR_AUTHORITY_BINDING_MISMATCH` before discovery.
+2. Discovers paths (sorted by `pathKey`) and evaluates them in order with `evaluateOnePath()`.
+3. If **any** path evaluation returns a `Result` error (mechanism), `evaluateBinding()` returns `MECHANISM` immediately — even if an earlier path was fully accepted.
+4. Otherwise `summarizePaths()` applies:
+   - `accepted.length > 0` → `eligible: true` (closure/cycle/contested failures on other paths do not change L1);
+   - else any `closure.status === 'UNSATISFIED'` → `ERR_MERGE_BRANCH_UNSATISFIED`;
+   - else any `outcome.status === 'CYCLE_DETECTED'` → `CYCLE_DETECTED`;
+   - else any `outcome.status === 'CONTESTED'` → `kind: CONTESTED`;
+   - else → `ERR_ASSURANCE_PREDICATE_UNSATISFIED`.
+
+This order is a code fact. A-8 is OPEN; the order is an implementation compatibility rule, not a normative precedence table.
+
+**Scratch verification (not a committed test):** Cases A and C were reproduced with a temporary evaluator against the current source. Case A returned `eligible: true`, accepted `iv-d→iv-c→iv-a`, with another path `VALID` + `closure: UNSATISFIED`. Case C returned `eligible: false`, `kind: CONTESTED`, with outcomes `CONTESTED` and `INVALID`. These outputs are the basis for the corrected expected results below.
+
+## 2. Layer hypothesis (Reading B)
 
 | Layer | Content | Status in this document |
 | --- | --- | --- |
@@ -12,59 +30,85 @@ This matrix compares the **current** evaluator (`BindingResult`, `acceptedPaths`
 | L2 — mandatory evidence | acceptance: one canonical accepted witness + per-edge assurance + closure for that path; rejection: top-level code + class witness; mechanism: input-scoped failure | hypothesis |
 | L3 — diagnostics | complete path list and per-path outcomes | hypothesis (optional) |
 
-## 2. Adversarial cases
+## 3. Cases
 
 ### Case A — accepted path + closure failure on another path
 
-**Graph:** diamond `D MERGED_FROM B,C; B,C CONTINUATION A`. One branch (`B`) has a satisfied closure; the other (`C`) has an unsatisfied closure-only branch.
+**Graph:** `A` origin; `C CONTINUATION A`; `X CONTINUATION A`; `Y CONTINUATION A`; `B MERGED_FROM X,Y`; `D MERGED_FROM B,C`. Assessments are satisfied for `D→B`, `D→C`, `B→X`, `X→A`, `Y→A`, `C→A`; `B→Y` is missing.
 
-**Current result:** `eligible: false`, code `ERR_MERGE_BRANCH_UNSATISFIED`. `details.perPath` has two records; the path through `C` has `outcome: VALID`, `closure: UNSATISFIED`; the path through `B` has `outcome: VALID`, `closure: SATISFIED`. `acceptedPaths` is empty.
+**Paths:** `D→B→X→A` is `VALID` with `closure: UNSATISFIED` (the other parent of `B`, `Y`, has no applicable assessment). `D→B→Y→A` is `INVALID` (the `B→Y` edge itself has no assessment). `D→C→A` is `VALID` with `closure: SATISFIED`.
 
-**Proposed result:** `eligible: false`, code `ERR_MERGE_BRANCH_UNSATISFIED`. L2 rejection witness: the failing branch identity (child/parent/relation of the unsatisfied closure branch) and the path that carried it. `acceptedPaths` (L3) may be empty or omitted.
+**Current result (reproduced):** `eligible: true`. `acceptedPaths` contains `D→C→A`. `details.perPath` contains all three records, including `VALID` + `closure: UNSATISFIED` for `D→B→X→A`.
 
-**Equivalence argument:** L1 (code) is identical. L2 requires the failing branch identity, which the current result also carries in `details.perPath[...].closure.failures`. The compact result must reproduce at least one failing branch identity; it cannot drop it. **Gap:** if multiple paths fail for different branches, the compact result must still reproduce the top-level code; the current code does this by scanning all paths. The compact algorithm must prove it finds at least one failing branch without enumerating all paths, or accept that rejection L2 requires a class-existence search (D4, polynomial).
+**Proposed result:** `eligible: true`, with the fully valid path as the canonical accepted witness. The closure failure on the other path is L3 diagnostic and is not required for L1.
+
+**Equivalence argument:** `summarizePaths()` checks `accepted.length > 0` first. A closure failure on another path cannot suppress acceptance. The compact algorithm must therefore search for **existence** of a fully valid path (D0), not for "no path has a closure failure". This is the corrected reading: the previous draft's "eligible: false" was wrong.
+
+**Gap:** none for L1. If the caller requires the closure failure as diagnostic evidence, it comes from the separate diagnostics API.
 
 ### Case B — accepted path + cycle-related failure on another path
 
 **Graph:** candidate merges into a cyclic branch (`X↔Y`) and a clean branch (`good→origin`). Assessments satisfy the clean branch.
 
-**Current result:** `eligible: true` (the clean path is accepted). `details.perPath` contains a `CYCLE_DETECTED` record for the cyclic path and a `VALID`/`SATISFIED` record for the clean path. `acceptedPaths` contains the clean path.
+**Current result:** `eligible: true`. `acceptedPaths` contains the clean path. `details.perPath` contains a `CYCLE_DETECTED` record for the cyclic path and a `VALID`/`SATISFIED` record for the clean path.
 
-**Proposed result:** `eligible: true`. L2 acceptance witness: the clean path. The cyclic path is not required for L1 or L2; it is L3 diagnostic.
+**Proposed result:** `eligible: true`, with the clean path as the canonical accepted witness. The cyclic path is L3 diagnostic.
 
-**Equivalence argument:** L1 is identical because eligibility depends on existence of one fully valid path (§8.7). The compact result must not let the cyclic path suppress acceptance. **Gap:** the compact algorithm must evaluate the clean path without first discovering the cyclic one; reachability in `A` (Lemma 1) already excludes cyclic SCC nodes from simple paths, so the clean path is found by reachability. This is polynomial (D0/D2). The cyclic path's `CYCLE_DETECTED` outcome is L3 and may be omitted, but only if the caller does not require it as diagnostic evidence.
+**Equivalence argument:** L1 is identical because eligibility depends on existence of one fully valid path (§8.7). The compact algorithm must not let the cyclic path suppress acceptance. D0/D2 reachability in `A` finds the clean path; D3 classifies the cyclic path only for diagnostics.
 
-### Case C — multiple failure classes with different top-level outcomes
+**Gap:** none for L1. Cycle diagnostics are L3.
 
-**Graph:** two paths: one fails assurance (missing claim), one is contested; no accepted path.
+### Case C — contested + assurance, no accepted path
 
-**Current result:** `eligible: false`, code `ERR_ASSURANCE_PREDICATE_UNSATISFIED` (assurance outranks contested in the current aggregation order: closure > cycle > contested > assurance). `details.perPath` has both records.
+**Graph:** diamond `D MERGED_FROM B,C`; `B FORKED_FROM A`; `C CONTINUATION A`. Assessments: `D→B` has two applicable assessments and `Policy.conflictPredicate` returns true → `CONTESTED`; `D→C` and `B→A` are satisfied; `C→A` has `verified: []` → `INVALID`.
 
-**Proposed result:** `eligible: false`, code `ERR_ASSURANCE_PREDICATE_UNSATISFIED`. L2 rejection witness: the failing edge and missing/disallowed claims for the assurance-failing path (or a class witness that identifies which class won).
+**Paths:** `D→B→A` is `CONTESTED`; `D→C→A` is `INVALID` (assurance failure at `C→A`). No fully valid path.
 
-**Equivalence argument:** L1 identical only if the compact algorithm uses the **same aggregation order** as the current code: `MECHANISM > closure > cycle > contested > assurance`. This order is an implementation compatibility rule (A-8 is OPEN); it is not a normative precedence table. The compact result must reproduce it exactly or the top-level code changes. **Gap:** the current order is not derived from §8; it is a local aggregation rule. Reading B cannot silently replace it with a different (e.g., lexicographically first failing path) order without changing observable results. This is explicitly left as an implementation compatibility rule, not a resolution of A-8.
+**Current result (reproduced):** `eligible: false`, `kind: CONTESTED`. `summarizePaths()` checks contested **before** the assurance fallback, and there is no closure or cycle outcome.
 
-### Case D — input-scoped mechanism failure
+**Proposed result:** `eligible: false`, `kind: CONTESTED`, with a contested witness (failing edge + contested claims).
 
-**Graph:** candidate path exists, but the assessment array is malformed (e.g., duplicate assessment ids) and at least one simple path avoids every cyclic SCC (`reach_A(s,t)` holds).
+**Equivalence argument:** the compact algorithm must reproduce the current aggregation order: closure > cycle > contested > assurance. A compact result that returns `ERR_ASSURANCE_PREDICATE_UNSATISFIED` here would not be equivalent. This is a code-compatibility rule, not an A-8 resolution.
 
-**Current result:** `eligible: false`, `kind: MECHANISM`, with the mechanism error. Even if another path would be accepted, the mechanism failure wins (current code returns MECHANISM if any path fails with a mechanism error during sequential evaluation; note evaluation order is sorted path order).
+**Gap:** the compact algorithm must decide "is there a path whose first non-satisfied edge is contested?" (D2) and prefer it over assurance. D2 gives that class existence.
 
-**Proposed result:** `eligible: false`, `kind: MECHANISM`, with the same mechanism error.
+### Case D — multiple failure classes with different top-level outcomes
 
-**Equivalence argument:** L1 identical. The mechanism failure is input-scoped (D6, §7 of `oq4`), not path-scoped. The compact algorithm must detect malformed input before or independently of path enumeration. **Gap:** the current code detects it during path validation, which requires reaching `assessEdge` on at least one acyclic path. If no such path exists (all paths cyclic), the current code returns a cycle outcome, not MECHANISM. The compact algorithm must preserve this conditional (D6) and must not report MECHANISM merely because the input is malformed.
+**Graph:** no accepted path; outcomes include closure failure, cycle, contested and assurance failure.
 
-### Case E — deterministic witness under graph/edge permutation
+**Current result:** `ERR_MERGE_BRANCH_UNSATISFIED` (closure outranks cycle, contested and assurance).
 
-**Graph:** any graph with at least one fully valid path, with `nodes` and `edges` arrays reversed.
+**Proposed result:** `ERR_MERGE_BRANCH_UNSATISFIED`, with a closure branch witness.
 
-**Current result:** `eligible: true`, `acceptedPaths` contains the `pathKey`-minimum path, in the same order regardless of storage. Verified by P1/P2 on bounded DAGs; not yet verified on the exponential merge-diamond shape.
+**Equivalence argument:** same aggregation order. If the graph has cycle + contested but no closure, current result is `CYCLE_DETECTED`; if contested + assurance only, current result is `CONTESTED` (Case C); if only assurance, `ERR_ASSURANCE_PREDICATE_UNSATISFIED`. The compact algorithm must implement the same ordered class checks (D4, D3, D2).
+
+**Gap:** the compact algorithm must not choose the first failing path by discovery order. It must check classes in the code's order.
+
+### Case E — input-scoped mechanism failure
+
+**Graph:** candidate path exists; the assessment array is malformed (e.g., duplicate assessment ids); `reach_A(s,t)` holds and at least one acyclic path reaches an edge where `assessEdge` consults the malformed data.
+
+**Current result:** `MECHANISM`, even if another path would be fully valid. `evaluateBinding()` returns on the first `evaluateOnePath()` `Result` error; `summarizePaths()` is never reached. If no path survives cycle preemption, or no surviving path reaches the malformed data, the result is the ordinary cycle/no-path/assurance outcome, not `MECHANISM`.
+
+**Proposed result:** `MECHANISM` under the same condition; otherwise cycle/no-path.
+
+**Equivalence argument:** D6. Mechanism is input-scoped but its reachability condition is path-sensitive: it requires at least one acyclic path reaching `assessEdge`. The compact algorithm must not report `MECHANISM` merely because the input is malformed if every path is cycle-preempted.
+
+**Gap:** D6 is polynomial but the condition must be implemented exactly; otherwise a compact API could change a cycle outcome into `MECHANISM`.
+
+### Case F — deterministic witness under graph/edge permutation
+
+**Graph:** any graph with at least one fully valid path; `nodes` and `edges` arrays reversed.
+
+**Current result:** `eligible: true`; `acceptedPaths[0]` is the `pathKey`-minimum fully valid path (paths are discovered in sorted `pathKey` order and `accepted` preserves that order). P1/P2 verify storage-order invariance on bounded DAGs.
 
 **Proposed result:** `eligible: true`, with the same canonical witness edge sequence.
 
-**Equivalence argument:** L1 identical if the compact algorithm's witness selection is storage-independent. The greedy algorithm (D5) selects by `pathKey` order, which is storage-independent by construction. **Gap:** D5 is a proof sketch; the single-edge string comparison may disagree with full-path `pathKey` comparison when ids contain `\u0000` or `\u0001` (see `complexity-proof.md` §4.2). Until the oracle and invariance tests are executed, this equivalence is not certified.
+**Equivalence argument:** if the compact witness is defined as the `pathKey`-minimum fully valid path (D5), L2 evidence is identical. D5 is OPEN; until its encoding/oracle/invariance obligations close, this equivalence is not certified. The fallback is an explicit owner choice: "any valid witness" (weaker L2 determinism).
 
-### Case F — no path
+**Gap:** D5. Also, `pathKey` collisions between distinct paths are not ruled out by proof (see `complexity-proof.md` §9.2).
+
+### Case G — no path
 
 **Graph:** candidate cannot reach origin under the scope.
 
@@ -72,31 +116,37 @@ This matrix compares the **current** evaluator (`BindingResult`, `acceptedPaths`
 
 **Proposed result:** `eligible: false`, code `ERR_NO_TRAVERSAL_PATH`, empty details.
 
-**Equivalence argument:** L1 identical. This is reachability (D1), polynomial, no enumeration needed.
+**Equivalence argument:** D1 reachability; no enumeration needed.
 
-### Case G — cycle without valid path
+**Gap:** none.
+
+### Case H — cycle without valid path
 
 **Graph:** candidate and origin are in the same cyclic SCC; no acyclic path exists.
 
-**Current result:** `eligible: false`, code `CYCLE_DETECTED`, with the combined cycle nodes. `details.perPath` contains the cyclic path(s).
+**Current result:** `eligible: false`, code `CYCLE_DETECTED`, with the combined cycle nodes from `cycleForPath()`. `details.perPath` contains the cyclic path(s).
 
-**Proposed result:** `eligible: false`, code `CYCLE_DETECTED`, with the combined cycle nodes. L2 rejection witness: the cycle node set. L3 path list optional.
+**Proposed result:** `eligible: false`, code `CYCLE_DETECTED`, with the same combined cycle node set. L2 rejection witness: the cycle node set. L3 path list optional.
 
-**Equivalence argument:** L1 identical. Cycle detection is on `graph.cycles` (SCC), independent of path enumeration. The compact algorithm must not resolve A-14 (which cycle is reported when multiple SCCs intersect the path); it must reproduce the current `cycleForPath` behaviour: collect every cycle whose node set intersects the path, union their node sets, sort. **Gap:** none for L1; A-14 remains OPEN as a normative question.
+**Equivalence argument:** D3 classifies the cycle path; `cycleForPath()` unions every cycle whose node set intersects the path and sorts the result. The compact algorithm must reproduce that union/sort, not pick one SCC. A-14 remains OPEN.
 
-## 3. Summary of gaps
+**Gap:** A-14 is unresolved; the compact algorithm must preserve the current behaviour without claiming to resolve it.
+
+## 4. Summary of gaps
 
 | Gap | Status |
 | --- | --- |
-| Compact rejection witness must reproduce top-level code without enumerating all paths | D4 polynomial, but the specific witness selection needs specification |
-| Mechanism precedence vs cycle (D6) | polynomial, conditional on `reach_A` |
+| Compact rejection witness must reproduce top-level code without enumerating all paths | D4/D3/D2 polynomial; witness selection needs specification |
+| Accepted path must dominate other-path closure/cycle/contested failures | code fact; compact D0 must be existence-based |
+| Mechanism precedence vs cycle (D6) | polynomial, conditional on `reach_A(s,t)` |
 | A-8 aggregation order | implementation compatibility rule, not resolved |
 | A-14 cycle reporting | preserved as-is, not resolved |
 | D5 canonical witness | proof sketch, three obligations open |
-| `\u0000`/`\u0001` in ids | ambiguity in `pathKey` encoding; needs test or encoding revision |
+| `\u0000`/`\u0001` in ids | collision not proven impossible; oracle obligation |
 
-## 4. What this matrix does not establish
+## 5. What this matrix does not establish
 
 - It does not establish that Reading B is normatively correct. L1/L2/L3 are a hypothesis.
 - It does not establish that the compact API produces the same L1 as the legacy API; that requires a table-driven oracle comparison, which is a future test obligation.
-- It does not resolve A-8, A-14, or N-176. Those remain OPEN.
+- It does not resolve A-8, A-14, or N-176.
+- It does not authorize implementation.

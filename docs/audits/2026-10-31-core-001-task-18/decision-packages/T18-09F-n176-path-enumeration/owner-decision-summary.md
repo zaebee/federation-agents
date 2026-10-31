@@ -8,7 +8,7 @@
 | --- | --- | --- | --- | --- |
 | D1 | Reading of §8.8 `MUST NOT` | R1 (per-path output normative) / R2 (validity normative, enumeration diagnostic) / R3 (changed walk semantics) / R4 (defer) | R2, conditional on D5 or a non-canonical witness | R1: N-176 not triggered, API unchanged, exponential risk accepted. R3: unnecessary unless semantics cannot be preserved (current analysis says they can). R4: N-176 stays PARTIAL. |
 | D2 | API strategy | replace `BindingResult` / versioned compact API / defer | versioned compact API | Replace breaks B-3/B-4/B-6 and all callers; defer leaves N-176 PARTIAL. |
-| D3 | Canonical witness | `pathKey`-minimum (D5) / any valid path / none | `pathKey`-minimum if D5 closes; otherwise any valid path | Any valid path weakens determinism evidence; none drops L2 acceptance evidence. |
+| D3 | Canonical witness | `pathKey`-minimum (D5) / any valid path / none | `pathKey`-minimum if D5 closes; otherwise any valid path as an explicit owner choice | Any valid path weakens determinism evidence; none drops L2 acceptance evidence. |
 | D4 | Rejection witness sufficiency | class-existence proof / first failing path / all failing paths | class-existence proof (polynomial D4) | First failing path depends on traversal order; all failing paths is exponential. |
 | D5 | A-8 aggregation order in compact API | preserve current order / redefine | preserve current order as implementation compatibility rule | Redefining changes observable top-level codes. |
 | D6 | A-14 cycle reporting | preserve current `cycleForPath` / resolve normatively | preserve as-is | Resolving changes normative error content. |
@@ -26,7 +26,7 @@
 
 ## D5 status
 
-D5 is **OPEN**. The greedy witness is a proof sketch with three open obligations: written proof for the exact `pathKey` encoding (including `\u0000`/`\u0001`), oracle tests, and invariance tests. See `complexity-proof.md` §4. No implementation should depend on D5 until it is closed or the witness requirement is relaxed to "any valid path".
+D5 is **OPEN**. The greedy witness is a proof sketch with three open obligations: written proof for the exact `pathKey` encoding (including `\u0000`/`\u0001`), oracle tests, and invariance tests. In particular, same-candidate `pathKey` injectivity for distinct paths is **not proven**; the oracle must enumerate pairs of distinct paths and record any collision. See `complexity-proof.md` §9. No implementation should depend on D5 until it is closed or the owner explicitly chooses "any valid witness" as L2 evidence.
 
 ## Evidence index
 

@@ -54,6 +54,7 @@ This package does not edit `decision-register.md`. A proposed register row is in
 | `equivalence-matrix.md` | Current vs proposed compact behaviour for adversarial cases A–G, with gaps stated |
 | `api-migration.md` | Versioned compact API, witnesses, diagnostic enumeration, deprecation strategy |
 | `benchmark-record.md` | Executed merge-diamond benchmark record (empirical, not proof) |
+| `benchmark-harness.ts` | Saved, runnable benchmark generator used by `benchmark-record.md` (non-production documentation artifact) |
 | `owner-decision-summary.md` | Required owner decisions, recommended values, consequences |
 
 ## 5. Pre-decision clarification checklist
