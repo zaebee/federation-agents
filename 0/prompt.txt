@@ -1,0 +1,17 @@
+### Medium finding
+
+**Location:** `docs/ROADMAP.md:163`
+
+The new gate row assigns Category C assessment integration to `P2–P3`. The phase table (lines 26–28) puts Assessments and Traversal (Tasks 8–9) in P1, and P2 and P3 cover credentials/acceptance and hardening. The Task 7 row in this same diff says the remaining C-1/C-2 work 'awaits Tasks 8–9'. That makes the gate say C conformance can wait past P1. It should say P1. 
+---
+### Low finding
+
+**Location:** `docs/THREAT-MODEL.md:103-104`
+
+T-09 was updated to say graph-level detection is implemented, but T-10 (delayed/unresolved parent) still reads `*Status:* planned.` This change itself says delayed-parent resolution with `unresolvedParents` is implemented (README, ARCHITECTURE). T-10 should get the same split: graph-level preservation implemented, `PARENT_UNRESOLVED` recording in Tasks 8–9. 
+---
+### Low finding
+
+**Location:** `docs/THREAT-MODEL.md:141`
+
+The new mitigation says graph construction and SCC detection are 'linear in nodes plus declared edges'. `buildLineageGraph` sorts all nodes, sorts the full edge list (`collectEdges` → `edges.sort`), and sorts every adjacency list and component. The real bound is O((N+E) log(N+E)). A threat-model claim about resource bounds should match the code.
