@@ -77,7 +77,9 @@ function collectAffectedEdges(graph: DeepReadonly<LineageGraph>): CycleEdge[] {
     if (edge.child === edge.parent) continue;
     const component = componentOf.get(edge.child);
     if (component === undefined || componentOf.get(edge.parent) !== component) continue;
-    const key = `${edge.child}\u0000${edge.parent}\u0000${edge.relation}`;
+    // Identifiers may contain NUL, so a NUL-separated key can collide across
+    // different edges. A JSON tuple is unambiguous.
+    const key = JSON.stringify([edge.child, edge.parent, edge.relation]);
     if (seen.has(key)) continue;
     seen.add(key);
     edges.push({ child: edge.child, parent: edge.parent, relation: edge.relation });

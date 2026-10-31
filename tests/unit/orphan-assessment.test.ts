@@ -7,9 +7,7 @@ import { buildLineageGraph } from '../../src/core/lineage.js';
 import type { LineageGraph } from '../../src/core/lineage.js';
 import { assessmentId, domainId, identityVersionId, timestamp } from '../../src/core/primitives.js';
 import { descriptor, link, participant, registry } from '../support/fixtures.js';
-import { continuityAssessment } from '../support/assessment-builder.js';
-
-const BASE_TIME = 1_700_000_000_000;
+import { ASSESSMENT_BASE_TIME, continuityAssessment } from '../support/assessment-builder.js';
 
 const alice = participant('participant-a');
 const parentA = descriptor({ id: 'iv-a', participant: 'participant-a' });
@@ -55,7 +53,7 @@ function emit(
     assessment_profile_ref: 'profile-1',
     assessment_method_version: '1.0.0',
     assessed_by: domainId('domain-a'),
-    assessed_at: timestamp(BASE_TIME),
+    assessed_at: timestamp(ASSESSMENT_BASE_TIME),
     evidence_refs: ['evidence-1'],
   });
 }
@@ -119,6 +117,17 @@ describe('C-1 reference adapter', () => {
     expect(result.value.assessments[0].parent_version_ids.map(String)).toEqual(['iv-a']);
     expect(result.value.assessments[1].parent_version_ids.map(String)).toEqual(['iv-a', 'iv-b']);
     expect(new Set(result.value.assessments.map((item) => item.assessment_id)).size).toBe(2);
+  });
+
+  test('returns C-1 assessments in relation-group order even when ids sort differently', () => {
+    const result = emit(multiRelationGraph, 'iv-m', [], (relation) =>
+      relation === 'FORKED_FROM' ? 'z-forked' : 'a-merged',
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.assessments.map((item) => item.declared_relation)).toEqual(['FORKED_FROM', 'MERGED_FROM']);
+    expect(result.value.registered.map((item) => String(item.assessment_id))).toEqual(['a-merged', 'z-forked']);
   });
 
   test('calls assessmentIdFor in deterministic relation and parent order', () => {
@@ -231,7 +240,7 @@ describe('package-root AEBE surface', () => {
       assessment_profile_ref: 'profile-1',
       assessment_method_version: '1.0.0',
       assessed_by: domainId('domain-a'),
-      assessed_at: timestamp(BASE_TIME),
+      assessed_at: timestamp(ASSESSMENT_BASE_TIME),
       evidence_refs: ['evidence-1'],
     });
 

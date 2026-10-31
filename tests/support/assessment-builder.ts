@@ -1,9 +1,9 @@
 import type { ContinuityAssessment } from '../../src/core/assessment.js';
 import { assessmentId, domainId, identityVersionId, timestamp } from '../../src/core/primitives.js';
 
-/** Shared ContinuityAssessment builder for unit tests. */
 export const ASSESSMENT_BASE_TIME = 1_700_000_000_000;
 
+/** Shared ContinuityAssessment builder for unit tests. */
 export function continuityAssessment(overrides: Partial<ContinuityAssessment> = {}): ContinuityAssessment {
   return {
     assessment_id: assessmentId('assessment-1'),

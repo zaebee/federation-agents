@@ -856,11 +856,11 @@ export function registerOrphanAssessment(
 // ---------------------------------------------------------------------------
 
 function validateCycleClaims(candidate: DeepReadonly<ContinuityAssessment>): Result<void> {
-  if (!candidate.unverified_claims.includes('CYCLE_DETECTED')) {
-    return mechanismRejection('C-2 assessment must record CYCLE_DETECTED as unverified');
-  }
   if (candidate.verified_claims.includes('CYCLE_DETECTED')) {
     return mechanismRejection('C-2 assessment must not record CYCLE_DETECTED as verified');
+  }
+  if (!candidate.unverified_claims.includes('CYCLE_DETECTED')) {
+    return mechanismRejection('C-2 assessment must record CYCLE_DETECTED as unverified');
   }
   const recordsUnresolved =
     candidate.unverified_claims.includes('PARENT_UNRESOLVED') ||

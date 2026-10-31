@@ -8,9 +8,7 @@ import { buildLineageGraph } from '../../src/core/lineage.js';
 import type { LineageGraph } from '../../src/core/lineage.js';
 import { assessmentId, domainId, identityVersionId, timestamp } from '../../src/core/primitives.js';
 import { descriptor, link, participant, plainGraph, registry } from '../support/fixtures.js';
-import { continuityAssessment } from '../support/assessment-builder.js';
-
-const BASE_TIME = 1_700_000_000_000;
+import { ASSESSMENT_BASE_TIME, continuityAssessment } from '../support/assessment-builder.js';
 
 function cycleGraph(): LineageGraph {
   const alice = participant('participant-a');
@@ -37,7 +35,7 @@ function emit(
     assessment_profile_ref: 'profile-1',
     assessment_method_version: '1.0.0',
     assessed_by: domainId('domain-a'),
-    assessed_at: timestamp(BASE_TIME),
+    assessed_at: timestamp(ASSESSMENT_BASE_TIME),
     evidence_refs: ['cycle-evidence'],
     ...overrides,
   });
@@ -81,6 +79,43 @@ describe('C-2 cycle assessment emission (T18-DEC-16 Option D)', () => {
     expect(Object.isFrozen(result.value.registered)).toBe(true);
     expect(JSON.stringify(graph)).toBe(before);
     expect(plainGraph(graph).cycles).toEqual([['iv-a', 'iv-b']]);
+  });
+
+  test('does not collapse distinct edges whose identifiers contain NUL', () => {
+    const alice = participant('participant-a');
+    const firstA = descriptor({
+      id: 'a',
+      participant: 'participant-a',
+      lineage: [link('b\u0000c', 'CONTINUATION')],
+    });
+    const firstB = descriptor({
+      id: 'b\u0000c',
+      participant: 'participant-a',
+      lineage: [link('a', 'CONTINUATION')],
+    });
+    const secondA = descriptor({
+      id: 'a\u0000b',
+      participant: 'participant-a',
+      lineage: [link('c', 'CONTINUATION')],
+    });
+    const secondB = descriptor({
+      id: 'c',
+      participant: 'participant-a',
+      lineage: [link('a\u0000b', 'CONTINUATION')],
+    });
+    const graph = buildLineageGraph(registry([alice], [firstA, firstB, secondA, secondB]));
+
+    const result = emit(graph);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.assessments).toHaveLength(4);
+    const edges = new Set(
+      result.value.assessments.map(
+        (record) => `${String(record.subject_version_id)}->${String(record.parent_version_ids[0])}`,
+      ),
+    );
+    expect(edges).toEqual(new Set(['a->b\u0000c', 'b\u0000c->a', 'a\u0000b->c', 'c->a\u0000b']));
   });
 
   test('returns assessments in edge order even when assessment ids sort differently', () => {
@@ -237,6 +272,16 @@ describe('C-2 contextual admission boundary', () => {
         name: 'C-1 claim',
         value: candidate({ unverified_claims: ['CYCLE_DETECTED', 'PARENT_UNRESOLVED'] }),
         message: 'must not record PARENT_UNRESOLVED',
+      },
+      {
+        name: 'missing cycle claim',
+        value: candidate({ unverified_claims: [] }),
+        message: 'must record CYCLE_DETECTED as unverified',
+      },
+      {
+        name: 'verified cycle claim',
+        value: candidate({ verified_claims: ['CYCLE_DETECTED'], unverified_claims: [] }),
+        message: 'must not record CYCLE_DETECTED as verified',
       },
       {
         name: 'two parents',
